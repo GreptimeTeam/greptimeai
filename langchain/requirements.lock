@@ -22,7 +22,7 @@ googleapis-common-protos==1.60.0
 greenlet==2.0.2
 idna==3.4
 importlib-metadata==6.8.0
-langchain==0.0.281
+langchain==0.0.285
 langsmith==0.0.33
 marshmallow==3.20.1
 multidict==6.0.4

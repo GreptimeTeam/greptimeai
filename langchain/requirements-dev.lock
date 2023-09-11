@@ -17,14 +17,16 @@ certifi==2023.7.22
 charset-normalizer==3.2.0
 dataclasses-json==0.5.14
 deprecated==1.2.14
+flake8==6.1.0
 frozenlist==1.4.0
 googleapis-common-protos==1.60.0
 greenlet==2.0.2
 idna==3.4
 importlib-metadata==6.8.0
-langchain==0.0.281
+langchain==0.0.285
 langsmith==0.0.33
 marshmallow==3.20.1
+mccabe==0.7.0
 multidict==6.0.4
 mypy-extensions==1.0.0
 numexpr==2.8.5
@@ -39,8 +41,10 @@ opentelemetry-semantic-conventions==0.41b0
 packaging==23.1
 prometheus-client==0.17.1
 protobuf==4.24.2
+pycodestyle==2.11.0
 pydantic==2.3.0
 pydantic-core==2.6.3
+pyflakes==3.1.0
 pyyaml==6.0.1
 requests==2.31.0
 sqlalchemy==2.0.20
@@ -51,3 +55,5 @@ urllib3==2.0.4
 wrapt==1.15.0
 yarl==1.9.2
 zipp==3.16.2
+# The following packages are considered to be unsafe in a requirements file:
+pip==23.2.1
