@@ -16,7 +16,7 @@ from opentelemetry.exporter.prometheus import PrometheusMetricReader
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 
-from . import _TimeTable, _ObservationQueue
+from . import _TimeTable, _Observation
 
 
 class GreptimeCallbackHandler(BaseCallbackHandler):
@@ -24,8 +24,8 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
     def __init__(self, port=8008, verbose=False) -> None:
         super().__init__()
         self._time_tables = _TimeTable()
-        self._prompt_cost_queue = _ObservationQueue()
-        self._completion_cost_queue = _ObservationQueue()
+        self._prompt_cost = _Observation("prompt_cost")
+        self._completion_cost = _Observation("completion_cost")
 
         start_http_server(port=port)
 
@@ -50,12 +50,12 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         )
 
         meter.create_observable_gauge(
-            callbacks=[self._prompt_cost_queue.observation_callback()],
+            callbacks=[self._prompt_cost.observation_callback()],
             name="langchain_prompt_tokens_cost",
             description="prompt token cost in US Dollar",
         )
         meter.create_observable_gauge(
-            callbacks=[self._completion_cost_queue.observation_callback()],
+            callbacks=[self._completion_cost.observation_callback()],
             name="langchain_completion_tokens_cost",
             description="completion token cost in US Dollar",
         )
@@ -182,8 +182,8 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
                 prompt_cost = get_openai_token_cost_for_model(
                     model_name, prompt_tokens)
 
-                self._completion_cost_queue.put(completion_cost, attrs)
-                self._prompt_cost_queue.put(prompt_cost, attrs)
+                self._completion_cost.put(completion_cost, attrs)
+                self._prompt_cost.put(prompt_cost, attrs)
 
                 self._requests_duration_histogram.record(latency, attrs)
             except Exception as ex:

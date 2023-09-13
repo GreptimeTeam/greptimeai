@@ -1,6 +1,5 @@
 import time
-from queue import Queue
-from typing import Union, Dict
+from typing import Union, Dict, Tuple
 
 import prometheus_client
 
@@ -37,18 +36,49 @@ class _TimeTable:
         return 1000 * (now - start)
 
 
-class _ObservationQueue:
+class _Observation:
+    """
+    # FIXME(yuanbohan): concurrent conflict. refer to Mutex or other solutions
+    """
 
-    def __init__(self):
-        self._queue = Queue()
+    def __init__(self, name: str = ""):
+        self._name = name
+        self._cost = {}
+
+    def _reset(self):
+        self._cost = {}
+
+    def _dict_to_tuple(self, m: Dict) -> Union[Tuple, None]:
+        """
+        sort keys first
+        """
+        if len(m) == 0:
+            return None
+
+        l = []
+        for key in sorted(m.keys()):
+            val = m[key]
+            l.append((key, val))
+        return tuple(l)
 
     def put(self, val: float, attrs: Dict) -> None:
-        self._queue.put(Observation(val, attributes=attrs))
+        """
+        attrs contains even elements
+        """
+        tuple_key = self._dict_to_tuple(attrs)
+        self._cost.setdefault(tuple_key, 0)
+        self._cost[tuple_key] += val
 
     def observation_callback(self):
 
         def fn(_: CallbackOptions):
-            if not self._queue.empty():
-                yield self._queue.get()
+            obs = []
+            for tuple_key, val in self._cost.items():
+                attrs = dict(tuple_key)
+                ob = Observation(val, attrs)
+                obs.append(ob)
+
+            self._reset()
+            return obs
 
         return fn
