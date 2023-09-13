@@ -11,6 +11,9 @@ class _TimeTable:
     def set(self, key: str) -> None:
         self.__tables[key] = time.time()
 
+    def remove(self, key: str) -> None:
+        self.__tables.pop(key, None)
+
     def latency(self, key: str) -> Union[float, None]:
         """
         return latency in second if key exist, None if key not exist.
