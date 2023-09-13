@@ -8,9 +8,8 @@ from langchain.schema.messages import BaseMessage
 from langchain.schema.output import LLMResult
 from langchain.callbacks.openai_info import get_openai_token_cost_for_model, \
     standardize_model_name
-
+import openai.error as openai_error
 from prometheus_client import start_http_server
-
 from opentelemetry import metrics
 from opentelemetry.exporter.prometheus import PrometheusMetricReader
 from opentelemetry.sdk.metrics import MeterProvider
@@ -35,13 +34,20 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         provider = MeterProvider(resource=resource, metric_readers=[reader])
         metrics.set_meter_provider(provider)
         meter = metrics.get_meter("com.greptime.observability.langchain")
+
         self._prompt_tokens_count = meter.create_counter(
             "langchain_prompt_tokens",
             description="counts the amount of prompt token",
         )
+
         self._completion_tokens_count = meter.create_counter(
             "langchain_completion_tokens",
             description="counts the amount of completion token",
+        )
+
+        self._llm_error_count = meter.create_counter(
+            "langchain_llm_errors",
+            description="counts the amount of llm errors",
         )
 
         self._requests_duration_histogram = meter.create_histogram(
@@ -54,6 +60,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             name="langchain_prompt_tokens_cost",
             description="prompt token cost in US Dollar",
         )
+
         meter.create_observable_gauge(
             callbacks=[self._completion_cost.observation_callback()],
             name="langchain_completion_tokens_cost",
@@ -201,14 +208,34 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         """
         Run when LLM errors.
 
-        error = InvalidRequestError(message='The model `gpt-411231231` does not exist', param=None, code='model_not_found', h
-ttp_status=404, request_id=None)
+        TODO(yuanbohan): more error info for tracing
 
         # Trace
 
         run_id, parent_run_id, event(on_llm_end), error
         """
-        ...
+        error_name = error.__class__.__name__
+        llm = "unknown"
+
+        try:
+            raise error
+        except (openai_error.APIError, openai_error.APIConnectionError,
+                openai_error.AuthenticationError, openai_error.InvalidAPIType,
+                openai_error.InvalidRequestError, openai_error.OpenAIError,
+                openai_error.PermissionError, openai_error.RateLimitError,
+                openai_error.ServiceUnavailableError,
+                openai_error.SignatureVerificationError, openai_error.Timeout,
+                openai_error.TryAgain):
+            llm = "openai"
+        except Exception as ex:
+            print(f"on_llm_error. unknown exception: { ex = }")
+        finally:
+            attrs = {
+                "name": error_name,
+                "llm": llm,
+            }
+            print(f"on_llm_error. { attrs = }")
+            self._llm_error_count.add(1, attrs)
 
     def on_llm_new_token(self, token: str, **kwargs: Any) -> Any:
         """Run on new LLM token. Only available when streaming is enabled."""
