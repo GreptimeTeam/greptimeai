@@ -1,14 +1,10 @@
 import time
 from typing import Union, Dict, Tuple
 
-import prometheus_client
-
 from opentelemetry.metrics import Observation, CallbackOptions
 
-# export PROMETHEUS_DISABLE_CREATED_SERIES=True
-prometheus_client.REGISTRY.unregister(prometheus_client.GC_COLLECTOR)
-prometheus_client.REGISTRY.unregister(prometheus_client.PLATFORM_COLLECTOR)
-prometheus_client.REGISTRY.unregister(prometheus_client.PROCESS_COLLECTOR)
+_METER_NAME = "com.greptime.observability.langchain"
+_SOURCE = "langchain"
 
 
 class _TimeTable:
@@ -23,7 +19,7 @@ class _TimeTable:
     def remove(self, key: str) -> None:
         self.__tables.pop(key, None)
 
-    def latency_in_millisecond(self, key: str) -> Union[float, None]:
+    def latency_in_ms(self, key: str) -> Union[float, None]:
         """
         return latency in milli second if key exist, None if not exist.
         """

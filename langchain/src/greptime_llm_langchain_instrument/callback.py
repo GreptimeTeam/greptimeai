@@ -8,62 +8,64 @@ from langchain.schema.messages import BaseMessage
 from langchain.schema.output import LLMResult
 from langchain.callbacks.openai_info import get_openai_token_cost_for_model, \
     standardize_model_name
-import openai.error as openai_error
-from prometheus_client import start_http_server
 from opentelemetry import metrics
-from opentelemetry.exporter.prometheus import PrometheusMetricReader
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 
-from . import _TimeTable, _Observation
+from . import _TimeTable, _Observation, _METER_NAME, _SOURCE
 
 
 class GreptimeCallbackHandler(BaseCallbackHandler):
 
-    def __init__(self, port=8008, verbose=False) -> None:
+    def __init__(self, skip_otel_init=False, verbose=False) -> None:
+        """
+        TODO(yuanbohan): support skip_otel_init, verbose parameters
+        """
         super().__init__()
+
+        self._skip_otel_init = skip_otel_init
+        self._verbose = verbose
+
         self._time_tables = _TimeTable()
         self._prompt_cost = _Observation("prompt_cost")
         self._completion_cost = _Observation("completion_cost")
 
-        start_http_server(port=port)
+        self._setup_otel()
 
-        resource = Resource(
-            attributes={SERVICE_NAME: "greptime-langchain-observability"})
-        reader = PrometheusMetricReader()
-        provider = MeterProvider(resource=resource, metric_readers=[reader])
-        metrics.set_meter_provider(provider)
-        meter = metrics.get_meter("com.greptime.observability.langchain")
+    def _setup_otel(self):
+        """
+        setup opentelemetry, and raise Error if something wrong
+        """
+        meter = metrics.get_meter(_METER_NAME)
 
         self._prompt_tokens_count = meter.create_counter(
-            "langchain_prompt_tokens",
-            description="counts the amount of prompt token",
+            "llm_prompt_tokens",
+            description="counts the amount of llm prompt token",
         )
 
         self._completion_tokens_count = meter.create_counter(
-            "langchain_completion_tokens",
-            description="counts the amount of completion token",
+            "llm_completion_tokens",
+            description="counts the amount of llm completion token",
         )
 
         self._llm_error_count = meter.create_counter(
-            "langchain_llm_errors",
+            "llm_errors",
             description="counts the amount of llm errors",
         )
 
         self._requests_duration_histogram = meter.create_histogram(
-            name="langchain_llm_request_duration_milliseconds",
-            description="duration of requests of llm",
+            name="llm_request_duration_ms",
+            description="duration of requests of llm in milli seconds",
+            unit="ms",
         )
 
         meter.create_observable_gauge(
             callbacks=[self._prompt_cost.observation_callback()],
-            name="langchain_prompt_tokens_cost",
+            name="llm_prompt_tokens_cost",
             description="prompt token cost in US Dollar",
         )
 
         meter.create_observable_gauge(
             callbacks=[self._completion_cost.observation_callback()],
-            name="langchain_completion_tokens_cost",
+            name="llm_completion_tokens_cost",
             description="completion token cost in US Dollar",
         )
 
@@ -121,7 +123,6 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
     ) -> Any:
         """Run when LLM starts running."""
         self._time_tables.set(run_id)
-        ...
 
     def on_chat_model_start(
         self,
@@ -134,7 +135,6 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
     ) -> Any:
         """Run when Chat Model starts running."""
         self._time_tables.set(run_id)
-        ...
 
     def on_llm_end(
         self,
@@ -164,38 +164,46 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         message
 
         """
-        latency = self._time_tables.latency_in_millisecond(run_id)
+        latency = self._time_tables.latency_in_ms(run_id)
 
         output = (response.llm_output or {})
         token_usage = output.get("token_usage", {})
         completion_tokens = token_usage.get("completion_tokens", 0)
         prompt_tokens = token_usage.get("prompt_tokens", 0)
 
-        prompt_cost, completion_cost = 0, 0
         model_name = output.get("model_name", None)
+        model_name = standardize_model_name(model_name)
         llm = self.__get_llm_repr(output)
-        if model_name is not None and llm == "openai":
-            model_name = standardize_model_name(model_name)
-            try:
-                attrs = {
-                    "llm": llm,
-                    "model": model_name,
-                }
-                self._prompt_tokens_count.add(prompt_tokens, attrs)
-                self._completion_tokens_count.add(completion_tokens, attrs)
+        attrs = {
+            "source": _SOURCE,
+            "llm": llm,
+            "model": model_name,
+        }
 
-                completion_cost = get_openai_token_cost_for_model(
-                    model_name, completion_tokens, is_completion=True)
-                prompt_cost = get_openai_token_cost_for_model(
-                    model_name, prompt_tokens)
+        try:
+            self._prompt_tokens_count.add(prompt_tokens, attrs)
+            self._completion_tokens_count.add(completion_tokens, attrs)
 
-                self._completion_cost.put(completion_cost, attrs)
-                self._prompt_cost.put(prompt_cost, attrs)
+            if llm == "openai":
+                self._observe_openai_cost(model_name, prompt_tokens,
+                                          completion_tokens, attrs)
 
+            if latency:
                 self._requests_duration_histogram.record(latency, attrs)
-            except Exception as ex:
-                print(f"on_llm_end exception: {ex}")
-                pass
+        except Exception as ex:
+            print(f"on_llm_end exception: {ex}")
+            attrs["error"] = ex.__class__.__name__
+            self._llm_error_count.add(1, attrs)
+
+    def _observe_openai_cost(self, model_name: str, prompt_tokens: int,
+                             completion_tokens: int, attrs: Dict):
+        completion_cost = get_openai_token_cost_for_model(model_name,
+                                                          completion_tokens,
+                                                          is_completion=True)
+        prompt_cost = get_openai_token_cost_for_model(model_name,
+                                                      prompt_tokens)
+        self._completion_cost.put(completion_cost, attrs)
+        self._prompt_cost.put(prompt_cost, attrs)
 
     def on_llm_error(
         self,
@@ -215,27 +223,11 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         run_id, parent_run_id, event(on_llm_end), error
         """
         error_name = error.__class__.__name__
-        llm = "unknown"
-
-        try:
-            raise error
-        except (openai_error.APIError, openai_error.APIConnectionError,
-                openai_error.AuthenticationError, openai_error.InvalidAPIType,
-                openai_error.InvalidRequestError, openai_error.OpenAIError,
-                openai_error.PermissionError, openai_error.RateLimitError,
-                openai_error.ServiceUnavailableError,
-                openai_error.SignatureVerificationError, openai_error.Timeout,
-                openai_error.TryAgain):
-            llm = "openai"
-        except Exception as ex:
-            print(f"on_llm_error. unknown exception: { ex = }")
-        finally:
-            attrs = {
-                "name": error_name,
-                "llm": llm,
-            }
-            print(f"on_llm_error. { attrs = }")
-            self._llm_error_count.add(1, attrs)
+        attrs = {
+            "source": _SOURCE,
+            "error": error_name,
+        }
+        self._llm_error_count.add(1, attrs)
 
     def on_llm_new_token(self, token: str, **kwargs: Any) -> Any:
         """Run on new LLM token. Only available when streaming is enabled."""
