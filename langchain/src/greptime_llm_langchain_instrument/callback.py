@@ -147,22 +147,11 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         """
         Collecting token usage, and performance.
 
-        # Metric Table
-
-        langchain_prompt_tokens_count{llm,model}           # count
-        langchain_prompt_tokens_cost{llm,model}            # gauge
-        langchain_completion_tokens_count{llm,model}       # count
-        langchain_completion_tokens_cost{llm,model}        # gauge
-        langchain_llm_request_duration_seconds{llm,model}  # histogram
-
         # Trace
 
         run_id, parent_run_id, model, llm, latency, event(on_llm_end)
 
-        if verbose, including:
-
-        message
-
+        if verbose, including: message
         """
         latency = self._time_tables.latency_in_ms(run_id)
 
