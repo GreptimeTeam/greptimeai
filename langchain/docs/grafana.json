@@ -36,7 +36,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
+        "uid": "e329d323-5f53-41a6-aa37-9fcc42310764"
       },
       "fieldConfig": {
         "defaults": {
@@ -98,7 +98,7 @@
             "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
           },
           "editorMode": "code",
-          "expr": "sum by (model) (langchain_completion_tokens_cost{llm=\"openai\"} + langchain_prompt_tokens_cost{llm=\"openai\"})",
+          "expr": "sum by (model) (llm_completion_tokens_cost{llm=\"openai\"} + llm_prompt_tokens_cost{llm=\"openai\"})",
           "instant": false,
           "legendFormat": "{{model}}",
           "range": true,
@@ -111,7 +111,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
+        "uid": "e329d323-5f53-41a6-aa37-9fcc42310764"
       },
       "fieldConfig": {
         "defaults": {
@@ -196,7 +196,7 @@
             "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
           },
           "editorMode": "code",
-          "expr": "sum by (model) (rate(langchain_llm_request_duration_milliseconds_count{llm=\"openai\"}[$__rate_interval]))",
+          "expr": "sum by (model) (rate(llm_request_duration_ms_count{llm=\"openai\"}[$__rate_interval]))",
           "instant": false,
           "legendFormat": "{{model}}",
           "range": true,
@@ -209,7 +209,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
+        "uid": "e329d323-5f53-41a6-aa37-9fcc42310764"
       },
       "fieldConfig": {
         "defaults": {
@@ -262,7 +262,7 @@
             "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
           },
           "editorMode": "code",
-          "expr": "sum by (name) (langchain_llm_errors_total{llm=\"openai\"})",
+          "expr": "sum by (name) (llm_errors_total{llm=\"openai\"})",
           "instant": false,
           "legendFormat": "{{name}}",
           "range": true,
@@ -273,7 +273,7 @@
       "type": "piechart"
     },
     {
-      "collapsed": true,
+      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -281,468 +281,465 @@
         "y": 8
       },
       "id": 10,
-      "panels": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  }
-                ]
-              },
-              "unit": "currencyUSD"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 9
-          },
-          "id": 1,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "textMode": "auto"
-          },
-          "pluginVersion": "10.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
-              },
-              "editorMode": "code",
-              "expr": "sum by (model) (langchain_prompt_tokens_cost{llm=\"openai\"})",
-              "instant": false,
-              "legendFormat": "{{model}}",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Prompt Cost",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  }
-                ]
-              },
-              "unit": "currencyUSD"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 9
-          },
-          "id": 2,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "textMode": "auto"
-          },
-          "pluginVersion": "10.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
-              },
-              "editorMode": "code",
-              "expr": "sum by (model) (langchain_completion_tokens_cost{llm=\"openai\"})",
-              "instant": false,
-              "legendFormat": "{{model}}",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Completion Cost",
-          "type": "stat"
-        }
-      ],
+      "panels": [],
       "title": "Cost",
       "type": "row"
     },
     {
-      "collapsed": true,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "e329d323-5f53-41a6-aa37-9fcc42310764"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
+          },
+          "editorMode": "code",
+          "expr": "sum by (model) (llm_prompt_tokens_cost{llm=\"openai\"})",
+          "instant": false,
+          "legendFormat": "{{model}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Prompt Cost",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "e329d323-5f53-41a6-aa37-9fcc42310764"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
+          },
+          "editorMode": "code",
+          "expr": "sum by (model) (llm_completion_tokens_cost{llm=\"openai\"})",
+          "instant": false,
+          "legendFormat": "{{model}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Completion Cost",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 9
+        "y": 17
       },
       "id": 11,
-      "panels": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 10
-          },
-          "id": 4,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "textMode": "auto"
-          },
-          "pluginVersion": "10.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
-              },
-              "editorMode": "code",
-              "expr": "sum by (model) (langchain_prompt_tokens_total{llm=\"openai\"})",
-              "instant": false,
-              "legendFormat": "{{model}}",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Prompt Token Count",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 10
-          },
-          "id": 5,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "textMode": "auto"
-          },
-          "pluginVersion": "10.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
-              },
-              "editorMode": "code",
-              "expr": "sum by (model) (langchain_completion_tokens_total{llm=\"openai\"})",
-              "instant": false,
-              "legendFormat": "{{model}}",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Completion Token Count",
-          "type": "stat"
-        }
-      ],
+      "panels": [],
       "title": "Token",
       "type": "row"
     },
     {
-      "collapsed": true,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "e329d323-5f53-41a6-aa37-9fcc42310764"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
+          },
+          "editorMode": "code",
+          "expr": "sum by (model) (llm_prompt_tokens_total{llm=\"openai\"})",
+          "instant": false,
+          "legendFormat": "{{model}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Prompt Token Count",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "e329d323-5f53-41a6-aa37-9fcc42310764"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
+          },
+          "editorMode": "code",
+          "expr": "sum by (model) (llm_completion_tokens_total{llm=\"openai\"})",
+          "instant": false,
+          "legendFormat": "{{model}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Completion Token Count",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 10
+        "y": 26
       },
       "id": 12,
-      "panels": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  }
-                ]
-              },
-              "unit": "ms"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 11
-          },
-          "id": 6,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
-              },
-              "editorMode": "code",
-              "expr": "histogram_quantile(\n    0.95,\n    sum by(le, model) (rate(langchain_llm_request_duration_milliseconds_bucket{llm=\"openai\"}[$__rate_interval]))\n)",
-              "instant": false,
-              "legendFormat": "{{model}}",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "P95 Latency",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 11
-          },
-          "id": 9,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
-              },
-              "editorMode": "code",
-              "expr": "sum by (name) (rate(langchain_llm_errors_total{llm=\"openai\"}[$__rate_interval]))",
-              "instant": false,
-              "legendFormat": "{{name}}",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "QPS of errors",
-          "type": "timeseries"
-        }
-      ],
+      "panels": [],
       "title": "Requests",
       "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "e329d323-5f53-41a6-aa37-9fcc42310764"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 27
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(\n    0.95,\n    sum by(le, model) (rate(llm_request_duration_ms_bucket{llm=\"openai\"}[$__rate_interval]))\n)",
+          "instant": false,
+          "legendFormat": "{{model}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "P95 Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "e329d323-5f53-41a6-aa37-9fcc42310764"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 27
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
+          },
+          "editorMode": "code",
+          "expr": "sum by (name) (rate(llm_errors_total{llm=\"openai\"}[$__rate_interval]))",
+          "instant": false,
+          "legendFormat": "{{name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "QPS of errors",
+      "type": "timeseries"
     }
   ],
   "refresh": "",
@@ -760,6 +757,6 @@
   "timezone": "",
   "title": "OpenAI in LangChain",
   "uid": "ee6b2258-960e-453d-8187-03398e62b5e7",
-  "version": 7,
+  "version": 1,
   "weekStart": ""
 }

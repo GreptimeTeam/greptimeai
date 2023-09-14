@@ -51,10 +51,7 @@ class _Observation:
         if len(m) == 0:
             return None
 
-        l = []
-        for key in sorted(m.keys()):
-            val = m[key]
-            l.append((key, val))
+        l = [(key, m[key]) for key in sorted(m.keys())]
         return tuple(l)
 
     def put(self, val: float, attrs: Dict) -> None:
@@ -68,13 +65,11 @@ class _Observation:
     def observation_callback(self):
 
         def fn(_: CallbackOptions):
-            obs = []
-            for tuple_key, val in self._cost.items():
-                attrs = dict(tuple_key)
-                ob = Observation(val, attrs)
-                obs.append(ob)
-
+            l = [
+                Observation(val, dict(tuple_key))
+                for tuple_key, val in self._cost.items()
+            ]
             self._reset()
-            return obs
+            return l
 
         return fn
