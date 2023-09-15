@@ -5,6 +5,7 @@ Greptime instrument sdk for popular LLM (LangChain, OpenAI, etc.)
 ## Subprojects
 
 - `langchain` Instrumentation extension for [LangChain python][langchain].
+- `langchain-example` to illustrate how to use greptime-llm-langchain-instrument
 
 ## Build
 
