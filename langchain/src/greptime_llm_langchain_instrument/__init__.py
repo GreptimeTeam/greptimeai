@@ -15,7 +15,6 @@ class _TraceTable:
 
     def put_span(self, run_id: str, span: Span):
         self._traces[run_id] = span
-        print(f"{ self._traces = }")
 
     def get_span(self, run_id: str) -> Span:
         return self._traces.get(run_id, None)

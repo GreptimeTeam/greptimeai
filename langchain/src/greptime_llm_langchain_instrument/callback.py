@@ -16,7 +16,7 @@ from . import _TimeTable, _Observation, _SOURCE, _TraceTable
 
 class GreptimeCallbackHandler(BaseCallbackHandler):
 
-    def __init__(self, skip_otel_init=False, verbose=False) -> None:
+    def __init__(self, skip_otel_init=False, verbose=True) -> None:
         """
         TODO(yuanbohan): support skip_otel_init, verbose parameters
         """
@@ -82,8 +82,8 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         else:
             return "unknown"
 
-    def _start_span(self, name: str, run_id: str, parent_run_id: str,
-                    attrs: Dict[str, object]):
+    def _start_span(self, name: str, event: str, run_id: str,
+                    parent_run_id: str, attrs: Dict[str, object]):
         if not run_id:
             print(f"{ name } run_id is empty. This is illegal event.")
             return
@@ -94,28 +94,28 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
                 context = set_span_in_context(parent_span)
                 span = self._tracer.start_span(name, context=context)
                 span.set_attributes(attrs)
+                span.add_event(event)
                 self._trace_tables.put_span(run_id, span)
                 return
 
         # parent_run_id is None, or parent span not found
         span = self._tracer.start_span(name)
         span.set_attributes(attrs)
+        span.add_event(event)
         self._trace_tables.put_span(run_id, span)
 
-    def _end_span(self, name: str, run_id: str, attrs: Dict[str, object],
+    def _end_span(self, event: str, run_id: str, attrs: Dict[str, object],
                   ex: Exception):
         span = self._trace_tables.pop_span(run_id)
-        code = StatusCode.ERROR if ex else StatusCode.OK
         if span:
-            span.add_event(name)
+            code = StatusCode.ERROR if ex else StatusCode.OK
             span.set_status(Status(code))
-            if attrs:
-                span.set_attributes(attrs)
+            span.add_event(event, attrs)
             if ex:
                 span.record_exception(ex)
             span.end()
         else:
-            print(f"unable to find { run_id } span context of { name }")
+            print(f"unable to find { run_id } span context of { event }")
 
     def on_chain_start(
         self,
@@ -129,15 +129,14 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         """Run when chain starts running."""
-        print(f"on_chain_start. { run_id = }")
-        print(f"on_chain_start. { parent_run_id = }")
-
-        attrs = metadata if metadata else {}
-        attrs["tags"] = tags
+        attrs = metadata or {}
+        if tags:
+            attrs["tags"] = tags
         if self._verbose:
-            for k, v in inputs.items():
-                attrs[k] = str(v)
-        self._start_span("on_chain_start", run_id, parent_run_id, attrs)
+            attrs["inputs"] = str(inputs)
+
+        self._start_span("chain", "on_chain_start", run_id, parent_run_id,
+                         attrs)
 
     def on_chain_end(
         self,
@@ -148,9 +147,10 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         """Run when chain ends running."""
-        print(f"on_chain_end. { run_id = }")
-        print(f"on_chain_end. { parent_run_id = }")
-        self._end_span("on_chain_end", run_id, None, None)
+        attrs = {}
+        if self._verbose:
+            attrs["outputs"] = str(outputs)
+        self._end_span("on_chain_end", run_id, attrs, None)
 
     def on_chain_error(
         self,
@@ -161,8 +161,6 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         """Run when chain errors."""
-        print(f"on_chain_error. { run_id = }")
-        print(f"on_chain_error. { parent_run_id = }")
         self._end_span("on_chain_error", run_id, None, error)
 
     def on_llm_start(
@@ -178,14 +176,14 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
     ) -> Any:
         """Run when LLM starts running."""
         self._time_tables.set(run_id)
-        print(f"on_llm_start. { run_id = }")
-        print(f"on_llm_start. { parent_run_id = }")
 
-        attrs = metadata if metadata else {}
-        attrs["tags"] = tags
+        attrs = metadata or {}
+        if tags:
+            attrs["tags"] = tags
         if self._verbose:
             attrs["prompts"] = prompts
-        self._start_span("on_llm_start", run_id, parent_run_id, attrs)
+
+        self._start_span("llm", "on_llm_start", run_id, parent_run_id, attrs)
 
     def on_chat_model_start(
         self,
@@ -200,15 +198,15 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
     ) -> Any:
         """Run when Chat Model starts running."""
         self._time_tables.set(run_id)
-        print(f"on_chat_model_start. { run_id = }")
-        print(f"on_chat_model_start. { parent_run_id = }")
 
-        attrs = metadata if metadata else {}
-        attrs["tags"] = tags
+        attrs = metadata or {}
+        if tags:
+            attrs["tags"] = tags
         if self._verbose:
-            # TODO(yuanbohan): parse messages
             attrs["messages"] = str(messages)
-        self._start_span("on_chat_model_start", run_id, parent_run_id, attrs)
+
+        self._start_span("chat_model", "on_chat_model_start", run_id,
+                         parent_run_id, attrs)
 
     def on_llm_end(
         self,
@@ -218,17 +216,6 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         parent_run_id: Union[UUID, None] = None,
         **kwargs: Any,
     ) -> Any:
-        """
-        Collecting token usage, and performance.
-
-        # Trace
-
-        run_id, parent_run_id, model, llm, latency, event(on_llm_end)
-
-        if verbose, including: message
-        """
-        print(f"on_llm_end. { run_id = }")
-        print(f"on_llm_end. { parent_run_id = }")
         latency = self._time_tables.latency_in_ms(run_id)
 
         output = (response.llm_output or {})
@@ -260,6 +247,11 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             attrs["error"] = ex.__class__.__name__
             self._llm_error_count.add(1, attrs)
 
+        attrs["prompt_tokens"] = prompt_tokens
+        attrs["completion_tokens"] = completion_tokens
+        if self._verbose:
+            attrs["response"] = str(response)
+
         self._end_span("on_llm_end", run_id, attrs, None)
 
     def _observe_openai_cost(self, model_name: str, prompt_tokens: int,
@@ -289,8 +281,6 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
 
         run_id, parent_run_id, event(on_llm_end), error
         """
-        print(f"on_llm_error. { run_id = }")
-        print(f"on_llm_error. { parent_run_id = }")
         error_name = error.__class__.__name__
         attrs = {
             "source": _SOURCE,
