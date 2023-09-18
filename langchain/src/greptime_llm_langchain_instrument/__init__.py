@@ -2,9 +2,25 @@ import time
 from typing import Union, Dict, Tuple
 
 from opentelemetry.metrics import Observation, CallbackOptions
+from opentelemetry.trace import Span
 
-_METER_NAME = "com.greptime.observability.langchain"
 _SOURCE = "langchain"
+
+
+class _TraceTable:
+
+    def __init__(self):
+        "maintain the OTel span object of run_id"
+        self._traces: Dict[str, Span] = {}
+
+    def put_span(self, run_id: str, span: Span):
+        self._traces[run_id] = span
+
+    def get_span(self, run_id: str) -> Span:
+        return self._traces.get(run_id, None)
+
+    def pop_span(self, run_id: str) -> Span:
+        return self._traces.pop(run_id, None)
 
 
 class _TimeTable:

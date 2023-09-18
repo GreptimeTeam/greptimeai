@@ -1,5 +1,3 @@
-import os
-
 from flask import Flask, request
 from prometheus_client import generate_latest
 
@@ -8,14 +6,20 @@ from langchain_example import chain, callbacks
 app = Flask(__name__)
 
 
-@app.route("/langchain", methods=['POST'])
-def list():
+@app.route("/langchain", methods=["POST"])
+def langchain():
+    """
+    to chat
+    """
     message = request.json["message"]
     return chain.run(message, callbacks=callbacks)
 
 
-@app.route('/metrics')
+@app.route("/metrics")
 def metrics():
+    """
+    for prometheus
+    """
     return generate_latest()
 
 
