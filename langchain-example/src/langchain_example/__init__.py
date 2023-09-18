@@ -1,10 +1,12 @@
-from langchain.chat_models import ChatOpenAI
-from langchain.prompts import (
-    ChatPromptTemplate,
-    SystemMessagePromptTemplate,
-    HumanMessagePromptTemplate,
-)
+from langchain.llms import OpenAI
+from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
+
+from langchain.chains import RetrievalQA
+from langchain.document_loaders import TextLoader
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.vectorstores import Chroma
 
 from opentelemetry import metrics, trace
 from opentelemetry.sdk.metrics import MeterProvider
@@ -29,21 +31,27 @@ processor = BatchSpanProcessor(OTLPSpanExporter())
 provider.add_span_processor(processor)
 trace.set_tracer_provider(provider)
 
-# setup langchain
-template = "You are a helpful assistant"
-system_message_prompt = SystemMessagePromptTemplate.from_template(template)
-human_template = "{text}"
-human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
 
-chat_prompt = ChatPromptTemplate.from_messages(
-    [system_message_prompt, human_message_prompt])
+loader = TextLoader("docs/speech.txt")
+documents = loader.load()
+text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+texts = text_splitter.split_documents(documents)
 
+embeddings = OpenAIEmbeddings()
+docsearch = Chroma.from_documents(texts, embeddings)
+
+llm = OpenAI()
 callbacks = [GreptimeCallbackHandler()]
 
-llm = ChatOpenAI()
+qa = RetrievalQA.from_chain_type(
+    llm=llm,
+    chain_type="stuff",
+    retriever=docsearch.as_retriever(),
+    callbacks=callbacks,
+)
 
 chain = LLMChain(
     llm=llm,
-    prompt=chat_prompt,
+    prompt=PromptTemplate.from_template("{text}"),
     callbacks=callbacks,
 )
