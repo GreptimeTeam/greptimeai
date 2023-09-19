@@ -103,15 +103,13 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             if parent_span:
                 context = set_span_in_context(parent_span)
                 span = self._tracer.start_span(name, context=context)
-                span.set_attributes(attrs)
-                span.add_event(event)
+                span.add_event(event, attributes=attrs)
                 self._trace_tables.put_span(run_id, span)
                 return
 
         # parent_run_id is None, or parent span not found
         span = self._tracer.start_span(name)
-        span.set_attributes(attrs)
-        span.add_event(event)
+        span.add_event(event, attributes=attrs)
         self._trace_tables.put_span(run_id, span)
 
     def _end_span(self, event: str, run_id: str, attrs: Dict[str, Any], ex: Exception):
@@ -120,7 +118,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         if span:
             code = StatusCode.ERROR if ex else StatusCode.OK
             span.set_status(Status(code))
-            span.add_event(event, attrs)
+            span.add_event(event, attributes=attrs)
             if ex:
                 span.record_exception(ex)
             span.end()
