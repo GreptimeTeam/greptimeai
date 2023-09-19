@@ -5,14 +5,22 @@ from opentelemetry import metrics, trace
 from opentelemetry.trace import set_span_in_context, Status, StatusCode
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.schema.agent import AgentAction, AgentFinish
-from langchain.schema.messages import BaseMessage
+from langchain.schema.messages import BaseMessage, get_buffer_string
 from langchain.schema.output import LLMResult
 from langchain.callbacks.openai_info import (
     get_openai_token_cost_for_model,
     standardize_model_name,
 )
 
-from . import _TimeTable, _Observation, _SOURCE, _TraceTable
+from . import (
+    _TimeTable,
+    _Observation,
+    _TraceTable,
+    _parse_input,
+    _parse_output,
+    _parse_generations,
+    _sanitate_attributes,
+)
 
 
 class GreptimeCallbackHandler(BaseCallbackHandler):
@@ -83,8 +91,9 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         event: str,
         run_id: str,
         parent_run_id: str,
-        attrs: Dict[str, object],
+        attrs: Dict[str, Any],
     ):
+        attrs = _sanitate_attributes(attrs)
         if not run_id:
             print(f"{ name } run_id is empty. This is illegal event.")
             return
@@ -105,9 +114,8 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         span.add_event(event)
         self._trace_tables.put_span(run_id, span)
 
-    def _end_span(
-        self, event: str, run_id: str, attrs: Dict[str, object], ex: Exception
-    ):
+    def _end_span(self, event: str, run_id: str, attrs: Dict[str, Any], ex: Exception):
+        attrs = _sanitate_attributes(attrs)
         span = self._trace_tables.pop_span(run_id)
         if span:
             code = StatusCode.ERROR if ex else StatusCode.OK
@@ -131,12 +139,13 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         """Run when chain starts running."""
-        print(f"on_chain_start. { run_id = }")
-        attrs = metadata or {}
-        if tags:
-            attrs["tags"] = tags
+        attrs = {
+            "metadata": metadata,
+            "tags": tags,
+            "kwargs": kwargs,
+        }
         if self._verbose:
-            attrs["inputs"] = str(inputs)
+            attrs["inputs"] = _parse_input(inputs)
 
         self._start_span("chain", "on_chain_start", run_id, parent_run_id, attrs)
 
@@ -149,10 +158,11 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         """Run when chain ends running."""
-        print(f"on_chain_end. { run_id = }")
-        attrs = {}
+        attrs = {
+            "kwargs": kwargs,
+        }
         if self._verbose:
-            attrs["outputs"] = str(outputs)
+            attrs["outputs"] = _parse_output(outputs)
         self._end_span("on_chain_end", run_id, attrs, None)
 
     def on_chain_error(
@@ -164,8 +174,11 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         """Run when chain errors."""
-        print(f"on_chain_error. { run_id = }")
-        self._end_span("on_chain_error", run_id, None, error)
+        attrs = {
+            "error": error.__class__.__name__,
+            "kwargs": kwargs,
+        }
+        self._end_span("on_chain_error", run_id=run_id, attrs=attrs, ex=error)
 
     def on_llm_start(
         self,
@@ -176,15 +189,18 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         parent_run_id: Union[UUID, None] = None,
         tags: Union[List[str], None] = None,
         metadata: Union[Dict[str, Any], None] = None,
+        invocation_params: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
     ) -> Any:
         """Run when LLM starts running."""
-        print(f"on_llm_start. { run_id = } { parent_run_id = }")
         self._time_tables.set(run_id)
 
-        attrs = metadata or {}
-        if tags:
-            attrs["tags"] = tags
+        attrs = {
+            "metadata": metadata,
+            "tags": tags,
+            "kwargs": kwargs,
+            "params": invocation_params,
+        }
         if self._verbose:
             attrs["prompts"] = prompts
 
@@ -199,17 +215,20 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         parent_run_id: Union[UUID, None] = None,
         tags: Union[List[str], None] = None,
         metadata: Union[Dict[str, Any], None] = None,
+        invocation_params: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
     ) -> Any:
         """Run when Chat Model starts running."""
-        print(f"on_chat_model_start. { run_id = } { parent_run_id = }")
         self._time_tables.set(run_id)
 
-        attrs = metadata or {}
-        if tags:
-            attrs["tags"] = tags
+        attrs = {
+            "metadata": metadata,
+            "tags": tags,
+            "kwargs": kwargs,
+            "params": invocation_params,
+        }
         if self._verbose:
-            attrs["messages"] = str(messages)
+            attrs["messages"] = get_buffer_string(messages[0])
 
         self._start_span(
             "chat_model", "on_chat_model_start", run_id, parent_run_id, attrs
@@ -223,7 +242,6 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         parent_run_id: Union[UUID, None] = None,
         **kwargs: Any,
     ) -> Any:
-        print(f"on_llm_end. { run_id = } { parent_run_id = }")
         latency = self._time_tables.latency_in_ms(run_id)
 
         output = response.llm_output or {}
@@ -245,9 +263,10 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             "model": model_name,
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
+            "kwargs": kwargs,
         }
         if self._verbose:
-            attrs["response"] = str(response)
+            attrs["outputs"] = _parse_generations(response.generations[0])
 
         self._end_span("on_llm_end", run_id, attrs, None)
 
@@ -290,14 +309,12 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         """
         Run when LLM errors.
         """
-        print(f"on_llm_error. { run_id = } { parent_run_id = }")
-        error_name = error.__class__.__name__
         attrs = {
-            "source": _SOURCE,
-            "error": error_name,
+            "error": error.__class__.__name__,
+            "kwargs": kwargs,
         }
         self._llm_error_count.add(1, attrs)
-        self._end_span("on_llm_error", run_id, None, error)
+        self._end_span("on_llm_error", run_id=run_id, attrs=attrs, ex=error)
 
     def on_llm_new_token(self, token: str, **kwargs: Any) -> Any:
         """
@@ -357,6 +374,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         print(
             f"on_agent_action. { action = } { run_id = } { parent_run_id = } { kwargs = }"
         )
+        print(f"on_agent_action. { _parse_input(action.tool_input) = }")
 
     def on_agent_finish(
         self,
@@ -380,7 +398,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         """Run on arbitrary text."""
-        print(f"on_text. { run_id = } { parent_run_id = } { kwargs = } { text = }")
+        print(f"on_text. { run_id = } { parent_run_id = } { kwargs = }")
 
 
 __all__ = ["GreptimeCallbackHandler"]

@@ -1,8 +1,7 @@
 from flask import Flask, request
 from prometheus_client import generate_latest
 
-# from langchain_example import chain, callbacks
-from langchain_example import qa, callbacks
+from langchain_example import llm_chain, callbacks, chat_chain
 
 app = Flask(__name__)
 
@@ -14,9 +13,10 @@ def langchain():
     """
     message = request.json["message"]
 
-    # return chain.run(message, callbacks=callbacks)
+    # return llm_chain.run(message, callbacks=callbacks)
+    return chat_chain.run(message, callbacks=callbacks)
     # return qa.run("give me a summary about the second story")
-    return qa.run(message, callbacks=callbacks)
+    # return qa.run(message, callbacks=callbacks)
 
 
 @app.route("/metrics")
