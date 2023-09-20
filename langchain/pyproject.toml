@@ -25,3 +25,6 @@ dev-dependencies = [
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.rye.scripts]
+test = { cmd = "python -m unittest -v src/greptime_llm_langchain_instrument/test_trace.py" }

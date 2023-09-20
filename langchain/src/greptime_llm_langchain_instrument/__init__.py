@@ -4,7 +4,12 @@ from typing import Union, Dict, Tuple, Any, List
 from opentelemetry.metrics import Observation, CallbackOptions
 from opentelemetry.trace import Span
 from langchain.schema.messages import BaseMessage
-from langchain.schema import Generation
+from langchain.schema import Generation, ChatGeneration
+
+_SPAN_NAME_CHAIN = "chain"
+_SPAN_NAME_AGENT = "agent"
+_SPAN_NAME_LLM = "llm"
+_SPAN_NAME_TOOL = "tool"
 
 
 def _is_valid_otel_attributes_value_type(val: Any) -> bool:
@@ -43,7 +48,8 @@ def _sanitate_attributes(attrs: Dict[str, Any]) -> Dict[str, Any]:
                 if _is_valid_otel_attributes_value_type(list_val):
                     new_list.append(list_val)
                 elif isinstance(list_val, dict):
-                    put_dict_to_result(f"{key}.{dict_count}", list_val)
+                    prefix = key if dict_count == 0 else f"{key}.{dict_count}"
+                    put_dict_to_result(prefix, list_val)
                     dict_count += 1
                 else:
                     new_list.append(str(list_val))
@@ -104,16 +110,26 @@ def _parse_output(raw_output: dict) -> Any:
 
 
 def _parse_generation(gen: Generation) -> Dict[str, Any]:
+    """
+    Generation, or ChatGeneration (which contains message field)
+    """
     if not gen:
         return None
 
     info = gen.generation_info or {}
-    return {
+    attrs = {
         "text": gen.text,
         # TODO(yuanbohan): the following is OpenAI only?
         "finish_reason": info.get("finish_reason"),
         "log_probability": info.get("logprobs"),
     }
+
+    if isinstance(gen, ChatGeneration):
+        message: BaseMessage = gen.message
+        attrs["additional_kwargs"] = message.additional_kwargs
+        attrs["type"] = message.type
+
+    return attrs
 
 
 def _parse_generations(gens: List[Generation]) -> List[Dict[str, Any]]:
@@ -128,17 +144,63 @@ def _parse_generations(gens: List[Generation]) -> List[Dict[str, Any]]:
 
 class _TraceTable:
     def __init__(self):
-        "maintain the OTel span object of run_id"
-        self._traces: Dict[str, Span] = {}
+        """
+        maintain the OTel span object of run_id.
+        Pay Attention: different name may have same run_id.
+        """
+        self._traces: Dict[str, List[Tuple(str, Span)]] = {}
 
-    def put_span(self, run_id: str, span: Span):
-        self._traces[run_id] = span
+    def put_span(self, name: str, run_id: str, span: Span):
+        """
+        Pay Attention: different name may have same run_id.
+        """
+        span_list: List[Tuple(str, Span)] = self._traces.get(run_id, [])
+        span_list.append((name, span))
+        self._traces[run_id] = span_list
 
-    def get_span(self, run_id: str) -> Span:
-        return self._traces.get(run_id, None)
+    def get_name_span(self, name: str, run_id: str) -> Span:
+        """
+        first get dict by id, then get span by name
+        """
+        span_list = self._traces.get(run_id, [])
+        for span_name, span in span_list:
+            if span_name == name:
+                return span
+        return None
 
-    def pop_span(self, run_id: str) -> Span:
-        return self._traces.pop(run_id, None)
+    def get_id_span(self, run_id: str) -> Span:
+        """
+        get first span if the matched span list of run_id exist
+        """
+        span_list = self._traces.get(run_id, [])
+        size = len(span_list)
+        if size > 0:
+            tpl: Tuple(str, Span) = span_list[size - 1]  # get the last span
+            return tpl[1]
+        return None
+
+    def pop_span(self, name: str, run_id: str) -> Span:
+        """
+        if there is only one span matched this run_id, then run_id key will be removed
+        """
+        span_list: List[Tuple(str, Span)] = self._traces.get(run_id)
+        if not span_list:
+            return None
+
+        target_span = None
+        rest_list = []
+        for span_name, span in span_list:
+            if span_name == name:
+                target_span = span
+            else:
+                rest_list.append((span_name, span))
+
+        if len(rest_list) == 0:
+            self._traces.pop(run_id, None)
+        else:
+            self._traces[run_id] = rest_list
+
+        return target_span
 
 
 class _TimeTable:
@@ -173,15 +235,15 @@ class _Observation:
     def _reset(self):
         self._cost = {}
 
-    def _dict_to_tuple(self, m: Dict) -> Union[Tuple, None]:
+    def _dict_to_tuple(self, attrs: Dict) -> Union[Tuple, None]:
         """
         sort keys first
         """
-        if len(m) == 0:
+        if len(attrs) == 0:
             return None
 
-        l = [(key, m[key]) for key in sorted(m.keys())]
-        return tuple(l)
+        lst = [(key, attrs[key]) for key in sorted(attrs.keys())]
+        return tuple(lst)
 
     def put(self, val: float, attrs: Dict) -> None:
         """
@@ -192,12 +254,12 @@ class _Observation:
         self._cost[tuple_key] += val
 
     def observation_callback(self):
-        def fn(_: CallbackOptions):
-            l = [
+        def callback(_: CallbackOptions):
+            lst = [
                 Observation(val, dict(tuple_key))
                 for tuple_key, val in self._cost.items()
             ]
             self._reset()
-            return l
+            return lst
 
-        return fn
+        return callback

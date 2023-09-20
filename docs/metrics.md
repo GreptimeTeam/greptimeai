@@ -3,6 +3,8 @@ metric tables
 
 the detail of metrics collected
 
+TODO(yuanbohan): chain, agent, tool needed?
+
 ## langchain
 
 | table                         | data model | column       | description   |
