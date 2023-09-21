@@ -1,5 +1,5 @@
 import time
-from typing import Union, Dict, Tuple, Any, List
+from typing import Union, Dict, Tuple, Any, List, Optional
 
 from opentelemetry.metrics import Observation, CallbackOptions
 from opentelemetry.trace import Span
@@ -208,19 +208,26 @@ class _TimeTable:
         "track multiple timer specified by key"
         self.__tables = {}
 
-    def set(self, key: str) -> None:
+    def _key(self, name: str, run_id: str) -> str:
+        return f"{name}.{run_id}"
+
+    def set(self, name: str, run_id: str):
+        """
+        set start time of named run_id. for different name may have same run_id
+        """
+        key = self._key(name, run_id)
         self.__tables[key] = time.time()
 
-    def latency_in_ms(self, key: str) -> Union[float, None]:
+    def latency_in_ms(self, name: str, run_id: str) -> Optional[float]:
         """
         return latency in milli second if key exist, None if not exist.
         """
+        key = self._key(name, run_id)
         now = time.time()
         start = self.__tables.pop(key, None)
-        if start is None:
-            return None
-
-        return 1000 * (now - start)
+        if start:
+            return 1000 * (now - start)
+        return None
 
 
 class _Observation:
@@ -235,25 +242,33 @@ class _Observation:
     def _reset(self):
         self._cost = {}
 
-    def _dict_to_tuple(self, attrs: Dict) -> Union[Tuple, None]:
+    def _dict_to_tuple(self, attrs: Dict) -> Optional[Tuple]:
         """
         sort keys first
         """
-        if len(attrs) == 0:
+        if attrs is None or len(attrs) == 0:
             return None
 
         lst = [(key, attrs[key]) for key in sorted(attrs.keys())]
         return tuple(lst)
 
-    def put(self, val: float, attrs: Dict) -> None:
+    def put(self, val: float, attrs: Dict):
         """
-        attrs contains even elements
+        if attrs is None or empty, nothing will happen
         """
+        if attrs is None or len(attrs) == 0:
+            print(f"None key for { attrs }")
+            return
+
         tuple_key = self._dict_to_tuple(attrs)
         self._cost.setdefault(tuple_key, 0)
         self._cost[tuple_key] += val
 
     def observation_callback(self):
+        """
+        _cost will be reset each time being called
+        """
+
         def callback(_: CallbackOptions):
             lst = [
                 Observation(val, dict(tuple_key))
