@@ -156,11 +156,12 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         metadata: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
     ) -> Any:
-        """Run when chain starts running."""
+        # TODO(yuanbohan): remove this print in the near future
+        print(f"on_chain_start. { kwargs = }")
+        self._time_tables.set(_SPAN_NAME_CHAIN, run_id)
         attrs = {
             "metadata": metadata,
             "tags": tags,
-            "kwargs": kwargs,
         }
         if self._verbose:
             attrs["inputs"] = _parse_input(inputs)
@@ -175,10 +176,10 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         parent_run_id: Union[UUID, None] = None,
         **kwargs: Any,
     ) -> Any:
-        """Run when chain ends running."""
-        attrs = {
-            "kwargs": kwargs,
-        }
+        # TODO(yuanbohan): remove this print in the near future
+        print(f"on_chain_end. { kwargs = }")
+        self._record_latency(_SPAN_NAME_CHAIN, run_id)
+        attrs = {}
         if self._verbose:
             attrs["outputs"] = _parse_output(outputs)
         self._end_span(_SPAN_NAME_CHAIN, "chain_end", run_id=run_id, attrs=attrs)
@@ -191,14 +192,16 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         parent_run_id: Union[UUID, None] = None,
         **kwargs: Any,
     ) -> Any:
-        """Run when chain errors."""
+        # TODO(yuanbohan): remove this print in the near future
+        print(f"on_chain_error. { kwargs = }")
+        self._record_latency(_SPAN_NAME_CHAIN, run_id)
         attrs = {
             "error": error.__class__.__name__,
-            "kwargs": kwargs,
         }
         self._end_span(
             _SPAN_NAME_CHAIN, "chain_error", run_id=run_id, attrs=attrs, ex=error
         )
+        self._llm_error_count.add(1, attrs | {"type": _SPAN_NAME_CHAIN})
 
     def on_llm_start(
         self,
@@ -212,13 +215,13 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         invocation_params: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
     ) -> Any:
-        """Run when LLM starts running."""
-        self._time_tables.set(run_id)
+        # TODO(yuanbohan): remove this print in the near future
+        print(f"on_llm_start. { kwargs = }")
+        self._time_tables.set(_SPAN_NAME_LLM, run_id)
 
         attrs = {
             "metadata": metadata,
             "tags": tags,
-            "kwargs": kwargs,
             "params": invocation_params,
         }
         if self._verbose:
@@ -238,13 +241,13 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         invocation_params: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
     ) -> Any:
-        """Run when Chat Model starts running."""
-        self._time_tables.set(run_id)
+        # TODO(yuanbohan): remove this print in the near future
+        print(f"on_chat_model_start. { kwargs = }")
+        self._time_tables.set(_SPAN_NAME_LLM, run_id)
 
         attrs = {
             "metadata": metadata,
             "tags": tags,
-            "kwargs": kwargs,
             "params": invocation_params,
         }
         if self._verbose:
@@ -262,8 +265,8 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         parent_run_id: Union[UUID, None] = None,
         **kwargs: Any,
     ) -> Any:
-        latency = self._time_tables.latency_in_ms(run_id)
-
+        # TODO(yuanbohan): remove this print in the near future
+        print(f"on_llm_end. { kwargs = }")
         output = response.llm_output or {}
         token_usage = output.get("token_usage", {})
         completion_tokens = token_usage.get("completion_tokens", 0)
@@ -272,18 +275,17 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         model_name = output.get("model_name", None)
         model_name = standardize_model_name(model_name)
 
+        self._record_latency(_SPAN_NAME_LLM, run_id, {"model": model_name})
         self._collect_llm_metrics(
             model_name=model_name,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
-            latency=latency,
         )
 
         attrs = {
             "model": model_name,
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
-            "kwargs": kwargs,
         }
         if self._verbose:
             attrs["outputs"] = _parse_generations(response.generations[0])
@@ -293,7 +295,6 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
     def _collect_llm_metrics(
         self,
         model_name: str,
-        latency: float,
         prompt_tokens: int,
         completion_tokens: int,
     ):
@@ -310,12 +311,23 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             prompt_cost = get_openai_token_cost_for_model(model_name, prompt_tokens)
             self._completion_cost.put(completion_cost, attrs)
             self._prompt_cost.put(prompt_cost, attrs)
-
-            if latency:
-                self._requests_duration_histogram.record(latency, attrs)
         except Exception as ex:
             attrs["error"] = ex.__class__.__name__
+            attrs["type"] = _SPAN_NAME_LLM
             self._llm_error_count.add(1, attrs)
+
+    def _record_latency(self, name: str, run_id: str, attrs: Dict[str, str] = None):
+        latency = self._time_tables.latency_in_ms(name, run_id)
+        if not latency:
+            return
+
+        attributes = {
+            "type": name,
+        }
+        if attrs:
+            attributes |= attrs
+
+        self._requests_duration_histogram.record(latency, attributes)
 
     def on_llm_error(
         self,
@@ -325,16 +337,16 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         parent_run_id: Union[UUID, None] = None,
         **kwargs: Any,
     ) -> Any:
-        """
-        TODO(yuanbohan): get model name
-        """
+        # TODO(yuanbohan): remove this print in the near future
+        print(f"on_llm_error. { kwargs = }")
+        self._record_latency(_SPAN_NAME_LLM, run_id)
         attrs = {
             "error": error.__class__.__name__,
         }
-        self._llm_error_count.add(1, attrs)
         self._end_span(
             _SPAN_NAME_LLM, "llm_error", run_id=run_id, attrs=attrs, ex=error
         )
+        self._llm_error_count.add(1, attrs | {"type": _SPAN_NAME_LLM})
 
     def on_llm_new_token(self, token: str, **kwargs: Any) -> Any:
         """
@@ -353,11 +365,13 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         metadata: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
     ) -> Any:
+        # TODO(yuanbohan): remove this print in the near future
+        print(f"on_tool_start. { kwargs = }")
+        self._time_tables.set(_SPAN_NAME_TOOL, run_id)
         attrs = {
             "name": serialized.get("name"),
             "tags": tags,
             "metadata": metadata,
-            "kwargs": kwargs,
         }
         if self._verbose:
             attrs["input"] = input_str
@@ -372,9 +386,10 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         parent_run_id: Union[UUID, None] = None,
         **kwargs: Any,
     ) -> Any:
-        attrs = {
-            "kwargs": kwargs,
-        }
+        # TODO(yuanbohan): remove this print in the near future
+        print(f"on_tool_end. { kwargs = }")
+        self._record_latency(_SPAN_NAME_TOOL, run_id)
+        attrs = {}
         if self._verbose:
             attrs["output"] = output
 
@@ -388,13 +403,16 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         parent_run_id: Union[UUID, None] = None,
         **kwargs: Any,
     ) -> Any:
+        # TODO(yuanbohan): remove this print in the near future
+        print(f"on_tool_error. { kwargs = }")
+        self._record_latency(_SPAN_NAME_TOOL, run_id)
         attrs = {
             "error": error.__class__.__name__,
-            "kwargs": kwargs,
         }
         self._end_span(
             _SPAN_NAME_TOOL, "tool_error", run_id=run_id, attrs=attrs, ex=error
         )
+        self._llm_error_count.add(1, attrs | {"type": _SPAN_NAME_TOOL})
 
     def on_agent_action(
         self,
@@ -406,8 +424,10 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         metadata: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
     ) -> Any:
+        # TODO(yuanbohan): remove this print in the near future
+        print(f"on_agent_action. { kwargs = }")
+        self._time_tables.set(_SPAN_NAME_AGENT, run_id)
         attrs = {
-            "kwargs": kwargs,
             "type": action.__class__.__name__,
             "tool": action.tool,
             "log": action.log,
@@ -426,8 +446,10 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         parent_run_id: Union[UUID, None] = None,
         **kwargs: Any,
     ) -> Any:
+        # TODO(yuanbohan): remove this print in the near future
+        print(f"on_agent_finish. { kwargs = }")
+        self._record_latency(_SPAN_NAME_AGENT, run_id)
         attrs = {
-            "kwargs": kwargs,
             "type": finish.__class__.__name__,
             "log": finish.log,
         }

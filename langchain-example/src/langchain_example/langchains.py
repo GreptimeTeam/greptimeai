@@ -7,8 +7,10 @@ from langchain.prompts import (
     SystemMessagePromptTemplate,
     HumanMessagePromptTemplate,
     PromptTemplate,
+    MessagesPlaceholder,
 )
 from langchain.schema import SystemMessage
+from langchain.memory import ConversationBufferMemory
 
 from greptime_llm_langchain_instrument.callback import GreptimeCallbackHandler
 
@@ -62,6 +64,14 @@ tools = [get_word_length]
 system_message = SystemMessage(
     content="You are very powerful assistant, but bad at calculating lengths of words."
 )
-prompt = OpenAIFunctionsAgent.create_prompt(system_message=system_message)
+
+MEMORY_KEY = "chat_history"
+prompt = OpenAIFunctionsAgent.create_prompt(
+    system_message=system_message,
+    extra_prompt_messages=[MessagesPlaceholder(variable_name=MEMORY_KEY)],
+)
+memory = ConversationBufferMemory(memory_key=MEMORY_KEY, return_messages=True)
+
+# prompt = OpenAIFunctionsAgent.create_prompt(system_message=system_message)
 agent = OpenAIFunctionsAgent(llm=ChatOpenAI(temperature=0), tools=tools, prompt=prompt)
-agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+agent_executor = AgentExecutor(agent=agent, tools=tools, memory=memory, verbose=True)
