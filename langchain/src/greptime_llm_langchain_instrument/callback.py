@@ -1,17 +1,20 @@
-from typing import Dict, List, Any, Union
+from typing import Dict, List, Any, Union, Optional, Sequence
 from uuid import UUID
+
+from tenacity import RetryCallState
 
 from opentelemetry import metrics, trace
 from opentelemetry.context.context import Context
 from opentelemetry.trace import set_span_in_context, Status, StatusCode
 from langchain.callbacks.base import BaseCallbackHandler
-from langchain.schema.agent import AgentAction, AgentFinish
-from langchain.schema.messages import BaseMessage, get_buffer_string
-from langchain.schema.output import LLMResult
 from langchain.callbacks.openai_info import (
     get_openai_token_cost_for_model,
     standardize_model_name,
 )
+from langchain.schema.agent import AgentAction, AgentFinish
+from langchain.schema.messages import BaseMessage, get_buffer_string
+from langchain.schema.output import LLMResult
+from langchain.schema.document import Document
 
 from . import (
     _TimeTable,
@@ -151,7 +154,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         inputs: Dict[str, Any],
         *,
         run_id: UUID,
-        parent_run_id: Union[UUID, None] = None,
+        parent_run_id: Optional[UUID] = None,
         tags: Union[List[str], None] = None,
         metadata: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
@@ -173,7 +176,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         outputs: Dict[str, Any],
         *,
         run_id: UUID,
-        parent_run_id: Union[UUID, None] = None,
+        parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
@@ -189,7 +192,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         error: Union[Exception, KeyboardInterrupt],
         *,
         run_id: UUID,
-        parent_run_id: Union[UUID, None] = None,
+        parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
@@ -209,7 +212,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         prompts: List[str],
         *,
         run_id: UUID,
-        parent_run_id: Union[UUID, None] = None,
+        parent_run_id: Optional[UUID] = None,
         tags: Union[List[str], None] = None,
         metadata: Union[Dict[str, Any], None] = None,
         invocation_params: Union[Dict[str, Any], None] = None,
@@ -235,7 +238,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         messages: List[List[BaseMessage]],
         *,
         run_id: UUID,
-        parent_run_id: Union[UUID, None] = None,
+        parent_run_id: Optional[UUID] = None,
         tags: Union[List[str], None] = None,
         metadata: Union[Dict[str, Any], None] = None,
         invocation_params: Union[Dict[str, Any], None] = None,
@@ -262,7 +265,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         response: LLMResult,
         *,
         run_id: UUID,
-        parent_run_id: Union[UUID, None] = None,
+        parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
@@ -334,7 +337,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         error: Union[Exception, KeyboardInterrupt],
         *,
         run_id: UUID,
-        parent_run_id: Union[UUID, None] = None,
+        parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
@@ -360,7 +363,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         input_str: str,
         *,
         run_id: UUID,
-        parent_run_id: Union[UUID, None] = None,
+        parent_run_id: Optional[UUID] = None,
         tags: Union[List[str], None] = None,
         metadata: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
@@ -383,7 +386,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         output: str,
         *,
         run_id: UUID,
-        parent_run_id: Union[UUID, None] = None,
+        parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
@@ -400,7 +403,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         error: Union[Exception, KeyboardInterrupt],
         *,
         run_id: UUID,
-        parent_run_id: Union[UUID, None] = None,
+        parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
@@ -419,7 +422,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         action: AgentAction,
         *,
         run_id: UUID,
-        parent_run_id: Union[UUID, None] = None,
+        parent_run_id: Optional[UUID] = None,
         tags: Union[List[str], None] = None,
         metadata: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
@@ -443,7 +446,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         finish: AgentFinish,
         *,
         run_id: UUID,
-        parent_run_id: Union[UUID, None] = None,
+        parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
@@ -456,6 +459,51 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         if self._verbose:
             attrs["output"] = _parse_output(finish.return_values)
         self._end_span(_SPAN_NAME_AGENT, "agent_finish", run_id=run_id, attrs=attrs)
+
+    def on_retriever_start(
+        self,
+        serialized: Dict[str, Any],
+        query: str,
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> Any:
+        print(
+            f"on_retriever_start. {run_id=} {parent_run_id=} \n{query=} {serialized=} {tags=} {metadata=} {kwargs=}"
+        )
+
+    def on_retriever_error(
+        self,
+        error: Union[Exception, KeyboardInterrupt],
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> Any:
+        print(f"on_retriever_error. {run_id=} {parent_run_id=} \n{error=}{kwargs=}")
+
+    def on_retriever_end(
+        self,
+        documents: Sequence[Document],
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> Any:
+        print(f"on_retriever_end. {run_id=} {parent_run_id=} \n{kwargs=} {documents=}")
+
+    def on_retry(
+        self,
+        retry_state: RetryCallState,
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> Any:
+        print(f"on_retry. {run_id=} {parent_run_id=} {kwargs=}")
 
 
 __all__ = ["GreptimeCallbackHandler"]

@@ -6,9 +6,11 @@ from langchain_example.langchains import (
     callbacks,
     chat_chain,
     agent_executor,
+    build_qa,
 )
 
 app = Flask(__name__)
+qa = build_qa()  # this contains a heavy pre-indexing process
 
 
 @app.route("/langchain", methods=["POST"])
@@ -20,7 +22,8 @@ def langchain():
 
     # return llm_chain.run(message, callbacks=callbacks)
     # return chat_chain.run(message, callbacks=callbacks)
-    return agent_executor.run(message, callbacks=callbacks)
+    # return agent_executor.run(message, callbacks=callbacks)
+    return qa.run(message, callbacks=callbacks)
 
 
 @app.route("/metrics")

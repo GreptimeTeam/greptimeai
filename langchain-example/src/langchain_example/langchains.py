@@ -11,6 +11,13 @@ from langchain.prompts import (
 )
 from langchain.schema import SystemMessage
 from langchain.memory import ConversationBufferMemory
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.vectorstores import Chroma
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.chains import RetrievalQA
+from langchain.document_loaders import UnstructuredURLLoader
+from langchain.indexes import VectorstoreIndexCreator
+
 
 from greptime_llm_langchain_instrument.callback import GreptimeCallbackHandler
 
@@ -75,3 +82,30 @@ memory = ConversationBufferMemory(memory_key=MEMORY_KEY, return_messages=True)
 # prompt = OpenAIFunctionsAgent.create_prompt(system_message=system_message)
 agent = OpenAIFunctionsAgent(llm=ChatOpenAI(temperature=0), tools=tools, prompt=prompt)
 agent_executor = AgentExecutor(agent=agent, tools=tools, memory=memory, verbose=True)
+
+
+def build_qa():
+    """
+    1. download text
+    2. prepare documents
+    3. embedding from OpenAI, and store in Chroma
+    4. return this RetrievalQA object
+    """
+    urls = [
+        "https://raw.githubusercontent.com/langchain-ai/langchain/4322b246aa6c2c0f910c5acde4f6385ee7832373/docs/extras/modules/state_of_the_union.txt"
+    ]
+    loader = UnstructuredURLLoader(urls=urls)
+    documents = loader.load()
+
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    texts = text_splitter.split_documents(documents)
+
+    embeddings = OpenAIEmbeddings()
+    chroma = Chroma.from_documents(texts, embeddings, collection_name="state-of-union")
+
+    return RetrievalQA.from_chain_type(
+        llm=OpenAI(),
+        chain_type="stuff",
+        retriever=chroma.as_retriever(),
+    )
+    # index = VectorstoreIndexCreator().from_loaders([loader])
