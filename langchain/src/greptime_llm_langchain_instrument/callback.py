@@ -23,11 +23,14 @@ from . import (
     _parse_input,
     _parse_output,
     _parse_generations,
+    _parse_documents,
     _sanitate_attributes,
+    _get_serialized_id,
     _SPAN_NAME_AGENT,
     _SPAN_NAME_LLM,
     _SPAN_NAME_TOOL,
     _SPAN_NAME_CHAIN,
+    _SPAN_NAME_RETRIEVER,
 )
 
 
@@ -160,12 +163,14 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
-        print(f"on_chain_start. { kwargs = }")
-        self._time_tables.set(_SPAN_NAME_CHAIN, run_id)
+        print(f"on_chain_start. { run_id =} { parent_run_id =} { kwargs = }")
         attrs = {
+            "serialized": serialized,
+            "class_name": _get_serialized_id(serialized),
             "metadata": metadata,
             "tags": tags,
         }
+
         if self._verbose:
             attrs["inputs"] = _parse_input(inputs)
 
@@ -180,11 +185,11 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
-        print(f"on_chain_end. { kwargs = }")
-        self._record_latency(_SPAN_NAME_CHAIN, run_id)
+        print(f"on_chain_end. { run_id =} { parent_run_id =} { kwargs = }")
         attrs = {}
         if self._verbose:
             attrs["outputs"] = _parse_output(outputs)
+
         self._end_span(_SPAN_NAME_CHAIN, "chain_end", run_id=run_id, attrs=attrs)
 
     def on_chain_error(
@@ -196,11 +201,11 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
-        print(f"on_chain_error. { kwargs = }")
-        self._record_latency(_SPAN_NAME_CHAIN, run_id)
+        print(f"on_chain_error. { run_id =} { parent_run_id =} { kwargs = }")
         attrs = {
             "error": error.__class__.__name__,
         }
+
         self._end_span(
             _SPAN_NAME_CHAIN, "chain_error", run_id=run_id, attrs=attrs, ex=error
         )
@@ -219,10 +224,11 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
-        print(f"on_llm_start. { kwargs = }")
-        self._time_tables.set(_SPAN_NAME_LLM, run_id)
+        print(f"on_llm_start. { run_id =} { parent_run_id =} { kwargs = }")
 
         attrs = {
+            "serialized": serialized,
+            "class_name": _get_serialized_id(serialized),
             "metadata": metadata,
             "tags": tags,
             "params": invocation_params,
@@ -230,6 +236,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         if self._verbose:
             attrs["prompts"] = prompts
 
+        self._start_latency(_SPAN_NAME_LLM, run_id)
         self._start_span(_SPAN_NAME_LLM, "llm_start", run_id, parent_run_id, attrs)
 
     def on_chat_model_start(
@@ -245,10 +252,10 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
-        print(f"on_chat_model_start. { kwargs = }")
-        self._time_tables.set(_SPAN_NAME_LLM, run_id)
-
+        print(f"on_chat_model_start. { run_id =} { parent_run_id =} { kwargs = }")
         attrs = {
+            "serialized": serialized,
+            "class_name": _get_serialized_id(serialized),
             "metadata": metadata,
             "tags": tags,
             "params": invocation_params,
@@ -256,6 +263,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         if self._verbose:
             attrs["messages"] = get_buffer_string(messages[0])
 
+        self._start_latency(_SPAN_NAME_LLM, run_id)
         self._start_span(
             _SPAN_NAME_LLM, "chat_model_start", run_id, parent_run_id, attrs
         )
@@ -269,7 +277,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
-        print(f"on_llm_end. { kwargs = }")
+        print(f"on_llm_end. { run_id =} { parent_run_id =} { kwargs = }")
         output = response.llm_output or {}
         token_usage = output.get("token_usage", {})
         completion_tokens = token_usage.get("completion_tokens", 0)
@@ -278,7 +286,6 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         model_name = output.get("model_name", None)
         model_name = standardize_model_name(model_name)
 
-        self._record_latency(_SPAN_NAME_LLM, run_id, {"model": model_name})
         self._collect_llm_metrics(
             model_name=model_name,
             prompt_tokens=prompt_tokens,
@@ -293,6 +300,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         if self._verbose:
             attrs["outputs"] = _parse_generations(response.generations[0])
 
+        self._end_latency(_SPAN_NAME_LLM, run_id, {"model": model_name})
         self._end_span(_SPAN_NAME_LLM, "llm_end", run_id=run_id, attrs=attrs)
 
     def _collect_llm_metrics(
@@ -319,7 +327,10 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             attrs["type"] = _SPAN_NAME_LLM
             self._llm_error_count.add(1, attrs)
 
-    def _record_latency(self, name: str, run_id: str, attrs: Dict[str, str] = None):
+    def _start_latency(self, name: str, run_id: str):
+        self._time_tables.set(name, run_id)
+
+    def _end_latency(self, name: str, run_id: str, attrs: Dict[str, str] = None):
         latency = self._time_tables.latency_in_ms(name, run_id)
         if not latency:
             return
@@ -341,11 +352,12 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
-        print(f"on_llm_error. { kwargs = }")
-        self._record_latency(_SPAN_NAME_LLM, run_id)
+        print(f"on_llm_error. { run_id =} { parent_run_id =} { kwargs = }")
         attrs = {
             "error": error.__class__.__name__,
         }
+
+        self._end_latency(_SPAN_NAME_LLM, run_id)
         self._end_span(
             _SPAN_NAME_LLM, "llm_error", run_id=run_id, attrs=attrs, ex=error
         )
@@ -369,16 +381,18 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
-        print(f"on_tool_start. { kwargs = }")
-        self._time_tables.set(_SPAN_NAME_TOOL, run_id)
+        print(f"on_tool_start. { run_id = } { parent_run_id = } { kwargs = }")
         attrs = {
-            "name": serialized.get("name"),
+            "serialized": serialized,
+            "class_name": _get_serialized_id(serialized),
+            "tool_name": serialized.get("name"),
             "tags": tags,
             "metadata": metadata,
         }
         if self._verbose:
             attrs["input"] = input_str
 
+        self._start_latency(_SPAN_NAME_TOOL, run_id)
         self._start_span(_SPAN_NAME_TOOL, "tool_start", run_id, parent_run_id, attrs)
 
     def on_tool_end(
@@ -390,12 +404,12 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
-        print(f"on_tool_end. { kwargs = }")
-        self._record_latency(_SPAN_NAME_TOOL, run_id)
+        print(f"on_tool_end. { run_id =} { parent_run_id =} { kwargs = }")
         attrs = {}
         if self._verbose:
             attrs["output"] = output
 
+        self._end_latency(_SPAN_NAME_TOOL, run_id)
         self._end_span(_SPAN_NAME_TOOL, "tool_end", run_id=run_id, attrs=attrs)
 
     def on_tool_error(
@@ -407,11 +421,12 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
-        print(f"on_tool_error. { kwargs = }")
-        self._record_latency(_SPAN_NAME_TOOL, run_id)
+        print(f"on_tool_error. { run_id =} { parent_run_id =} { kwargs = }")
         attrs = {
             "error": error.__class__.__name__,
         }
+
+        self._end_latency(_SPAN_NAME_TOOL, run_id)
         self._end_span(
             _SPAN_NAME_TOOL, "tool_error", run_id=run_id, attrs=attrs, ex=error
         )
@@ -428,8 +443,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
-        print(f"on_agent_action. { kwargs = }")
-        self._time_tables.set(_SPAN_NAME_AGENT, run_id)
+        print(f"on_agent_action. { run_id =} { parent_run_id =} { kwargs = }")
         attrs = {
             "type": action.__class__.__name__,
             "tool": action.tool,
@@ -439,6 +453,8 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         }
         if self._verbose:
             attrs["input"] = _parse_input(action.tool_input)
+
+        self._start_latency(_SPAN_NAME_AGENT, run_id)
         self._start_span(_SPAN_NAME_AGENT, "agent_action", run_id, parent_run_id, attrs)
 
     def on_agent_finish(
@@ -450,14 +466,15 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
-        print(f"on_agent_finish. { kwargs = }")
-        self._record_latency(_SPAN_NAME_AGENT, run_id)
+        print(f"on_agent_finish. { run_id =} { parent_run_id =} { kwargs = }")
         attrs = {
             "type": finish.__class__.__name__,
             "log": finish.log,
         }
         if self._verbose:
             attrs["output"] = _parse_output(finish.return_values)
+
+        self._end_latency(_SPAN_NAME_AGENT, run_id)
         self._end_span(_SPAN_NAME_AGENT, "agent_finish", run_id=run_id, attrs=attrs)
 
     def on_retriever_start(
@@ -471,8 +488,19 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
-        print(
-            f"on_retriever_start. {run_id=} {parent_run_id=} \n{query=} {serialized=} {tags=} {metadata=} {kwargs=}"
+        print(f"on_retriever_start. {run_id=} {parent_run_id=} {kwargs=}")
+        attrs = {
+            "serialized": serialized,
+            "class_name": _get_serialized_id(serialized),
+            "tags": tags,
+            "metadata": metadata,
+        }
+        if self._verbose:
+            attrs["query"] = query
+
+        self._start_latency(_SPAN_NAME_RETRIEVER, run_id)
+        self._start_span(
+            _SPAN_NAME_RETRIEVER, "retriever_start", run_id, parent_run_id, attrs
         )
 
     def on_retriever_error(
@@ -483,7 +511,18 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
-        print(f"on_retriever_error. {run_id=} {parent_run_id=} \n{error=}{kwargs=}")
+        print(f"on_retriever_error. {run_id=} {parent_run_id=} {kwargs=}")
+        attrs = {
+            "error": error.__class__.__name__,
+        }
+        self._end_latency(_SPAN_NAME_RETRIEVER, run_id)
+        self._end_span(
+            _SPAN_NAME_RETRIEVER,
+            "retriever_error",
+            run_id=run_id,
+            attrs=attrs,
+            ex=error,
+        )
 
     def on_retriever_end(
         self,
@@ -491,9 +530,20 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
+        tags: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> Any:
-        print(f"on_retriever_end. {run_id=} {parent_run_id=} \n{kwargs=} {documents=}")
+        print(f"on_retriever_end. {run_id=} {parent_run_id=} {kwargs=}")
+        attrs = {
+            "tags": tags,
+        }
+        if self._verbose:
+            attrs["docs"] = _parse_documents(documents)
+
+        self._end_latency(_SPAN_NAME_RETRIEVER, run_id)
+        self._end_span(
+            _SPAN_NAME_RETRIEVER, "retriever_end", run_id=run_id, attrs=attrs
+        )
 
     def on_retry(
         self,
@@ -503,7 +553,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
-        print(f"on_retry. {run_id=} {parent_run_id=} {kwargs=}")
+        print(f"on_retry. {run_id=} {parent_run_id=} {retry_state=} {kwargs=}")
 
 
 __all__ = ["GreptimeCallbackHandler"]

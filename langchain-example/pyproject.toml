@@ -28,7 +28,6 @@ build-backend = "hatchling.build"
 [tool.rye]
 managed = true
 dev-dependencies = [
-    "greptime-llm-langchain-instrument @ file:///home/yuanbo/workspace/github.com/greptime-llm-instrument/langchain-example/../langchain",
 ]
 
 [tool.hatch.metadata]

@@ -96,16 +96,20 @@ def build_qa():
     ]
     loader = UnstructuredURLLoader(urls=urls)
     documents = loader.load()
+    print("finished loading")
 
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
     texts = text_splitter.split_documents(documents)
+    print("finished spliting")
 
     embeddings = OpenAIEmbeddings()
     chroma = Chroma.from_documents(texts, embeddings, collection_name="state-of-union")
+    print("finished embedding")
 
     return RetrievalQA.from_chain_type(
         llm=OpenAI(),
         chain_type="stuff",
         retriever=chroma.as_retriever(),
+        callbacks=callbacks,
     )
     # index = VectorstoreIndexCreator().from_loaders([loader])

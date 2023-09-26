@@ -5,11 +5,23 @@ from opentelemetry.metrics import Observation, CallbackOptions
 from opentelemetry.trace import Span
 from langchain.schema.messages import BaseMessage
 from langchain.schema import Generation, ChatGeneration
+from langchain.schema.document import Document
 
 _SPAN_NAME_CHAIN = "chain"
 _SPAN_NAME_AGENT = "agent"
 _SPAN_NAME_LLM = "llm"
 _SPAN_NAME_TOOL = "tool"
+_SPAN_NAME_RETRIEVER = "retriever"
+
+
+def _get_serialized_id(serialized: Dict[str, Any]) -> Optional[str]:
+    """
+    get id if exist
+    """
+    ids = serialized.get("id")
+    if ids and isinstance(ids, list):
+        return ids[len(ids) - 1]
+    return None
 
 
 def _is_valid_otel_attributes_value_type(val: Any) -> bool:
@@ -23,40 +35,23 @@ def _sanitate_attributes(attrs: Dict[str, Any]) -> Dict[str, Any]:
     """
     prepare attributes value to any of ['bool', 'str', 'bytes', 'int', 'float']
     or a sequence of these types
-
-    when value is List[Dict] or Dict, try to use the key,value pair of Dict
-    otherwise use str function directly
-
     """
     result = {}
 
-    def put_dict_to_result(prefix: str, attrs: Dict[str, Any]):
-        for key, val in attrs.items():
-            new_key = f"{prefix}.{key}"
-            if _is_valid_otel_attributes_value_type(val):
-                result[new_key] = val
+    def _sanitate_list(lst: list) -> list:
+        result = []
+        for item in lst:
+            if _is_valid_otel_attributes_value_type(item):
+                result.append(item)
             else:
-                result[new_key] = str(val)
+                result.append(str(item))
+        return result
 
     for key, val in attrs.items():
         if _is_valid_otel_attributes_value_type(val):
             result[key] = val
         elif isinstance(val, list):
-            new_list = []
-            dict_count = 0
-            for list_val in val:
-                if _is_valid_otel_attributes_value_type(list_val):
-                    new_list.append(list_val)
-                elif isinstance(list_val, dict):
-                    prefix = key if dict_count == 0 else f"{key}.{dict_count}"
-                    put_dict_to_result(prefix, list_val)
-                    dict_count += 1
-                else:
-                    new_list.append(str(list_val))
-            if len(new_list) > 0:
-                result[key] = new_list
-        elif isinstance(val, dict):
-            put_dict_to_result(key, val)
+            result[key] = _sanitate_list(val)
         else:
             result[key] = str(val)
 
@@ -138,6 +133,23 @@ def _parse_generations(gens: List[Generation]) -> List[Dict[str, Any]]:
     """
     if gens and len(gens) > 0:
         return [_parse_generation(gen) for gen in gens]
+
+    return None
+
+
+def _parse_documents(docs: List[Document]) -> List[Dict[str, Any]]:
+    """
+    parse LLMResult.generations[0] to structured fields
+    """
+
+    def _parse_doc(doc: Document) -> Dict[str, Any]:
+        return {
+            "content": doc.page_content,
+            "metadata": doc.metadata,
+        }
+
+    if docs and len(docs) > 0:
+        return [_parse_doc(doc) for doc in docs]
 
     return None
 

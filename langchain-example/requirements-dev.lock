@@ -35,7 +35,6 @@ frozenlist==1.4.0
 fsspec==2023.9.2
 googleapis-common-protos==1.60.0
 greenlet==2.0.2
-greptime-llm-langchain-instrument @ file:///home/yuanbo/workspace/github.com/greptime-llm-instrument/langchain-example/../langchain
 h11==0.14.0
 httptools==0.6.0
 huggingface-hub==0.16.4
