@@ -8,6 +8,12 @@ from langchain_example.langchains import (
     agent_executor,
     build_qa,
 )
+
+from langchain_example.llm import (
+    llm_chat_chain,
+    build_qa,
+)
+
 from langchain_example.llmonitors import (
     llmonitor_callbacks,
     llmonitor_chat_chain,
@@ -30,6 +36,13 @@ def langchain():
     return agent_executor.run(message, callbacks=callbacks)
     # return qa.run(message, callbacks=callbacks)
 
+@app.route("/llm", methods=["POST"])
+def llm():
+    """
+    to chat
+    """
+    message = request.json["message"]
+    return llm_chat_chain.run(message, callbacks=callbacks)
 
 @app.route("/llmonitor", methods=["POST"])
 def llmonitor():
