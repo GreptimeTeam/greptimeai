@@ -13,7 +13,7 @@ from langchain.callbacks.openai_info import (
 )
 from langchain.schema.agent import AgentAction, AgentFinish
 from langchain.schema.messages import BaseMessage, get_buffer_string
-from langchain.schema.output import LLMResult
+from langchain.schema.output import ChatGenerationChunk, GenerationChunk, LLMResult
 from langchain.schema.document import Document
 
 from . import (
@@ -106,7 +106,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
     ):
         attrs = _sanitate_attributes(attrs)
 
-        def start_span(ctx: Context = None):
+        def _do_start_span(ctx: Context = None):
             span = self._tracer.start_span(span_name, context=ctx)
             span.add_event(event, attributes=attrs)
             self._trace_tables.put_span(span_name, run_id, span)
@@ -118,7 +118,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             parent_span = self._trace_tables.get_id_span(parent_run_id)
             if parent_span:
                 context = set_span_in_context(parent_span)
-                start_span(context)
+                _do_start_span(context)
             else:
                 print(
                     f"unexpected behavior. parent span of { parent_run_id } not found."
@@ -127,9 +127,17 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             id_span = self._trace_tables.get_id_span(run_id)
             if id_span:
                 context = set_span_in_context(id_span)
-                start_span(context)
+                _do_start_span(context)
             else:
-                start_span()
+                _do_start_span()
+
+    def _add_span_event(self, event: str, run_id: str, attrs: Dict[str, Any]):
+        attrs = _sanitate_attributes(attrs)
+        span = self._trace_tables.get_id_span(run_id)
+        if span:
+            span.add_event(event, attributes=attrs)
+        else:
+            print(f"{run_id} span not found for {event}")
 
     def _end_span(
         self,
@@ -363,11 +371,25 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         )
         self._llm_error_count.add(1, attrs | {"type": _SPAN_NAME_LLM})
 
-    def on_llm_new_token(self, token: str, **kwargs: Any) -> Any:
+    def on_llm_new_token(
+        self,
+        token: str,
+        *,
+        chunk: Optional[Union[GenerationChunk, ChatGenerationChunk]] = None,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> Any:
         """
-        Run on new LLM token. Only available when streaming is enabled.
-        TODO(yuanbohan): support stream metrics, traces
+        on_llm_start, or on_chat_model_start has already startet this span.
         """
+        if not self._verbose:
+            return
+
+        attrs = {
+            "token": token,
+        }
+        self._add_span_event("streaming", run_id, attrs)
 
     def on_tool_start(
         self,
@@ -553,7 +575,10 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
-        print(f"on_retry. {run_id=} {parent_run_id=} {retry_state=} {kwargs=}")
+        attrs = {
+            "retry_state": f"{retry_state}",
+        }
+        self._add_span_event("retry", run_id, attrs)
 
 
 __all__ = ["GreptimeCallbackHandler"]

@@ -45,6 +45,18 @@ llm_chain = LLMChain(
     callbacks=callbacks,
 )
 
+stream_llm_chain = LLMChain(
+    llm=OpenAI(streaming=True),
+    prompt=PromptTemplate.from_template("{text}"),
+    callbacks=callbacks,
+)
+
+retry_llm_chain = LLMChain(
+    llm=ChatOpenAI(request_timeout=1, max_retries=3),
+    prompt=PromptTemplate.from_template("{text}"),
+    callbacks=callbacks,
+)
+
 TEMPLATE = "You are a helpful assistant"
 system_message_prompt = SystemMessagePromptTemplate.from_template(TEMPLATE)
 HUMAN_TEMPLATE = "{text}"

@@ -182,7 +182,7 @@ class _TraceTable:
 
     def get_id_span(self, run_id: str) -> Span:
         """
-        get first span if the matched span list of run_id exist
+        get last span if the matched span list of run_id exist
         """
         span_list = self._traces.get(run_id, [])
         size = len(span_list)

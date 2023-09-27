@@ -30,7 +30,7 @@ TODO(yuanbohan): make example a docker image, and compose up all services in con
 then Flask will listen on :8000, and you can use cURL to try
 
 ```
-curl -X POST -H 'Content-Type: application/json' http://127.0.0.1:8000/langchain -d '{"message":"give me a baby name"}'
+curl -X POST -H 'Content-Type: application/json' http://127.0.0.1:8000/langchain/chat -d '{"message":"give me a baby name"}'
 ```
 
 ## Explore metrics and traces
