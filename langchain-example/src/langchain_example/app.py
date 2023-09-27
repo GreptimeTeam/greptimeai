@@ -26,20 +26,21 @@ def langchain(scenario: str):
     to chat
     """
     print(f"{ scenario = }")
+    metadata = {"user_id": 927}
     message = request.json["message"]
     if scenario == "retry":
-        return retry_llm_chain.run(message, callbacks=callbacks)
+        return retry_llm_chain.run(message, callbacks=callbacks, metadata=metadata)
     elif scenario == "streaming":
-        return stream_llm_chain.run(message, callbacks=callbacks)
+        return stream_llm_chain.run(message, callbacks=callbacks, metadata=metadata)
     elif scenario == "llm":
-        return llm_chain.run(message, callbacks=callbacks)
+        return llm_chain.run(message, callbacks=callbacks, metadata=metadata)
     elif scenario == "agent":
-        return agent_executor.run(message, callbacks=callbacks)
+        return agent_executor.run(message, callbacks=callbacks, metadata=metadata)
     elif scenario == "retrieval":
-        # return qa.run(message, callbacks=callbacks)
+        # return qa.run(message, callbacks=callbacks, metadata=metadata)
         pass
     else:
-        return chat_chain.run(message, callbacks=callbacks)
+        return chat_chain.run(message, callbacks=callbacks, metadata=metadata)
 
 
 @app.route("/llmonitor", methods=["POST"])

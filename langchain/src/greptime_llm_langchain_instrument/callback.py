@@ -26,6 +26,7 @@ from . import (
     _parse_documents,
     _sanitate_attributes,
     _get_serialized_id,
+    _get_user_id,
     _SPAN_NAME_AGENT,
     _SPAN_NAME_LLM,
     _SPAN_NAME_TOOL,
@@ -34,12 +35,12 @@ from . import (
 )
 
 
-class _Collector(skip_otel_init=False, verbose=True):
+class _Collector:
     """
     collect metrics and traces
     """
 
-    def __init__(self, skip_otel_init=False, verbose=True) -> None:
+    def __init__(self, skip_otel_init=False, verbose=True):
         """
         TODO(yuanbohan): support skip_otel_init parameters
         """
@@ -101,12 +102,15 @@ class _Collector(skip_otel_init=False, verbose=True):
         event: str,
         run_id: str,
         parent_run_id: str,
+        user_id: str,
         attrs: Dict[str, Any],
     ):
         attrs = _sanitate_attributes(attrs)
 
         def _do_start_span(ctx: Context = None):
             span = self._tracer.start_span(span_name, context=ctx)
+            if user_id:
+                span.set_attribute("user_id", user_id)
             span.add_event(event, attributes=attrs)
             self._trace_tables.put_span(span_name, run_id, span)
 
@@ -199,7 +203,7 @@ class _Collector(skip_otel_init=False, verbose=True):
         self._requests_duration_histogram.record(latency, attributes)
 
 
-class GreptimeCallbackHandler(BaseCallbackHandler, _Collector):
+class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
     """
     Greptime LangChain callback handler to collect metrics and traces.
     """
@@ -217,6 +221,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler, _Collector):
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_chain_start. { run_id =} { parent_run_id =} { kwargs = }")
+        user_id = _get_user_id(metadata)
         attrs = {
             "serialized": serialized,
             "class_name": _get_serialized_id(serialized),
@@ -227,7 +232,14 @@ class GreptimeCallbackHandler(BaseCallbackHandler, _Collector):
         if self._verbose:
             attrs["inputs"] = _parse_input(inputs)
 
-        self._start_span(_SPAN_NAME_CHAIN, "chain_start", run_id, parent_run_id, attrs)
+        self._start_span(
+            _SPAN_NAME_CHAIN,
+            event="chain_start",
+            run_id=run_id,
+            parent_run_id=parent_run_id,
+            user_id=user_id,
+            attrs=attrs,
+        )
 
     def on_chain_end(
         self,
@@ -278,7 +290,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler, _Collector):
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_llm_start. { run_id =} { parent_run_id =} { kwargs = }")
-
+        user_id = _get_user_id(metadata)
         attrs = {
             "serialized": serialized,
             "class_name": _get_serialized_id(serialized),
@@ -290,7 +302,14 @@ class GreptimeCallbackHandler(BaseCallbackHandler, _Collector):
             attrs["prompts"] = prompts
 
         self._start_latency(_SPAN_NAME_LLM, run_id)
-        self._start_span(_SPAN_NAME_LLM, "llm_start", run_id, parent_run_id, attrs)
+        self._start_span(
+            _SPAN_NAME_LLM,
+            event="llm_start",
+            run_id=run_id,
+            parent_run_id=parent_run_id,
+            user_id=user_id,
+            attrs=attrs,
+        )
 
     def on_chat_model_start(
         self,
@@ -306,6 +325,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler, _Collector):
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_chat_model_start. { run_id =} { parent_run_id =} { kwargs = }")
+        user_id = _get_user_id(metadata)
         attrs = {
             "serialized": serialized,
             "class_name": _get_serialized_id(serialized),
@@ -318,7 +338,12 @@ class GreptimeCallbackHandler(BaseCallbackHandler, _Collector):
 
         self._start_latency(_SPAN_NAME_LLM, run_id)
         self._start_span(
-            _SPAN_NAME_LLM, "chat_model_start", run_id, parent_run_id, attrs
+            _SPAN_NAME_LLM,
+            event="chat_model_start",
+            run_id=run_id,
+            parent_run_id=parent_run_id,
+            user_id=user_id,
+            attrs=attrs,
         )
 
     def on_llm_end(
@@ -409,6 +434,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler, _Collector):
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_tool_start. { run_id = } { parent_run_id = } { kwargs = }")
+        user_id = _get_user_id(metadata)
         attrs = {
             "serialized": serialized,
             "class_name": _get_serialized_id(serialized),
@@ -420,7 +446,14 @@ class GreptimeCallbackHandler(BaseCallbackHandler, _Collector):
             attrs["input"] = input_str
 
         self._start_latency(_SPAN_NAME_TOOL, run_id)
-        self._start_span(_SPAN_NAME_TOOL, "tool_start", run_id, parent_run_id, attrs)
+        self._start_span(
+            _SPAN_NAME_TOOL,
+            event="tool_start",
+            run_id=run_id,
+            parent_run_id=parent_run_id,
+            user_id=user_id,
+            attrs=attrs,
+        )
 
     def on_tool_end(
         self,
@@ -471,6 +504,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler, _Collector):
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_agent_action. { run_id =} { parent_run_id =} { kwargs = }")
+        user_id = _get_user_id(metadata)
         attrs = {
             "type": action.__class__.__name__,
             "tool": action.tool,
@@ -482,7 +516,14 @@ class GreptimeCallbackHandler(BaseCallbackHandler, _Collector):
             attrs["input"] = _parse_input(action.tool_input)
 
         self._start_latency(_SPAN_NAME_AGENT, run_id)
-        self._start_span(_SPAN_NAME_AGENT, "agent_action", run_id, parent_run_id, attrs)
+        self._start_span(
+            _SPAN_NAME_AGENT,
+            event="agent_action",
+            run_id=run_id,
+            parent_run_id=parent_run_id,
+            user_id=user_id,
+            attrs=attrs,
+        )
 
     def on_agent_finish(
         self,
@@ -516,6 +557,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler, _Collector):
         **kwargs: Any,
     ) -> Any:
         print(f"on_retriever_start. {run_id=} {parent_run_id=} {kwargs=}")
+        user_id = _get_user_id(metadata)
         attrs = {
             "serialized": serialized,
             "class_name": _get_serialized_id(serialized),
@@ -527,7 +569,12 @@ class GreptimeCallbackHandler(BaseCallbackHandler, _Collector):
 
         self._start_latency(_SPAN_NAME_RETRIEVER, run_id)
         self._start_span(
-            _SPAN_NAME_RETRIEVER, "retriever_start", run_id, parent_run_id, attrs
+            _SPAN_NAME_RETRIEVER,
+            event="retriever_start",
+            run_id=run_id,
+            parent_run_id=parent_run_id,
+            user_id=user_id,
+            attrs=attrs,
         )
 
     def on_retriever_error(

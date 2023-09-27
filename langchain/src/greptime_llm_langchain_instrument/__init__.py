@@ -14,11 +14,12 @@ _SPAN_NAME_TOOL = "tool"
 _SPAN_NAME_RETRIEVER = "retriever"
 
 
-def _get_user_id(metadata: Dict[str, Any]) -> str:
+def _get_user_id(metadata: Dict[str, Any]) -> Optional[str]:
     """
     get user id from metadata
     """
-    return metadata.get("user_id")
+    user_id = metadata.get("user_id")
+    return str(user_id) if user_id else None
 
 
 def _get_serialized_id(serialized: Dict[str, Any]) -> Optional[str]:
