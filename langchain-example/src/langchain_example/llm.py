@@ -16,7 +16,6 @@ endpoint_url = "http://127.0.0.1:8000"
 llm_chat_glm = ChatGLM(
     endpoint_url=endpoint_url,
     max_token=80000,
-    history=[["You are a helpful assistant"]],
     top_p=0.9,
     model_kwargs={"sample_model_args": False},
 )
