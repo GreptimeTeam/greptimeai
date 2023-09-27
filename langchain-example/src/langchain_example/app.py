@@ -2,6 +2,8 @@ from flask import Flask, request
 from prometheus_client import generate_latest
 
 from langchain_example.langchains import (
+    stream_llm_chain,
+    retry_llm_chain,
     llm_chain,
     callbacks,
     chat_chain,
@@ -18,17 +20,26 @@ app = Flask(__name__)
 # qa = build_qa()  # this contains a heavy pre-indexing process
 
 
-@app.route("/langchain", methods=["POST"])
-def langchain():
+@app.route("/langchain/<scenario>", methods=["POST"])
+def langchain(scenario: str):
     """
     to chat
     """
+    print(f"{ scenario = }")
     message = request.json["message"]
-
-    # return llm_chain.run(message, callbacks=callbacks)
-    # return chat_chain.run(message, callbacks=callbacks)
-    return agent_executor.run(message, callbacks=callbacks)
-    # return qa.run(message, callbacks=callbacks)
+    if scenario == "retry":
+        return retry_llm_chain.run(message, callbacks=callbacks)
+    elif scenario == "streaming":
+        return stream_llm_chain.run(message, callbacks=callbacks)
+    elif scenario == "llm":
+        return llm_chain.run(message, callbacks=callbacks)
+    elif scenario == "agent":
+        return agent_executor.run(message, callbacks=callbacks)
+    elif scenario == "retrieval":
+        # return qa.run(message, callbacks=callbacks)
+        pass
+    else:
+        return chat_chain.run(message, callbacks=callbacks)
 
 
 @app.route("/llmonitor", methods=["POST"])
@@ -37,6 +48,7 @@ def llmonitor():
     llmonitor demo
     """
     message = request.json["message"]
+
     return llmonitor_chat_chain.run(message, callbacks=llmonitor_callbacks)
     # return llmonitor_agent_executor.run(message, callbacks=llmonitor_callbacks)
 
