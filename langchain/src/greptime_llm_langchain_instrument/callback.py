@@ -34,16 +34,15 @@ from . import (
 )
 
 
-class GreptimeCallbackHandler(BaseCallbackHandler):
+class _Collector(skip_otel_init=False, verbose=True):
     """
-    Greptime LangChain callback handler to collect metrics and traces.
+    collect metrics and traces
     """
 
     def __init__(self, skip_otel_init=False, verbose=True) -> None:
         """
-        TODO(yuanbohan): support skip_otel_init, verbose parameters
+        TODO(yuanbohan): support skip_otel_init parameters
         """
-        super().__init__()
 
         self._skip_otel_init = skip_otel_init
         self._verbose = verbose
@@ -158,6 +157,52 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             span.end()
         else:
             print(f"unexpected behavior. span of { run_id } not found.")
+
+    def _collect_llm_metrics(
+        self,
+        model_name: str,
+        prompt_tokens: int,
+        completion_tokens: int,
+    ):
+        attrs = {
+            "model": model_name,
+        }
+        try:
+            self._prompt_tokens_count.add(prompt_tokens, attrs)
+            self._completion_tokens_count.add(completion_tokens, attrs)
+
+            completion_cost = get_openai_token_cost_for_model(
+                model_name, completion_tokens, is_completion=True
+            )
+            prompt_cost = get_openai_token_cost_for_model(model_name, prompt_tokens)
+            self._completion_cost.put(completion_cost, attrs)
+            self._prompt_cost.put(prompt_cost, attrs)
+        except Exception as ex:
+            attrs["error"] = ex.__class__.__name__
+            attrs["type"] = _SPAN_NAME_LLM
+            self._llm_error_count.add(1, attrs)
+
+    def _start_latency(self, name: str, run_id: str):
+        self._time_tables.set(name, run_id)
+
+    def _end_latency(self, name: str, run_id: str, attrs: Dict[str, str] = None):
+        latency = self._time_tables.latency_in_ms(name, run_id)
+        if not latency:
+            return
+
+        attributes = {
+            "type": name,
+        }
+        if attrs:
+            attributes |= attrs
+
+        self._requests_duration_histogram.record(latency, attributes)
+
+
+class GreptimeCallbackHandler(BaseCallbackHandler, _Collector):
+    """
+    Greptime LangChain callback handler to collect metrics and traces.
+    """
 
     def on_chain_start(
         self,
@@ -310,46 +355,6 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
 
         self._end_latency(_SPAN_NAME_LLM, run_id, {"model": model_name})
         self._end_span(_SPAN_NAME_LLM, "llm_end", run_id=run_id, attrs=attrs)
-
-    def _collect_llm_metrics(
-        self,
-        model_name: str,
-        prompt_tokens: int,
-        completion_tokens: int,
-    ):
-        attrs = {
-            "model": model_name,
-        }
-        try:
-            self._prompt_tokens_count.add(prompt_tokens, attrs)
-            self._completion_tokens_count.add(completion_tokens, attrs)
-
-            completion_cost = get_openai_token_cost_for_model(
-                model_name, completion_tokens, is_completion=True
-            )
-            prompt_cost = get_openai_token_cost_for_model(model_name, prompt_tokens)
-            self._completion_cost.put(completion_cost, attrs)
-            self._prompt_cost.put(prompt_cost, attrs)
-        except Exception as ex:
-            attrs["error"] = ex.__class__.__name__
-            attrs["type"] = _SPAN_NAME_LLM
-            self._llm_error_count.add(1, attrs)
-
-    def _start_latency(self, name: str, run_id: str):
-        self._time_tables.set(name, run_id)
-
-    def _end_latency(self, name: str, run_id: str, attrs: Dict[str, str] = None):
-        latency = self._time_tables.latency_in_ms(name, run_id)
-        if not latency:
-            return
-
-        attributes = {
-            "type": name,
-        }
-        if attrs:
-            attributes |= attrs
-
-        self._requests_duration_histogram.record(latency, attributes)
 
     def on_llm_error(
         self,
