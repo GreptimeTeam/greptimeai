@@ -10,8 +10,8 @@ from langchain.vectorstores import Chroma
 
 from greptime_llm_langchain_instrument.callback import GreptimeCallbackHandler
 
-# default endpoint_url for a local deployed ChatGLM api server
-endpoint_url = "http://127.0.0.1:8000"
+# endpoint_url for a local deployed ChatGLM api server
+endpoint_url = "http://127.0.0.1:8001"
 
 llm_chat_glm = ChatGLM(
     endpoint_url=endpoint_url,
