@@ -10,7 +10,7 @@ from langchain.vectorstores import Chroma
 
 from greptime_llm_langchain_instrument.callback import GreptimeCallbackHandler
 
-# endpoint_url for a local deployed ChatGLM api server
+# endpoint_url for a local deployed ChatGLM API server
 endpoint_url = "http://127.0.0.1:8001"
 
 llm_chat_glm = ChatGLM(
@@ -58,7 +58,7 @@ def build_qa():
     print("finished spliting")
 
     # local embedding model absolute path
-    embeddings = HuggingFaceEmbeddings(model_name='moka-ai/m3e-base', model_kwargs={'device': 'cpu'})
+    embeddings = HuggingFaceEmbeddings(model_name='sentence-transformers/all-MiniLM-L6-v2', model_kwargs={'device': 'cpu'})
 
     chroma = Chroma.from_documents(texts, embeddings, collection_name="state-of-union")
     print("finished embedding")
