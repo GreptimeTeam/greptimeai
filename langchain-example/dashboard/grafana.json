@@ -36,7 +36,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "e329d323-5f53-41a6-aa37-9fcc42310764"
+        "uid": "bd16b7ce-62f1-4124-84f0-4d10cc0771b4"
       },
       "fieldConfig": {
         "defaults": {
@@ -95,7 +95,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
+            "uid": "bd16b7ce-62f1-4124-84f0-4d10cc0771b4"
           },
           "editorMode": "code",
           "expr": "sum by (model) (llm_completion_tokens_cost + llm_prompt_tokens_cost)",
@@ -111,7 +111,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "e329d323-5f53-41a6-aa37-9fcc42310764"
+        "uid": "bd16b7ce-62f1-4124-84f0-4d10cc0771b4"
       },
       "fieldConfig": {
         "defaults": {
@@ -193,7 +193,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
+            "uid": "bd16b7ce-62f1-4124-84f0-4d10cc0771b4"
           },
           "editorMode": "code",
           "expr": "sum by (type) (rate(llm_request_duration_ms_count[$__rate_interval]))",
@@ -209,7 +209,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "e329d323-5f53-41a6-aa37-9fcc42310764"
+        "uid": "bd16b7ce-62f1-4124-84f0-4d10cc0771b4"
       },
       "fieldConfig": {
         "defaults": {
@@ -259,7 +259,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
+            "uid": "bd16b7ce-62f1-4124-84f0-4d10cc0771b4"
           },
           "editorMode": "code",
           "expr": "sum by (name) (llm_errors_total)",
@@ -288,7 +288,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "e329d323-5f53-41a6-aa37-9fcc42310764"
+        "uid": "bd16b7ce-62f1-4124-84f0-4d10cc0771b4"
       },
       "fieldConfig": {
         "defaults": {
@@ -335,7 +335,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
+            "uid": "bd16b7ce-62f1-4124-84f0-4d10cc0771b4"
           },
           "editorMode": "code",
           "expr": "sum by (model) (llm_prompt_tokens_cost)",
@@ -351,7 +351,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "e329d323-5f53-41a6-aa37-9fcc42310764"
+        "uid": "bd16b7ce-62f1-4124-84f0-4d10cc0771b4"
       },
       "fieldConfig": {
         "defaults": {
@@ -398,7 +398,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
+            "uid": "bd16b7ce-62f1-4124-84f0-4d10cc0771b4"
           },
           "editorMode": "code",
           "expr": "sum by (model) (llm_completion_tokens_cost)",
@@ -427,7 +427,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "e329d323-5f53-41a6-aa37-9fcc42310764"
+        "uid": "bd16b7ce-62f1-4124-84f0-4d10cc0771b4"
       },
       "fieldConfig": {
         "defaults": {
@@ -473,7 +473,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
+            "uid": "bd16b7ce-62f1-4124-84f0-4d10cc0771b4"
           },
           "editorMode": "code",
           "expr": "sum by (model) (llm_prompt_tokens_total)",
@@ -489,7 +489,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "e329d323-5f53-41a6-aa37-9fcc42310764"
+        "uid": "bd16b7ce-62f1-4124-84f0-4d10cc0771b4"
       },
       "fieldConfig": {
         "defaults": {
@@ -535,7 +535,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
+            "uid": "bd16b7ce-62f1-4124-84f0-4d10cc0771b4"
           },
           "editorMode": "code",
           "expr": "sum by (model) (llm_completion_tokens_total)",
@@ -564,7 +564,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "e329d323-5f53-41a6-aa37-9fcc42310764"
+        "uid": "bd16b7ce-62f1-4124-84f0-4d10cc0771b4"
       },
       "fieldConfig": {
         "defaults": {
@@ -638,7 +638,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
+            "uid": "bd16b7ce-62f1-4124-84f0-4d10cc0771b4"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(\n    0.95,\n    sum by(le, type) (rate(llm_request_duration_ms_bucket[$__rate_interval]))\n)",
@@ -654,7 +654,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "e329d323-5f53-41a6-aa37-9fcc42310764"
+        "uid": "bd16b7ce-62f1-4124-84f0-4d10cc0771b4"
       },
       "fieldConfig": {
         "defaults": {
@@ -728,7 +728,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ace52c1c-b78f-4b87-826e-469d0372fec4"
+            "uid": "bd16b7ce-62f1-4124-84f0-4d10cc0771b4"
           },
           "editorMode": "code",
           "expr": "sum by (name) (rate(llm_errors_total[$__rate_interval]))",
