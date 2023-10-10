@@ -361,7 +361,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         completion_tokens = token_usage.get("completion_tokens", 0)
         prompt_tokens = token_usage.get("prompt_tokens", 0)
 
-        model_name = output.get("model_name", None)
+        model_name = output.get("model_name", "")
         model_name = standardize_model_name(model_name)
 
         self._collect_llm_metrics(
