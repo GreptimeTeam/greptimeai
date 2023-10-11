@@ -1,4 +1,5 @@
 import unittest
+
 from . import _TraceTable
 
 

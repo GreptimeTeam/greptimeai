@@ -21,7 +21,7 @@ TODO(yuanbohan): make example a docker image, and compose up all services in con
 ## Start service (Optional)
 
 ```
-docker compose -f docker/docker-compose.yml up prometheus clickhouse -d
+docker compose -f docker/docker-compose.yml up prometheus clickhouse jaeger grafana -d
 docker compose -f docker/docker-compose.yml up otel-collector -d
 ```
 
@@ -36,5 +36,5 @@ docker compose -f docker/docker-compose.yml up otel-collector -d
 then Flask will listen on :8000, and you can use cURL to try
 
 ```
-curl -X POST -H 'Content-Type: application/json' http://127.0.0.1:8000/langchain/chat -d '{"message":"give me a baby name"}'
+curl -X POST -H 'Content-Type: application/json' http://127.0.0.1:8000/langchain/chat -d '{"message":"give me a baby name", "user_id": "123"}'
 ```

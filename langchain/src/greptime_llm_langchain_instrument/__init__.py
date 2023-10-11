@@ -1,11 +1,12 @@
 import time
-from typing import Union, Dict, Tuple, Any, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-from opentelemetry.metrics import Observation, CallbackOptions
+from opentelemetry.metrics import CallbackOptions, Observation
 from opentelemetry.trace import Span
-from langchain.schema.messages import BaseMessage
-from langchain.schema import Generation, ChatGeneration
+
+from langchain.schema import ChatGeneration, Generation
 from langchain.schema.document import Document
+from langchain.schema.messages import BaseMessage
 
 _SPAN_NAME_CHAIN = "chain"
 _SPAN_NAME_AGENT = "agent"
@@ -14,12 +15,12 @@ _SPAN_NAME_TOOL = "tool"
 _SPAN_NAME_RETRIEVER = "retriever"
 
 
-def _get_user_id(metadata: Dict[str, Any]) -> Optional[str]:
+def _get_user_id(metadata: Dict[str, Any]) -> str:
     """
     get user id from metadata
     """
     user_id = metadata.get("user_id")
-    return str(user_id) if user_id else None
+    return user_id if user_id else ""
 
 
 def _get_serialized_id(serialized: Dict[str, Any]) -> Optional[str]:

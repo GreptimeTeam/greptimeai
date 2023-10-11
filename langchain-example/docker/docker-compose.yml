@@ -17,15 +17,17 @@ services:
       - 3000:3000
     network_mode: "host"
 
-  # jaeger:
-  #   image: jaegertracing/all-in-one:1.49.0
-  #   container_name: jaeger
-  #   environment:
-  #     - COLLECTOR_OTLP_ENABLED=true
-  #   ports:
-  #     - 16686:16686
-  #     - 4317:4317
-  #     - 4318:4318
+  jaeger:
+    image: jaegertracing/all-in-one:1.49.0
+    container_name: jaeger
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - 16686:16686
+      - 14317:4317
+      - 14318:4318
+      - 14250:14250
+    # network_mode: "host"
 
   clickhouse:
     image: clickhouse/clickhouse-server:23.3
@@ -38,7 +40,7 @@ services:
     ports:
       - 9000:9000 # Native Protocol port (also referred to as ClickHouse TCP protocol).
       - 8123:8123 # HTTP API Port for http requests.
-    network_mode: "host"
+    # network_mode: "host"
     # healthcheck:
     #   test: ["CMD", "curl", "-f", "http://localhost:8123"]
     #   interval: 10s
@@ -50,6 +52,7 @@ services:
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.86.0
+    container_name: otel-collector
     volumes:
       - ./otel-collector-config.yml:/etc/otelcol-contrib/config.yaml
     # depends_on:
