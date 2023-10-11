@@ -1,37 +1,37 @@
-from typing import Dict, List, Any, Union, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
-
-from tenacity import RetryCallState
 
 from opentelemetry import metrics, trace
 from opentelemetry.context.context import Context
-from opentelemetry.trace import set_span_in_context, Status, StatusCode
+from opentelemetry.trace import Status, StatusCode, set_span_in_context
+from tenacity import RetryCallState
+
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks.openai_info import (
     get_openai_token_cost_for_model,
     standardize_model_name,
 )
 from langchain.schema.agent import AgentAction, AgentFinish
+from langchain.schema.document import Document
 from langchain.schema.messages import BaseMessage, get_buffer_string
 from langchain.schema.output import ChatGenerationChunk, GenerationChunk, LLMResult
-from langchain.schema.document import Document
 
 from . import (
-    _TimeTable,
-    _Observation,
-    _TraceTable,
-    _parse_input,
-    _parse_output,
-    _parse_generations,
-    _parse_documents,
-    _sanitate_attributes,
+    _SPAN_NAME_AGENT,
+    _SPAN_NAME_CHAIN,
+    _SPAN_NAME_LLM,
+    _SPAN_NAME_RETRIEVER,
+    _SPAN_NAME_TOOL,
     _get_serialized_id,
     _get_user_id,
-    _SPAN_NAME_AGENT,
-    _SPAN_NAME_LLM,
-    _SPAN_NAME_TOOL,
-    _SPAN_NAME_CHAIN,
-    _SPAN_NAME_RETRIEVER,
+    _Observation,
+    _parse_documents,
+    _parse_generations,
+    _parse_input,
+    _parse_output,
+    _sanitate_attributes,
+    _TimeTable,
+    _TraceTable,
 )
 
 
@@ -98,20 +98,21 @@ class _Collector:
 
     def _start_span(
         self,
-        span_name: str,
-        event: str,
         run_id: str,
         parent_run_id: str,
-        user_id: str,
-        attrs: Dict[str, Any],
+        span_name: str,
+        event_name: str,
+        span_attrs: Dict[str, Any] = None,
+        event_attrs: Dict[str, Any] = None,
     ):
-        attrs = _sanitate_attributes(attrs)
+        span_attrs = _sanitate_attributes(span_attrs)
+        event_attrs = _sanitate_attributes(event_attrs)
 
         def _do_start_span(ctx: Context = None):
-            span = self._tracer.start_span(span_name, context=ctx)
-            if user_id:
-                span.set_attribute("user_id", user_id)
-            span.add_event(event, attributes=attrs)
+            span = self._tracer.start_span(
+                span_name, context=ctx, attributes=span_attrs
+            )
+            span.add_event(event_name, attributes=event_attrs)
             self._trace_tables.put_span(span_name, run_id, span)
 
         if not run_id:
@@ -134,30 +135,32 @@ class _Collector:
             else:
                 _do_start_span()
 
-    def _add_span_event(self, event: str, run_id: str, attrs: Dict[str, Any]):
-        attrs = _sanitate_attributes(attrs)
+    def _add_span_event(
+        self, run_id: str, event_name: str, event_attrs: Dict[str, Any]
+    ):
+        event_attrs = _sanitate_attributes(event_attrs)
         span = self._trace_tables.get_id_span(run_id)
         if span:
-            span.add_event(event, attributes=attrs)
+            span.add_event(event_name, attributes=event_attrs)
         else:
-            print(f"{run_id} span not found for {event}")
+            print(f"{run_id} span not found for {event_name}")
 
     def _end_span(
         self,
-        span_name: str,
-        event: str,
         run_id: str,
-        attrs: Dict[str, Any],
+        span_name: str,
+        event_name: str,
+        event_attrs: Dict[str, Any],
         ex: Exception = None,
     ):
-        attrs = _sanitate_attributes(attrs)
+        event_attrs = _sanitate_attributes(event_attrs)
         span = self._trace_tables.pop_span(span_name, run_id)
         if span:
             if ex:
                 span.record_exception(ex)
             code = StatusCode.ERROR if ex else StatusCode.OK
             span.set_status(Status(code))
-            span.add_event(event, attributes=attrs)
+            span.add_event(event_name, attributes=event_attrs)
             span.end()
         else:
             print(f"unexpected behavior. span of { run_id } not found.")
@@ -182,8 +185,7 @@ class _Collector:
             self._completion_cost.put(completion_cost, attrs)
             self._prompt_cost.put(prompt_cost, attrs)
         except Exception as ex:
-            attrs["error"] = ex.__class__.__name__
-            attrs["type"] = _SPAN_NAME_LLM
+            attrs["error_name"] = ex.__class__.__name__
             self._llm_error_count.add(1, attrs)
 
     def _start_latency(self, name: str, run_id: str):
@@ -221,24 +223,27 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_chain_start. { run_id =} { parent_run_id =} { kwargs = }")
-        user_id = _get_user_id(metadata)
-        attrs = {
-            "serialized": serialized,
-            "class_name": _get_serialized_id(serialized),
+
+        span_attrs = {
+            "user_id": _get_user_id(metadata),
+        }
+
+        event_attrs = {
+            "serialized": serialized,  # this will be removed when lib is stable
+            "type": _get_serialized_id(serialized),
             "metadata": metadata,
             "tags": tags,
         }
-
         if self._verbose:
-            attrs["inputs"] = _parse_input(inputs)
+            event_attrs["inputs"] = _parse_input(inputs)
 
         self._start_span(
-            _SPAN_NAME_CHAIN,
-            event="chain_start",
             run_id=run_id,
             parent_run_id=parent_run_id,
-            user_id=user_id,
-            attrs=attrs,
+            span_name=_SPAN_NAME_CHAIN,
+            event_name="chain_start",
+            span_attrs=span_attrs,
+            event_attrs=event_attrs,
         )
 
     def on_chain_end(
@@ -251,11 +256,16 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_chain_end. { run_id =} { parent_run_id =} { kwargs = }")
-        attrs = {}
+        event_attrs = {}
         if self._verbose:
-            attrs["outputs"] = _parse_output(outputs)
+            event_attrs["outputs"] = _parse_output(outputs)
 
-        self._end_span(_SPAN_NAME_CHAIN, "chain_end", run_id=run_id, attrs=attrs)
+        self._end_span(
+            run_id=run_id,
+            span_name=_SPAN_NAME_CHAIN,
+            event_name="chain_end",
+            event_attrs=event_attrs,
+        )
 
     def on_chain_error(
         self,
@@ -267,14 +277,18 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_chain_error. { run_id =} { parent_run_id =} { kwargs = }")
-        attrs = {
-            "error": error.__class__.__name__,
+        event_attrs = {
+            "error_name": error.__class__.__name__,
         }
 
         self._end_span(
-            _SPAN_NAME_CHAIN, "chain_error", run_id=run_id, attrs=attrs, ex=error
+            run_id=run_id,
+            span_name=_SPAN_NAME_CHAIN,
+            event_name="chain_error",
+            event_attrs=event_attrs,
+            ex=error,
         )
-        self._llm_error_count.add(1, attrs | {"type": _SPAN_NAME_CHAIN})
+        self._llm_error_count.add(1, event_attrs)
 
     def on_llm_start(
         self,
@@ -290,25 +304,29 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_llm_start. { run_id =} { parent_run_id =} { kwargs = }")
-        user_id = _get_user_id(metadata)
-        attrs = {
-            "serialized": serialized,
-            "class_name": _get_serialized_id(serialized),
+
+        span_attrs = {
+            "user_id": _get_user_id(metadata),
+        }
+
+        event_attrs = {
+            "serialized": serialized,  # this will be removed when lib is stable
+            "type": _get_serialized_id(serialized),
             "metadata": metadata,
             "tags": tags,
             "params": invocation_params,
         }
         if self._verbose:
-            attrs["prompts"] = prompts
+            event_attrs["prompts"] = prompts
 
         self._start_latency(_SPAN_NAME_LLM, run_id)
         self._start_span(
-            _SPAN_NAME_LLM,
-            event="llm_start",
             run_id=run_id,
             parent_run_id=parent_run_id,
-            user_id=user_id,
-            attrs=attrs,
+            span_name=_SPAN_NAME_LLM,
+            event_name="llm_start",
+            span_attrs=span_attrs,
+            event_attrs=event_attrs,
         )
 
     def on_chat_model_start(
@@ -325,25 +343,29 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_chat_model_start. { run_id =} { parent_run_id =} { kwargs = }")
-        user_id = _get_user_id(metadata)
-        attrs = {
-            "serialized": serialized,
-            "class_name": _get_serialized_id(serialized),
+
+        span_attrs = {
+            "user_id": _get_user_id(metadata),
+        }
+
+        event_attrs = {
+            "serialized": serialized,  # this will be removed when lib is stable
+            "type": _get_serialized_id(serialized),
             "metadata": metadata,
             "tags": tags,
             "params": invocation_params,
         }
         if self._verbose:
-            attrs["messages"] = get_buffer_string(messages[0])
+            event_attrs["messages"] = get_buffer_string(messages[0])
 
         self._start_latency(_SPAN_NAME_LLM, run_id)
         self._start_span(
-            _SPAN_NAME_LLM,
-            event="chat_model_start",
             run_id=run_id,
             parent_run_id=parent_run_id,
-            user_id=user_id,
-            attrs=attrs,
+            span_name=_SPAN_NAME_LLM,
+            event_name="chat_model_start",
+            span_attrs=span_attrs,
+            event_attrs=event_attrs,
         )
 
     def on_llm_end(
@@ -370,16 +392,21 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
             completion_tokens=completion_tokens,
         )
 
-        attrs = {
+        event_attrs = {
             "model": model_name,
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
         }
         if self._verbose:
-            attrs["outputs"] = _parse_generations(response.generations[0])
+            event_attrs["outputs"] = _parse_generations(response.generations[0])
 
         self._end_latency(_SPAN_NAME_LLM, run_id, {"model": model_name})
-        self._end_span(_SPAN_NAME_LLM, "llm_end", run_id=run_id, attrs=attrs)
+        self._end_span(
+            run_id=run_id,
+            span_name=_SPAN_NAME_LLM,
+            event_name="llm_end",
+            event_attrs=event_attrs,
+        )
 
     def on_llm_error(
         self,
@@ -391,15 +418,19 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_llm_error. { run_id =} { parent_run_id =} { kwargs = }")
-        attrs = {
-            "error": error.__class__.__name__,
+        event_attrs = {
+            "error_name": error.__class__.__name__,
         }
 
         self._end_latency(_SPAN_NAME_LLM, run_id)
         self._end_span(
-            _SPAN_NAME_LLM, "llm_error", run_id=run_id, attrs=attrs, ex=error
+            run_id=run_id,
+            span_name=_SPAN_NAME_LLM,
+            event_name="llm_error",
+            event_attrs=event_attrs,
+            ex=error,
         )
-        self._llm_error_count.add(1, attrs | {"type": _SPAN_NAME_LLM})
+        self._llm_error_count.add(1, event_attrs)
 
     def on_llm_new_token(
         self,
@@ -416,10 +447,13 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         if not self._verbose:
             return
 
-        attrs = {
+        event_attrs = {
             "token": token,
         }
-        self._add_span_event("streaming", run_id, attrs)
+
+        self._add_span_event(
+            run_id=run_id, event_name="streaming", event_attrs=event_attrs
+        )
 
     def on_tool_start(
         self,
@@ -434,25 +468,28 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_tool_start. { run_id = } { parent_run_id = } { kwargs = }")
-        user_id = _get_user_id(metadata)
-        attrs = {
-            "serialized": serialized,
-            "class_name": _get_serialized_id(serialized),
+
+        span_attrs = {
+            "user_id": _get_user_id(metadata),
+        }
+        event_attrs = {
+            "serialized": serialized,  # this will be removed when lib is stable
+            "type": _get_serialized_id(serialized),
             "tool_name": serialized.get("name"),
             "tags": tags,
             "metadata": metadata,
         }
         if self._verbose:
-            attrs["input"] = input_str
+            event_attrs["input"] = input_str
 
         self._start_latency(_SPAN_NAME_TOOL, run_id)
         self._start_span(
-            _SPAN_NAME_TOOL,
-            event="tool_start",
             run_id=run_id,
             parent_run_id=parent_run_id,
-            user_id=user_id,
-            attrs=attrs,
+            span_name=_SPAN_NAME_TOOL,
+            event_name="tool_start",
+            span_attrs=span_attrs,
+            event_attrs=event_attrs,
         )
 
     def on_tool_end(
@@ -465,12 +502,17 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_tool_end. { run_id =} { parent_run_id =} { kwargs = }")
-        attrs = {}
+        event_attrs = {}
         if self._verbose:
-            attrs["output"] = output
+            event_attrs["output"] = output
 
         self._end_latency(_SPAN_NAME_TOOL, run_id)
-        self._end_span(_SPAN_NAME_TOOL, "tool_end", run_id=run_id, attrs=attrs)
+        self._end_span(
+            run_id=run_id,
+            span_name=_SPAN_NAME_TOOL,
+            event_name="tool_end",
+            event_attrs=event_attrs,
+        )
 
     def on_tool_error(
         self,
@@ -482,15 +524,19 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_tool_error. { run_id =} { parent_run_id =} { kwargs = }")
-        attrs = {
-            "error": error.__class__.__name__,
+        event_attrs = {
+            "error_name": error.__class__.__name__,
         }
 
         self._end_latency(_SPAN_NAME_TOOL, run_id)
         self._end_span(
-            _SPAN_NAME_TOOL, "tool_error", run_id=run_id, attrs=attrs, ex=error
+            run_id=run_id,
+            span_name=_SPAN_NAME_TOOL,
+            event_name="tool_error",
+            event_attrs=event_attrs,
+            ex=error,
         )
-        self._llm_error_count.add(1, attrs | {"type": _SPAN_NAME_TOOL})
+        self._llm_error_count.add(1, event_attrs)
 
     def on_agent_action(
         self,
@@ -504,25 +550,29 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_agent_action. { run_id =} { parent_run_id =} { kwargs = }")
-        user_id = _get_user_id(metadata)
-        attrs = {
-            "type": action.__class__.__name__,
+
+        span_attrs = {
+            "user_id": _get_user_id(metadata),
+        }
+
+        event_attrs = {
             "tool": action.tool,
+            "type": action.__class__.__name__,
             "log": action.log,
             "tags": tags,
             "metadata": metadata,
         }
         if self._verbose:
-            attrs["input"] = _parse_input(action.tool_input)
+            event_attrs["input"] = _parse_input(action.tool_input)
 
         self._start_latency(_SPAN_NAME_AGENT, run_id)
         self._start_span(
-            _SPAN_NAME_AGENT,
-            event="agent_action",
             run_id=run_id,
             parent_run_id=parent_run_id,
-            user_id=user_id,
-            attrs=attrs,
+            span_name=_SPAN_NAME_AGENT,
+            event_name="agent_action",
+            span_attrs=span_attrs,
+            event_attrs=event_attrs,
         )
 
     def on_agent_finish(
@@ -535,15 +585,20 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_agent_finish. { run_id =} { parent_run_id =} { kwargs = }")
-        attrs = {
+        event_attrs = {
             "type": finish.__class__.__name__,
             "log": finish.log,
         }
         if self._verbose:
-            attrs["output"] = _parse_output(finish.return_values)
+            event_attrs["output"] = _parse_output(finish.return_values)
 
         self._end_latency(_SPAN_NAME_AGENT, run_id)
-        self._end_span(_SPAN_NAME_AGENT, "agent_finish", run_id=run_id, attrs=attrs)
+        self._end_span(
+            run_id=run_id,
+            span_name=_SPAN_NAME_AGENT,
+            event_name="agent_finish",
+            event_attrs=event_attrs,
+        )
 
     def on_retriever_start(
         self,
@@ -557,24 +612,27 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         print(f"on_retriever_start. {run_id=} {parent_run_id=} {kwargs=}")
-        user_id = _get_user_id(metadata)
-        attrs = {
-            "serialized": serialized,
-            "class_name": _get_serialized_id(serialized),
+
+        span_attrs = {
+            "user_id": _get_user_id(metadata),
+        }
+        event_attrs = {
+            "serialized": serialized,  # this will be removed when lib is stable
+            "type": _get_serialized_id(serialized),
             "tags": tags,
             "metadata": metadata,
         }
         if self._verbose:
-            attrs["query"] = query
+            event_attrs["query"] = query
 
         self._start_latency(_SPAN_NAME_RETRIEVER, run_id)
         self._start_span(
-            _SPAN_NAME_RETRIEVER,
-            event="retriever_start",
             run_id=run_id,
             parent_run_id=parent_run_id,
-            user_id=user_id,
-            attrs=attrs,
+            span_name=_SPAN_NAME_RETRIEVER,
+            event_name="retriever_start",
+            span_attrs=span_attrs,
+            event_attrs=event_attrs,
         )
 
     def on_retriever_error(
@@ -586,15 +644,15 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         print(f"on_retriever_error. {run_id=} {parent_run_id=} {kwargs=}")
-        attrs = {
-            "error": error.__class__.__name__,
+        event_attrs = {
+            "error_name": error.__class__.__name__,
         }
         self._end_latency(_SPAN_NAME_RETRIEVER, run_id)
         self._end_span(
-            _SPAN_NAME_RETRIEVER,
-            "retriever_error",
             run_id=run_id,
-            attrs=attrs,
+            span_name=_SPAN_NAME_RETRIEVER,
+            event_name="retriever_error",
+            event_attrs=event_attrs,
             ex=error,
         )
 
@@ -608,15 +666,18 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         print(f"on_retriever_end. {run_id=} {parent_run_id=} {kwargs=}")
-        attrs = {
+        event_attrs = {
             "tags": tags,
         }
         if self._verbose:
-            attrs["docs"] = _parse_documents(documents)
+            event_attrs["docs"] = _parse_documents(documents)
 
         self._end_latency(_SPAN_NAME_RETRIEVER, run_id)
         self._end_span(
-            _SPAN_NAME_RETRIEVER, "retriever_end", run_id=run_id, attrs=attrs
+            run_id=run_id,
+            span_name=_SPAN_NAME_RETRIEVER,
+            event_name="retriever_end",
+            event_attrs=event_attrs,
         )
 
     def on_retry(
@@ -627,10 +688,11 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
-        attrs = {
+        print(f"on_retriever_end. {run_id=} {parent_run_id=} {kwargs=}")
+        event_attrs = {
             "retry_state": f"{retry_state}",
         }
-        self._add_span_event("retry", run_id, attrs)
+        self._add_span_event(run_id=run_id, event_name="retry", event_attrs=event_attrs)
 
 
 __all__ = ["GreptimeCallbackHandler"]

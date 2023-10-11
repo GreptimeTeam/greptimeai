@@ -2,13 +2,13 @@ from flask import Flask, request
 from prometheus_client import generate_latest
 
 from langchain_example.langchains import (
-    stream_llm_chain,
-    retry_llm_chain,
-    llm_chain,
-    callbacks,
-    chat_chain,
     agent_executor,
     build_qa,
+    callbacks,
+    chat_chain,
+    llm_chain,
+    retry_llm_chain,
+    stream_llm_chain,
 )
 
 app = Flask(__name__)
@@ -21,9 +21,9 @@ def langchain(scenario: str):
     to chat
     """
     print(f"{ scenario = }")
-    message = request.json["message"]
-    user_id = request.json["user_id"]
-    metadata = {"user_id": user_id}
+    json = request.json
+    message = json.get("message", "")
+    metadata = {"user_id": json.get("user_id", "")}
     if scenario == "retry":
         return retry_llm_chain.run(message, callbacks=callbacks, metadata=metadata)
     elif scenario == "streaming":
