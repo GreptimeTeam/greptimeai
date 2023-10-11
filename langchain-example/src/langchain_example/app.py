@@ -10,11 +10,6 @@ from langchain_example.langchains import (
     agent_executor,
     build_qa,
 )
-from langchain_example.llmonitors import (
-    llmonitor_callbacks,
-    llmonitor_chat_chain,
-    llmonitor_agent_executor,
-)
 
 app = Flask(__name__)
 # qa = build_qa()  # this contains a heavy pre-indexing process
@@ -26,8 +21,9 @@ def langchain(scenario: str):
     to chat
     """
     print(f"{ scenario = }")
-    metadata = {"user_id": 927}
     message = request.json["message"]
+    user_id = request.json["user_id"]
+    metadata = {"user_id": user_id}
     if scenario == "retry":
         return retry_llm_chain.run(message, callbacks=callbacks, metadata=metadata)
     elif scenario == "streaming":
@@ -38,20 +34,9 @@ def langchain(scenario: str):
         return agent_executor.run(message, callbacks=callbacks, metadata=metadata)
     elif scenario == "retrieval":
         # return qa.run(message, callbacks=callbacks, metadata=metadata)
-        pass
+        return message
     else:
         return chat_chain.run(message, callbacks=callbacks, metadata=metadata)
-
-
-@app.route("/llmonitor", methods=["POST"])
-def llmonitor():
-    """
-    llmonitor demo
-    """
-    message = request.json["message"]
-
-    return llmonitor_chat_chain.run(message, callbacks=llmonitor_callbacks)
-    # return llmonitor_agent_executor.run(message, callbacks=llmonitor_callbacks)
 
 
 @app.route("/metrics")

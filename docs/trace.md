@@ -5,6 +5,8 @@ the detail of traces collected
 
 Note: this may be changed any time
 
+## events
+
 | name  | event              | attributes to be collected                       | ignored if verbose is False |
 |-------|--------------------|--------------------------------------------------|-----------------------------|
 | chain | `chain_start`      | metadata, tags, inputs                           | inputs                      |
@@ -20,8 +22,6 @@ Note: this may be changed any time
 | tool  | `tool_error`       | error                                            |                             |
 | agent | `agent_action`     | metadata, tags, type, tool, log, input           | input                       |
 | agent | `agent_finish`     | type, log, output                                | output                      |
-
-
 
 NOTE:
 
