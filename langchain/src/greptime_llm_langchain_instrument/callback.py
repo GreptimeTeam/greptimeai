@@ -8,6 +8,7 @@ from tenacity import RetryCallState
 
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks.openai_info import (
+    MODEL_COST_PER_1K_TOKENS,
     get_openai_token_cost_for_model,
     standardize_model_name,
 )
@@ -17,11 +18,17 @@ from langchain.schema.messages import BaseMessage, get_buffer_string
 from langchain.schema.output import ChatGenerationChunk, GenerationChunk, LLMResult
 
 from . import (
+    _CLASS_TYPE_LABEL,
+    _ERROR_TYPE_LABEL,
+    _INSTRUMENT_LIB_NAME,
+    _INSTRUMENT_LIB_VERSION,
+    _MODEL_NAME_LABEL,
     _SPAN_NAME_AGENT,
     _SPAN_NAME_CHAIN,
     _SPAN_NAME_LLM,
     _SPAN_NAME_RETRIEVER,
     _SPAN_NAME_TOOL,
+    _SPAN_TYPE_LABEL,
     _get_serialized_id,
     _get_user_id,
     _Observation,
@@ -59,9 +66,14 @@ class _Collector:
         """
         setup opentelemetry, and raise Error if something wrong
         """
-        self._tracer = trace.get_tracer(__name__)
+        self._tracer = trace.get_tracer(
+            instrumenting_module_name=_INSTRUMENT_LIB_NAME,
+            instrumenting_library_version=_INSTRUMENT_LIB_VERSION,
+        )
 
-        meter = metrics.get_meter(__name__)
+        meter = metrics.get_meter(
+            name=_INSTRUMENT_LIB_NAME, version=_INSTRUMENT_LIB_VERSION
+        )
 
         self._prompt_tokens_count = meter.create_counter(
             "llm_prompt_tokens",
@@ -171,36 +183,36 @@ class _Collector:
         prompt_tokens: int,
         completion_tokens: int,
     ):
-        attrs = {
-            "model": model_name,
-        }
-        try:
-            self._prompt_tokens_count.add(prompt_tokens, attrs)
-            self._completion_tokens_count.add(completion_tokens, attrs)
+        if model_name is None or model_name == "":
+            return
 
+        attrs = {
+            _MODEL_NAME_LABEL: model_name,
+        }
+
+        self._prompt_tokens_count.add(prompt_tokens, attrs)
+        self._completion_tokens_count.add(completion_tokens, attrs)
+
+        # only cost of OpenAI model will be calculated and collected
+        if model_name in MODEL_COST_PER_1K_TOKENS:
             completion_cost = get_openai_token_cost_for_model(
                 model_name, completion_tokens, is_completion=True
             )
             prompt_cost = get_openai_token_cost_for_model(model_name, prompt_tokens)
             self._completion_cost.put(completion_cost, attrs)
             self._prompt_cost.put(prompt_cost, attrs)
-        except Exception as ex:
-            attrs["error_name"] = ex.__class__.__name__
-            self._llm_error_count.add(1, attrs)
 
     def _start_latency(self, name: str, run_id: str):
         self._time_tables.set(name, run_id)
 
-    def _end_latency(self, name: str, run_id: str, attrs: Dict[str, str] = None):
-        latency = self._time_tables.latency_in_ms(name, run_id)
+    def _end_latency(self, span_name: str, run_id: str):
+        latency = self._time_tables.latency_in_ms(span_name, run_id)
         if not latency:
             return
 
         attributes = {
-            "type": name,
+            _SPAN_TYPE_LABEL: span_name,
         }
-        if attrs:
-            attributes |= attrs
 
         self._requests_duration_histogram.record(latency, attributes)
 
@@ -230,7 +242,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
 
         event_attrs = {
             "serialized": serialized,  # this will be removed when lib is stable
-            "type": _get_serialized_id(serialized),
+            _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
             "metadata": metadata,
             "tags": tags,
         }
@@ -278,7 +290,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_chain_error. { run_id =} { parent_run_id =} { kwargs = }")
         event_attrs = {
-            "error_name": error.__class__.__name__,
+            _ERROR_TYPE_LABEL: error.__class__.__name__,
         }
 
         self._end_span(
@@ -311,7 +323,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
 
         event_attrs = {
             "serialized": serialized,  # this will be removed when lib is stable
-            "type": _get_serialized_id(serialized),
+            _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
             "metadata": metadata,
             "tags": tags,
             "params": invocation_params,
@@ -350,7 +362,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
 
         event_attrs = {
             "serialized": serialized,  # this will be removed when lib is stable
-            "type": _get_serialized_id(serialized),
+            _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
             "metadata": metadata,
             "tags": tags,
             "params": invocation_params,
@@ -377,13 +389,13 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         # TODO(yuanbohan): remove this print in the near future
-        print(f"on_llm_end. { run_id =} { parent_run_id =} { kwargs = }")
+        print(f"on_llm_end. { run_id =} { parent_run_id =} { kwargs = } { response = }")
         output = response.llm_output or {}
         token_usage = output.get("token_usage", {})
         completion_tokens = token_usage.get("completion_tokens", 0)
         prompt_tokens = token_usage.get("prompt_tokens", 0)
 
-        model_name = output.get("model_name", "")
+        model_name = output.get("model_name", "unknown")
         model_name = standardize_model_name(model_name)
 
         self._collect_llm_metrics(
@@ -393,14 +405,14 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         )
 
         event_attrs = {
-            "model": model_name,
+            _MODEL_NAME_LABEL: model_name,
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
         }
         if self._verbose:
             event_attrs["outputs"] = _parse_generations(response.generations[0])
 
-        self._end_latency(_SPAN_NAME_LLM, run_id, {"model": model_name})
+        self._end_latency(_SPAN_NAME_LLM, run_id)
         self._end_span(
             run_id=run_id,
             span_name=_SPAN_NAME_LLM,
@@ -419,7 +431,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_llm_error. { run_id =} { parent_run_id =} { kwargs = }")
         event_attrs = {
-            "error_name": error.__class__.__name__,
+            _ERROR_TYPE_LABEL: error.__class__.__name__,
         }
 
         self._end_latency(_SPAN_NAME_LLM, run_id)
@@ -474,7 +486,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         }
         event_attrs = {
             "serialized": serialized,  # this will be removed when lib is stable
-            "type": _get_serialized_id(serialized),
+            _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
             "tool_name": serialized.get("name"),
             "tags": tags,
             "metadata": metadata,
@@ -525,7 +537,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_tool_error. { run_id =} { parent_run_id =} { kwargs = }")
         event_attrs = {
-            "error_name": error.__class__.__name__,
+            _ERROR_TYPE_LABEL: error.__class__.__name__,
         }
 
         self._end_latency(_SPAN_NAME_TOOL, run_id)
@@ -557,7 +569,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
 
         event_attrs = {
             "tool": action.tool,
-            "type": action.__class__.__name__,
+            _CLASS_TYPE_LABEL: action.__class__.__name__,
             "log": action.log,
             "tags": tags,
             "metadata": metadata,
@@ -586,7 +598,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         # TODO(yuanbohan): remove this print in the near future
         print(f"on_agent_finish. { run_id =} { parent_run_id =} { kwargs = }")
         event_attrs = {
-            "type": finish.__class__.__name__,
+            _CLASS_TYPE_LABEL: finish.__class__.__name__,
             "log": finish.log,
         }
         if self._verbose:
@@ -618,7 +630,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         }
         event_attrs = {
             "serialized": serialized,  # this will be removed when lib is stable
-            "type": _get_serialized_id(serialized),
+            _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
             "tags": tags,
             "metadata": metadata,
         }
@@ -645,7 +657,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
     ) -> Any:
         print(f"on_retriever_error. {run_id=} {parent_run_id=} {kwargs=}")
         event_attrs = {
-            "error_name": error.__class__.__name__,
+            _ERROR_TYPE_LABEL: error.__class__.__name__,
         }
         self._end_latency(_SPAN_NAME_RETRIEVER, run_id)
         self._end_span(
