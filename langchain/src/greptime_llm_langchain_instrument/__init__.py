@@ -14,6 +14,16 @@ _SPAN_NAME_LLM = "llm"
 _SPAN_NAME_TOOL = "tool"
 _SPAN_NAME_RETRIEVER = "retriever"
 
+_ERROR_TYPE_LABEL = "type"
+_CLASS_TYPE_LABEL = "type"
+_SPAN_TYPE_LABEL = "type"
+_MODEL_NAME_LABEL = "model"
+
+_INSTRUMENT_LIB_NAME = "greptime-langchain-instrument"
+_INSTRUMENT_LIB_VERSION = (
+    "0.1.0"  # TODO(yuanbohan): update this version after publish to pypi
+)
+
 
 def _get_user_id(metadata: Dict[str, Any]) -> str:
     """
