@@ -25,6 +25,18 @@ _INSTRUMENT_LIB_VERSION = (
     "0.1.0"  # TODO(yuanbohan): update this version after publish to pypi
 )
 
+_LLM_HOST_ENV_NAME = "GREPTIME_LLM_HOST"
+_LLM_DATABASE_ENV_NAME = "GREPTIME_LLM_DATABASE"
+_LLM_USERNAME_ENV_NAME = "GREPTIME_LLM_USERNAME"
+_LLM_PASSWORD_ENV_NAME = "GREPTIME_LLM_PASSWORD"
+
+
+def _check_non_null_or_empty(name: str, env_name: str, val: Optional[str]):
+    if val is None or val.strip == "":
+        raise ValueError(
+            f"{name} MUST BE provided either by passing arguments or setup environment variable {env_name}"
+        )
+
 
 def _get_user_id(metadata: Optional[Dict[str, Any]]) -> str:
     """

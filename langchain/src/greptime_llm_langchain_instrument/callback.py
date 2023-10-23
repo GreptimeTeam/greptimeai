@@ -1,8 +1,17 @@
+import base64
+import os
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 from uuid import UUID
 
 from opentelemetry import metrics, trace
 from opentelemetry.context.context import Context
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Status, StatusCode, set_span_in_context
 from tenacity import RetryCallState
 
@@ -22,6 +31,10 @@ from . import (
     _ERROR_TYPE_LABEL,
     _INSTRUMENT_LIB_NAME,
     _INSTRUMENT_LIB_VERSION,
+    _LLM_DATABASE_ENV_NAME,
+    _LLM_HOST_ENV_NAME,
+    _LLM_PASSWORD_ENV_NAME,
+    _LLM_USERNAME_ENV_NAME,
     _MODEL_NAME_LABEL,
     _SPAN_NAME_AGENT,
     _SPAN_NAME_CHAIN,
@@ -29,6 +42,7 @@ from . import (
     _SPAN_NAME_RETRIEVER,
     _SPAN_NAME_TOOL,
     _SPAN_TYPE_LABEL,
+    _check_non_null_or_empty,
     _get_serialized_id,
     _get_user_id,
     _Observation,
@@ -47,9 +61,21 @@ class _Collector:
     collect metrics and traces
     """
 
-    def __init__(self, skip_otel_init=False, verbose=True):
+    def __init__(
+        self,
+        skip_otel_init=False,
+        resource_name: Optional[str] = None,
+        greptime_llm_host: Optional[str] = None,
+        greptime_llm_database: Optional[str] = None,
+        greptime_llm_username: Optional[str] = None,
+        greptime_llm_password: Optional[str] = None,
+        verbose=True,
+    ):
         """
-        TODO(yuanbohan): support skip_otel_init parameters
+        If skip_otel_init is True, then OpenTelemetry Exporter setup will be skipped,
+        thus no data will be exported to GreptimeCloud.
+
+        If verbose is False, then inputs, outputs, generations, etc. won't be collected to GreptimeCloud.
         """
 
         self._skip_otel_init = skip_otel_init
@@ -60,7 +86,75 @@ class _Collector:
         self._completion_cost = _Observation("completion_cost")
         self._trace_tables = _TraceTable()
 
+        if not skip_otel_init:
+            self._setup_greptime(
+                resource_name,
+                greptime_llm_host,
+                greptime_llm_database,
+                greptime_llm_username,
+                greptime_llm_password,
+            )
         self._setup_otel()
+
+    def _setup_greptime(
+        self,
+        resource_name: Optional[str] = None,
+        host: Optional[str] = None,
+        database: Optional[str] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+    ):
+        resource = Resource.create(
+            {SERVICE_NAME: resource_name or "greptime-llm-langchain-example"}
+        )
+
+        host = host or os.getenv(_LLM_HOST_ENV_NAME)
+        database = database or os.getenv(_LLM_DATABASE_ENV_NAME)
+        username = username or os.getenv(_LLM_USERNAME_ENV_NAME)
+        password = password or os.getenv(_LLM_PASSWORD_ENV_NAME)
+
+        _check_non_null_or_empty(_LLM_HOST_ENV_NAME.lower(), _LLM_HOST_ENV_NAME, host)
+        _check_non_null_or_empty(
+            _LLM_DATABASE_ENV_NAME.lower(), _LLM_DATABASE_ENV_NAME, database
+        )
+        _check_non_null_or_empty(
+            _LLM_USERNAME_ENV_NAME.lower(), _LLM_USERNAME_ENV_NAME, username
+        )
+        _check_non_null_or_empty(
+            _LLM_PASSWORD_ENV_NAME.lower(), _LLM_PASSWORD_ENV_NAME, password
+        )
+
+        metrics_endpoint = f"https://{host}/v1/otlp/v1/metrics"
+        trace_endpoint = f"https://{host}/v1/otlp/v1/traces"
+
+        auth = f"{username}:{password}"
+        b64_auth = base64.b64encode(auth.encode()).decode("ascii")
+        greptime_headers = {
+            "Authorization": f"Basic {b64_auth}",
+            "x-greptime-db-name": database,
+        }
+
+        metrics_exporter = OTLPMetricExporter(
+            endpoint=metrics_endpoint,
+            headers=greptime_headers,
+            timeout=5,
+        )
+        metric_reader = PeriodicExportingMetricReader(metrics_exporter, 5000)
+        metre_provider = MeterProvider(
+            resource=resource, metric_readers=[metric_reader]
+        )
+        metrics.set_meter_provider(metre_provider)
+
+        trace_provider = TracerProvider(resource=resource)
+        span_processor = BatchSpanProcessor(
+            OTLPSpanExporter(
+                endpoint=trace_endpoint,
+                headers=greptime_headers,
+                timeout=5,
+            )
+        )
+        trace_provider.add_span_processor(span_processor)
+        trace.set_tracer_provider(trace_provider)
 
     def _setup_otel(self):
         """
