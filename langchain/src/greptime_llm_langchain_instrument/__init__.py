@@ -20,7 +20,7 @@ _CLASS_TYPE_LABEL = "type"
 _SPAN_TYPE_LABEL = "type"
 _MODEL_NAME_LABEL = "model"
 
-_INSTRUMENT_LIB_NAME = "greptime-langchain-instrument"
+_INSTRUMENT_LIB_NAME = "greptime-llm"
 _INSTRUMENT_LIB_VERSION = (
     "0.1.0"  # TODO(yuanbohan): update this version after publish to pypi
 )
@@ -51,12 +51,14 @@ def _is_valid_otel_attributes_value_type(val: Any) -> bool:
     return isinstance(val, (bool, str, int, float, bytes))
 
 
-def _sanitate_attributes(attrs: Dict[str, Any]) -> Dict[str, Any]:
+def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """
     prepare attributes value to any of ['bool', 'str', 'bytes', 'int', 'float']
     or a sequence of these types
     """
     result = {}
+    if not attrs:
+        return result
 
     def _sanitate_list(lst: list) -> list:
         result = []

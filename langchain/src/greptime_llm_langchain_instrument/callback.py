@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 from uuid import UUID
 
 from opentelemetry import metrics, trace
@@ -161,15 +161,20 @@ class _Collector:
         self,
         run_id: UUID,
         span_name: str,
+        span_attrs: Dict[str, Any],
         event_name: str,
         event_attrs: Dict[str, Any],
         ex: Optional[Exception] = None,
     ):
+        span_attrs = _sanitate_attributes(span_attrs)
         event_attrs = _sanitate_attributes(event_attrs)
+
         span = self._trace_tables.pop_span(span_name, run_id)
         if span:
             if ex:
                 span.record_exception(ex)
+            if span_attrs:
+                span.set_attributes(attributes=span_attrs)
             code = StatusCode.ERROR if ex else StatusCode.OK
             span.set_status(Status(code))
             span.add_event(event_name, attributes=event_attrs)
@@ -182,9 +187,9 @@ class _Collector:
         model_name: str,
         prompt_tokens: int,
         completion_tokens: int,
-    ):
+    ) -> Tuple[float, float]:
         if model_name is None or model_name == "":
-            return
+            return (0, 0)
 
         attrs = {
             _MODEL_NAME_LABEL: model_name,
@@ -194,13 +199,16 @@ class _Collector:
         self._completion_tokens_count.add(completion_tokens, attrs)
 
         # only cost of OpenAI model will be calculated and collected
-        if model_name in MODEL_COST_PER_1K_TOKENS:
-            completion_cost = get_openai_token_cost_for_model(
-                model_name, completion_tokens, is_completion=True
-            )
-            prompt_cost = get_openai_token_cost_for_model(model_name, prompt_tokens)
-            self._completion_cost.put(completion_cost, attrs)
-            self._prompt_cost.put(prompt_cost, attrs)
+        if model_name not in MODEL_COST_PER_1K_TOKENS:
+            return (0, 0)
+
+        completion_cost = get_openai_token_cost_for_model(
+            model_name, completion_tokens, is_completion=True
+        )
+        prompt_cost = get_openai_token_cost_for_model(model_name, prompt_tokens)
+        self._completion_cost.put(completion_cost, attrs)
+        self._prompt_cost.put(prompt_cost, attrs)
+        return (prompt_cost, completion_cost)
 
     def _start_latency(self, name: str, run_id: UUID):
         self._time_tables.set(name, run_id)
@@ -275,6 +283,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         self._end_span(
             run_id=run_id,
             span_name=_SPAN_NAME_CHAIN,
+            span_attrs={},
             event_name="chain_end",
             event_attrs=event_attrs,
         )
@@ -296,6 +305,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         self._end_span(
             run_id=run_id,
             span_name=_SPAN_NAME_CHAIN,
+            span_attrs={},
             event_name="chain_error",
             event_attrs=event_attrs,
             ex=error,  # type: ignore
@@ -398,17 +408,24 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         model_name = output.get("model_name", "unknown")
         model_name = standardize_model_name(model_name)
 
-        self._collect_llm_metrics(
+        prompt_cost, completion_cost = self._collect_llm_metrics(
             model_name=model_name,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
         )
 
-        event_attrs = {
+        attrs = {
             _MODEL_NAME_LABEL: model_name,
             "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
+            "prompt_cost": prompt_cost,
         }
+
+        span_attrs = {
+            "completion_tokens": completion_tokens,
+            "completion_cost": completion_cost,
+        }
+
+        event_attrs = {}
         if self._verbose:
             event_attrs["outputs"] = _parse_generations(response.generations[0])
 
@@ -416,8 +433,9 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         self._end_span(
             run_id=run_id,
             span_name=_SPAN_NAME_LLM,
+            span_attrs=attrs | span_attrs,
             event_name="llm_end",
-            event_attrs=event_attrs,
+            event_attrs=attrs | event_attrs,
         )
 
     def on_llm_error(
@@ -438,6 +456,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         self._end_span(
             run_id=run_id,
             span_name=_SPAN_NAME_LLM,
+            span_attrs={},
             event_name="llm_error",
             event_attrs=event_attrs,
             ex=error,  # type: ignore
@@ -522,6 +541,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         self._end_span(
             run_id=run_id,
             span_name=_SPAN_NAME_TOOL,
+            span_attrs={},
             event_name="tool_end",
             event_attrs=event_attrs,
         )
@@ -544,6 +564,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         self._end_span(
             run_id=run_id,
             span_name=_SPAN_NAME_TOOL,
+            span_attrs={},
             event_name="tool_error",
             event_attrs=event_attrs,
             ex=error,  # type: ignore
@@ -608,6 +629,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         self._end_span(
             run_id=run_id,
             span_name=_SPAN_NAME_AGENT,
+            span_attrs={},
             event_name="agent_finish",
             event_attrs=event_attrs,
         )
@@ -663,6 +685,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         self._end_span(
             run_id=run_id,
             span_name=_SPAN_NAME_RETRIEVER,
+            span_attrs={},
             event_name="retriever_error",
             event_attrs=event_attrs,
             ex=error,  # type: ignore
@@ -688,6 +711,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         self._end_span(
             run_id=run_id,
             span_name=_SPAN_NAME_RETRIEVER,
+            span_attrs={},
             event_name="retriever_end",
             event_attrs=event_attrs,
         )

@@ -11,13 +11,10 @@ dependencies = [
     "opentelemetry-sdk>=1.20.0",
     "opentelemetry-api>=1.20.0",
     "Flask>=2.3.3",
-    "prometheus-client>=0.17.1",
-    "opentelemetry-exporter-prometheus>=1.12.0rc1",
     "opentelemetry-exporter-otlp-proto-http>=1.20.0",
     "chromadb>=0.4.12",
     "unstructured>=0.10.16",
     "tiktoken>=0.5.1",
-    "opentelemetry-exporter-otlp-proto-grpc>=1.20.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
