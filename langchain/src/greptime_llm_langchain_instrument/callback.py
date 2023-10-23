@@ -512,9 +512,6 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
             _MODEL_NAME_LABEL: model_name,
             "prompt_tokens": prompt_tokens,
             "prompt_cost": prompt_cost,
-        }
-
-        span_attrs = {
             "completion_tokens": completion_tokens,
             "completion_cost": completion_cost,
         }
@@ -527,7 +524,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         self._end_span(
             run_id=run_id,
             span_name=_SPAN_NAME_LLM,
-            span_attrs=attrs | span_attrs,
+            span_attrs=attrs,
             event_name="llm_end",
             event_attrs=attrs | event_attrs,
         )
@@ -567,7 +564,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         """
-        on_llm_start, or on_chat_model_start has already startet this span.
+        on_llm_start, or on_chat_model_start has already started this span.
         """
         if not self._verbose:
             return
