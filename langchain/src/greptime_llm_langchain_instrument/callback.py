@@ -110,17 +110,17 @@ class _Collector:
 
     def _start_span(
         self,
-        run_id: str,
-        parent_run_id: str,
+        run_id: UUID,
+        parent_run_id: Optional[UUID],
         span_name: str,
         event_name: str,
-        span_attrs: Dict[str, Any] = None,
-        event_attrs: Dict[str, Any] = None,
+        span_attrs: Dict[str, Any] = {},
+        event_attrs: Dict[str, Any] = {},
     ):
         span_attrs = _sanitate_attributes(span_attrs)
         event_attrs = _sanitate_attributes(event_attrs)
 
-        def _do_start_span(ctx: Context = None):
+        def _do_start_span(ctx: Optional[Context] = None):
             span = self._tracer.start_span(
                 span_name, context=ctx, attributes=span_attrs
             )
@@ -148,7 +148,7 @@ class _Collector:
                 _do_start_span()
 
     def _add_span_event(
-        self, run_id: str, event_name: str, event_attrs: Dict[str, Any]
+        self, run_id: UUID, event_name: str, event_attrs: Dict[str, Any]
     ):
         event_attrs = _sanitate_attributes(event_attrs)
         span = self._trace_tables.get_id_span(run_id)
@@ -159,11 +159,11 @@ class _Collector:
 
     def _end_span(
         self,
-        run_id: str,
+        run_id: UUID,
         span_name: str,
         event_name: str,
         event_attrs: Dict[str, Any],
-        ex: Exception = None,
+        ex: Optional[Exception] = None,
     ):
         event_attrs = _sanitate_attributes(event_attrs)
         span = self._trace_tables.pop_span(span_name, run_id)
@@ -202,10 +202,10 @@ class _Collector:
             self._completion_cost.put(completion_cost, attrs)
             self._prompt_cost.put(prompt_cost, attrs)
 
-    def _start_latency(self, name: str, run_id: str):
+    def _start_latency(self, name: str, run_id: UUID):
         self._time_tables.set(name, run_id)
 
-    def _end_latency(self, span_name: str, run_id: str):
+    def _end_latency(self, span_name: str, run_id: UUID):
         latency = self._time_tables.latency_in_ms(span_name, run_id)
         if not latency:
             return
@@ -298,7 +298,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
             span_name=_SPAN_NAME_CHAIN,
             event_name="chain_error",
             event_attrs=event_attrs,
-            ex=error,
+            ex=error,  # type: ignore
         )
         self._llm_error_count.add(1, event_attrs)
 
@@ -440,7 +440,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
             span_name=_SPAN_NAME_LLM,
             event_name="llm_error",
             event_attrs=event_attrs,
-            ex=error,
+            ex=error,  # type: ignore
         )
         self._llm_error_count.add(1, event_attrs)
 
@@ -546,7 +546,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
             span_name=_SPAN_NAME_TOOL,
             event_name="tool_error",
             event_attrs=event_attrs,
-            ex=error,
+            ex=error,  # type: ignore
         )
         self._llm_error_count.add(1, event_attrs)
 
@@ -665,7 +665,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
             span_name=_SPAN_NAME_RETRIEVER,
             event_name="retriever_error",
             event_attrs=event_attrs,
-            ex=error,
+            ex=error,  # type: ignore
         )
 
     def on_retriever_end(
@@ -678,7 +678,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         print(f"on_retriever_end. {run_id=} {parent_run_id=} {kwargs=}")
-        event_attrs = {
+        event_attrs: Dict[str, Any] = {
             "tags": tags,
         }
         if self._verbose:
