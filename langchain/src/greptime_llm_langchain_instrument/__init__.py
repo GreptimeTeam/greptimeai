@@ -1,5 +1,6 @@
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from uuid import UUID
 
 from opentelemetry.metrics import CallbackOptions, Observation
 from opentelemetry.trace import Span
@@ -19,17 +20,29 @@ _CLASS_TYPE_LABEL = "type"
 _SPAN_TYPE_LABEL = "type"
 _MODEL_NAME_LABEL = "model"
 
-_INSTRUMENT_LIB_NAME = "greptime-langchain-instrument"
+_INSTRUMENT_LIB_NAME = "greptime-llm"
 _INSTRUMENT_LIB_VERSION = (
     "0.1.0"  # TODO(yuanbohan): update this version after publish to pypi
 )
 
+_LLM_HOST_ENV_NAME = "GREPTIME_LLM_HOST"
+_LLM_DATABASE_ENV_NAME = "GREPTIME_LLM_DATABASE"
+_LLM_USERNAME_ENV_NAME = "GREPTIME_LLM_USERNAME"
+_LLM_PASSWORD_ENV_NAME = "GREPTIME_LLM_PASSWORD"
 
-def _get_user_id(metadata: Dict[str, Any]) -> str:
+
+def _check_non_null_or_empty(name: str, env_name: str, val: Optional[str]):
+    if val is None or val.strip == "":
+        raise ValueError(
+            f"{name} MUST BE provided either by passing arguments or setup environment variable {env_name}"
+        )
+
+
+def _get_user_id(metadata: Optional[Dict[str, Any]]) -> str:
     """
     get user id from metadata
     """
-    user_id = metadata.get("user_id")
+    user_id = (metadata or {}).get("user_id")
     return user_id if user_id else ""
 
 
@@ -50,12 +63,14 @@ def _is_valid_otel_attributes_value_type(val: Any) -> bool:
     return isinstance(val, (bool, str, int, float, bytes))
 
 
-def _sanitate_attributes(attrs: Dict[str, Any]) -> Dict[str, Any]:
+def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """
     prepare attributes value to any of ['bool', 'str', 'bytes', 'int', 'float']
     or a sequence of these types
     """
     result = {}
+    if not attrs:
+        return result
 
     def _sanitate_list(lst: list) -> list:
         result = []
@@ -77,7 +92,7 @@ def _sanitate_attributes(attrs: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
-def _parse(obj: Any) -> Union[Dict[str, Any], List[Any], Any]:
+def _parse(obj: Any) -> Dict[str, Any] | Sequence[Any] | Any:
     if hasattr(obj, "to_json"):
         return obj.to_json()
 
@@ -123,7 +138,7 @@ def _parse_output(raw_output: dict) -> Any:
     )
 
 
-def _parse_generation(gen: Generation) -> Dict[str, Any]:
+def _parse_generation(gen: Generation) -> Optional[Dict[str, Any]]:
     """
     Generation, or ChatGeneration (which contains message field)
     """
@@ -146,17 +161,19 @@ def _parse_generation(gen: Generation) -> Dict[str, Any]:
     return attrs
 
 
-def _parse_generations(gens: List[Generation]) -> List[Dict[str, Any]]:
+def _parse_generations(
+    gens: Sequence[Generation],
+) -> Optional[Iterable[Dict[str, Any]]]:
     """
     parse LLMResult.generations[0] to structured fields
     """
     if gens and len(gens) > 0:
-        return [_parse_generation(gen) for gen in gens]
+        return filter(None, [_parse_generation(gen) for gen in gens if gen])
 
     return None
 
 
-def _parse_documents(docs: List[Document]) -> List[Dict[str, Any]]:
+def _parse_documents(docs: Sequence[Document]) -> Optional[Sequence[Dict[str, Any]]]:
     """
     parse LLMResult.generations[0] to structured fields
     """
@@ -179,42 +196,44 @@ class _TraceTable:
         maintain the OTel span object of run_id.
         Pay Attention: different name may have same run_id.
         """
-        self._traces: Dict[str, List[Tuple(str, Span)]] = {}
+        self._traces: Dict[str, List[Tuple[str, Span]]] = {}
 
-    def put_span(self, name: str, run_id: str, span: Span):
+    def put_span(self, name: str, run_id: UUID, span: Span):
         """
         Pay Attention: different name may have same run_id.
         """
-        span_list: List[Tuple(str, Span)] = self._traces.get(run_id, [])
+        str_run_id = str(run_id)
+        span_list = self._traces.get(str_run_id, [])
         span_list.append((name, span))
-        self._traces[run_id] = span_list
+        self._traces[str_run_id] = span_list
 
-    def get_name_span(self, name: str, run_id: str) -> Span:
+    def get_name_span(self, name: str, run_id: UUID) -> Optional[Span]:
         """
         first get dict by id, then get span by name
         """
-        span_list = self._traces.get(run_id, [])
+        span_list = self._traces.get(str(run_id), [])
         for span_name, span in span_list:
             if span_name == name:
                 return span
         return None
 
-    def get_id_span(self, run_id: str) -> Span:
+    def get_id_span(self, run_id: UUID) -> Optional[Span]:
         """
         get last span if the matched span list of run_id exist
         """
-        span_list = self._traces.get(run_id, [])
+        span_list = self._traces.get(str(run_id), [])
         size = len(span_list)
         if size > 0:
-            tpl: Tuple(str, Span) = span_list[size - 1]  # get the last span
+            tpl: Tuple[str, Span] = span_list[size - 1]  # get the last span
             return tpl[1]
         return None
 
-    def pop_span(self, name: str, run_id: str) -> Span:
+    def pop_span(self, name: str, run_id: UUID) -> Optional[Span]:
         """
         if there is only one span matched this run_id, then run_id key will be removed
         """
-        span_list: List[Tuple(str, Span)] = self._traces.get(run_id)
+        str_run_id = str(run_id)
+        span_list = self._traces.get(str_run_id)
         if not span_list:
             return None
 
@@ -227,9 +246,9 @@ class _TraceTable:
                 rest_list.append((span_name, span))
 
         if len(rest_list) == 0:
-            self._traces.pop(run_id, None)
+            self._traces.pop(str_run_id, None)
         else:
-            self._traces[run_id] = rest_list
+            self._traces[str_run_id] = rest_list
 
         return target_span
 
@@ -239,17 +258,17 @@ class _TimeTable:
         "track multiple timer specified by key"
         self.__tables = {}
 
-    def _key(self, name: str, run_id: str) -> str:
+    def _key(self, name: str, run_id: UUID) -> str:
         return f"{name}.{run_id}"
 
-    def set(self, name: str, run_id: str):
+    def set(self, name: str, run_id: UUID):
         """
         set start time of named run_id. for different name may have same run_id
         """
         key = self._key(name, run_id)
         self.__tables[key] = time.time()
 
-    def latency_in_ms(self, name: str, run_id: str) -> Optional[float]:
+    def latency_in_ms(self, name: str, run_id: UUID) -> Optional[float]:
         """
         return latency in milli second if key exist, None if not exist.
         """
