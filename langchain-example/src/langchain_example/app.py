@@ -1,7 +1,5 @@
 from flask import Flask, request
-from prometheus_client import generate_latest
-
-from langchain_example.langchains import (
+from langchains import (
     agent_executor,
     build_qa,
     callbacks,
@@ -37,14 +35,6 @@ def langchain(scenario: str):
         return message
     else:
         return chat_chain.run(message, callbacks=callbacks, metadata=metadata)
-
-
-@app.route("/metrics")
-def metrics():
-    """
-    for prometheus
-    """
-    return generate_latest()
 
 
 if __name__ == "__main__":

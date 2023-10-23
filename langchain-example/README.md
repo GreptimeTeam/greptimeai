@@ -1,29 +1,17 @@
 # langchain-example
 
-NOTE: this will download docker image, and use host network, and this is only OK on Linux so far. This will be resolved soom.
-
-TODO(yuanbohan): make example a docker image, and compose up all services in containers
-
 ## Prerequisites
 
 - docker
 - OpenAI API KEY
+- GreptimeCloud service
 
 ## Ports will be used
 
 | servise        | port      |
 |----------------|-----------|
 | Flask          | 8000      |
-| Prometheus     | 9090      |
-| clickhouse     | 8123,9000 |
-| otel-collector | 4317,4318 |
 
-## Start service (Optional)
-
-```
-docker compose -f docker/docker-compose.yml up prometheus clickhouse jaeger grafana -d
-docker compose -f docker/docker-compose.yml up otel-collector -d
-```
 
 ## Development
 
@@ -31,6 +19,10 @@ docker compose -f docker/docker-compose.yml up otel-collector -d
 - rye add greptime-llm-langchain-instrument --path ../langchain/ --dev
 - rye sync
 - export OPENAI_API_KEY=sk-xxx
+- export GREPTIME_LLM_HOST=xxx
+- export GREPTIME_LLM_DATABASE=xxx
+- export GREPTIME_LLM_USERNAME=xxx
+- export GREPTIME_LLM_PASSWORD=xxx
 - rye run app
 
 then Flask will listen on :8000, and you can use cURL to try
