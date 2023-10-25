@@ -1,6 +1,7 @@
 # greptimeai
 
-Observability and analytics tool for LLM framework, service, etc.
+Observability and analytics tool for LLM framework, service, etc. You can find more
+examples and guides on [greptimeai-cookbook][greptimeai-cookbook]
 
 ## Installation
 
@@ -77,5 +78,6 @@ export OPENAI_API_KEY='sk-...'
 
 TODO
 
-[greptimeai]: https://console.greptime.cloud
+[greptimeai]: https://console.greptime.cloud/ai
+[greptimeai-cookbook]: https://github.com/GreptimeTeam/greptimeai-cookbook
 [openai]: https://platform.openai.com/account/api-keys
