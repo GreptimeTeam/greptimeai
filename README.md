@@ -21,24 +21,13 @@ To get started, create a service by registering [greptimeai][greptimeai], and ge
 - username
 - password
 
-Either set it as the `GREPTIMEAI_xxx` environment variable before using the library:
+Set it as the `GREPTIMEAI_xxx` environment variable before using the library:
 
 ```bash
 export GREPTIMEAI_HOST=''
 export GREPTIMEAI_DATABASE=''
 export GREPTIMEAI_USERNAME=''
 export GREPTIMEAI_PASSWORD=''
-```
-
-Or set to its value via `GreptimeCallbackHandler` constructor:
-
-```python
-GreptimeCallbackHandler(
-  greptimeai_host="",
-  greptimeai_database="",
-  greptimeai_username="",
-  greptimeai_password="",
-)
 ```
 
 #### LangChain
