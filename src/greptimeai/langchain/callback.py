@@ -3,6 +3,16 @@ import os
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 from uuid import UUID
 
+from langchain.callbacks.base import BaseCallbackHandler
+from langchain.callbacks.openai_info import (
+    MODEL_COST_PER_1K_TOKENS,
+    get_openai_token_cost_for_model,
+    standardize_model_name,
+)
+from langchain.schema.agent import AgentAction, AgentFinish
+from langchain.schema.document import Document
+from langchain.schema.messages import BaseMessage, get_buffer_string
+from langchain.schema.output import ChatGenerationChunk, GenerationChunk, LLMResult
 from opentelemetry import metrics, trace
 from opentelemetry.context.context import Context
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
@@ -15,26 +25,15 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Status, StatusCode, set_span_in_context
 from tenacity import RetryCallState
 
-from langchain.callbacks.base import BaseCallbackHandler
-from langchain.callbacks.openai_info import (
-    MODEL_COST_PER_1K_TOKENS,
-    get_openai_token_cost_for_model,
-    standardize_model_name,
-)
-from langchain.schema.agent import AgentAction, AgentFinish
-from langchain.schema.document import Document
-from langchain.schema.messages import BaseMessage, get_buffer_string
-from langchain.schema.output import ChatGenerationChunk, GenerationChunk, LLMResult
-
-from . import (
+from greptimeai.langchain import (
     _CLASS_TYPE_LABEL,
     _ERROR_TYPE_LABEL,
+    _GREPTIME_DATABASE_ENV_NAME,
+    _GREPTIME_HOST_ENV_NAME,
+    _GREPTIME_PASSWORD_ENV_NAME,
+    _GREPTIME_USERNAME_ENV_NAME,
     _INSTRUMENT_LIB_NAME,
     _INSTRUMENT_LIB_VERSION,
-    _LLM_DATABASE_ENV_NAME,
-    _LLM_HOST_ENV_NAME,
-    _LLM_PASSWORD_ENV_NAME,
-    _LLM_USERNAME_ENV_NAME,
     _MODEL_NAME_LABEL,
     _SPAN_NAME_AGENT,
     _SPAN_NAME_CHAIN,
@@ -65,10 +64,10 @@ class _Collector:
         self,
         skip_otel_init=False,
         resource_name: Optional[str] = None,
-        greptime_llm_host: Optional[str] = None,
-        greptime_llm_database: Optional[str] = None,
-        greptime_llm_username: Optional[str] = None,
-        greptime_llm_password: Optional[str] = None,
+        greptimeai_host: Optional[str] = None,
+        greptimeai_database: Optional[str] = None,
+        greptimeai_username: Optional[str] = None,
+        greptimeai_password: Optional[str] = None,
         verbose=True,
     ):
         """
@@ -89,10 +88,10 @@ class _Collector:
         if not skip_otel_init:
             self._setup_greptime(
                 resource_name,
-                greptime_llm_host,
-                greptime_llm_database,
-                greptime_llm_username,
-                greptime_llm_password,
+                greptimeai_host,
+                greptimeai_database,
+                greptimeai_username,
+                greptimeai_password,
             )
         self._setup_otel()
 
@@ -108,20 +107,22 @@ class _Collector:
             {SERVICE_NAME: resource_name or "greptime-llm-langchain-example"}
         )
 
-        host = host or os.getenv(_LLM_HOST_ENV_NAME)
-        database = database or os.getenv(_LLM_DATABASE_ENV_NAME)
-        username = username or os.getenv(_LLM_USERNAME_ENV_NAME)
-        password = password or os.getenv(_LLM_PASSWORD_ENV_NAME)
+        host = host or os.getenv(_GREPTIME_HOST_ENV_NAME)
+        database = database or os.getenv(_GREPTIME_DATABASE_ENV_NAME)
+        username = username or os.getenv(_GREPTIME_USERNAME_ENV_NAME)
+        password = password or os.getenv(_GREPTIME_PASSWORD_ENV_NAME)
 
-        _check_non_null_or_empty(_LLM_HOST_ENV_NAME.lower(), _LLM_HOST_ENV_NAME, host)
         _check_non_null_or_empty(
-            _LLM_DATABASE_ENV_NAME.lower(), _LLM_DATABASE_ENV_NAME, database
+            _GREPTIME_HOST_ENV_NAME.lower(), _GREPTIME_HOST_ENV_NAME, host
         )
         _check_non_null_or_empty(
-            _LLM_USERNAME_ENV_NAME.lower(), _LLM_USERNAME_ENV_NAME, username
+            _GREPTIME_DATABASE_ENV_NAME.lower(), _GREPTIME_DATABASE_ENV_NAME, database
         )
         _check_non_null_or_empty(
-            _LLM_PASSWORD_ENV_NAME.lower(), _LLM_PASSWORD_ENV_NAME, password
+            _GREPTIME_USERNAME_ENV_NAME.lower(), _GREPTIME_USERNAME_ENV_NAME, username
+        )
+        _check_non_null_or_empty(
+            _GREPTIME_PASSWORD_ENV_NAME.lower(), _GREPTIME_PASSWORD_ENV_NAME, password
         )
 
         metrics_endpoint = f"https://{host}/v1/otlp/v1/metrics"
@@ -516,7 +517,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
             "completion_cost": completion_cost,
         }
 
-        event_attrs = {}
+        event_attrs = attrs.copy()
         if self._verbose:
             event_attrs["outputs"] = _parse_generations(response.generations[0])
 
@@ -526,7 +527,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
             span_name=_SPAN_NAME_LLM,
             span_attrs=attrs,
             event_name="llm_end",
-            event_attrs=attrs | event_attrs,
+            event_attrs=event_attrs,
         )
 
     def on_llm_error(

@@ -1,15 +1,23 @@
 [project]
-name = "greptime-llm-langchain-instrument"
+name = "greptimeai"
 version = "0.1.0"
-description = "LangChain instrument for Greptime LLM service"
+description = "Observability tool for LLM application"
 authors = [
-    { name = "Ning Sun", email = "sunning@greptime.cloud" }
+    { name = "Greptime", email = "info@greptime.com" },
 ]
 dependencies = [
     "langchain>=0.0.285",
     "opentelemetry-api>=1.20.0",
     "opentelemetry-sdk>=1.20.0",
     "opentelemetry-exporter-otlp-proto-http>=1.20.0",
+]
+keywords = [
+    "greptime",
+    "observability",
+    "monitoring",
+    "llm",
+    "langchain",
+    "openai"
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
@@ -21,11 +29,10 @@ build-backend = "hatchling.build"
 [tool.rye]
 managed = true
 dev-dependencies = [
-    "flake8>=6.1.0",
 ]
 
 [tool.hatch.metadata]
 allow-direct-references = true
 
 [tool.rye.scripts]
-test = { cmd = "python -m unittest -v src/greptime_llm_langchain_instrument/test_trace.py" }
+test = { cmd = "python -m unittest -v src/greptimeai/langchain/test_trace.py" }
