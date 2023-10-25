@@ -1,16 +1,81 @@
-# greptime-llm-instrument
+# greptimeai
 
-Greptime instrument sdk for popular LLM (LangChain, OpenAI, etc.)
+Observability and analytics tool for LLM framework, service, etc.
 
-## Subprojects
+## Installation
 
-- `langchain` Instrumentation extension for [LangChain python][langchain].
-- `langchain-example` to illustrate how to use greptime-llm-langchain-instrument
+To start, ensure you have Python 3.8 or newer. If you just
+want to use the package, run:
 
-## Build
+```sh
+pip install --upgrade greptimeai
+```
 
-For Python projects, we use [`rye`](https://rye-up.com) for dependency
-management and build. To build the project, run `rye build` at project
-root. Distribution will be generated in `dist` directory.
+## Usage
 
-[langchain]: https://python.langchain.com/docs/get_started/introduction.html
+To get started, create a service by registering [greptimeai][greptimeai], and get:
+
+- host
+- database
+- username
+- password
+
+Either set it as the `GREPTIMEAI_xxx` environment variable before using the library:
+
+```bash
+export GREPTIMEAI_HOST=''
+export GREPTIMEAI_DATABASE=''
+export GREPTIMEAI_USERNAME=''
+export GREPTIMEAI_PASSWORD=''
+```
+
+Or set to its value via `GreptimeCallbackHandler` constructor:
+
+```python
+GreptimeCallbackHandler(
+  greptimeai_host="",
+  greptimeai_database="",
+  greptimeai_username="",
+  greptimeai_password="",
+)
+```
+
+#### LangChain
+
+LangChain provides a callback system that allows you to hook into the various stages of your LLM
+application. Import GreptimeCallbackHandler, which helps to collect metrics and traces to
+GreptimeCloud.
+
+```python
+from greptimeai.langchain.callback import GreptimeCallbackHandler
+from langchain.chains import LLMChain
+from langchain.llms import OpenAI
+from langchain.prompts import PromptTemplate
+
+callbacks = [GreptimeCallbackHandler()]
+llm = OpenAI()
+prompt = PromptTemplate.from_template("1 + {number} = ")
+
+# Constructor callback: First, let's explicitly set the GreptimeCallbackHandler
+# when initializing our chain
+chain = LLMChain(llm=llm, prompt=prompt, callbacks=callbacks)
+chain.run(number=2)
+
+# Request callbacks: Finally, let's use the request `callbacks` to achieve the same result
+chain = LLMChain(llm=llm, prompt=prompt)
+chain.run(number=2, callbacks=callbacks)
+```
+
+This example needs to be configured with your OpenAI account's private API key which is available on
+our [developer platform](openai). Set it as the `OPENAI_API_KEY` environment variable:
+
+```bash
+export OPENAI_API_KEY='sk-...'
+```
+
+#### OpenAI
+
+TODO
+
+[greptimeai]: https://console.greptime.cloud
+[openai]: https://platform.openai.com/account/api-keys

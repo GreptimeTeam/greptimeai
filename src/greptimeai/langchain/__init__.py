@@ -1,13 +1,12 @@
 import time
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 from uuid import UUID
-
-from opentelemetry.metrics import CallbackOptions, Observation
-from opentelemetry.trace import Span
 
 from langchain.schema import ChatGeneration, Generation
 from langchain.schema.document import Document
 from langchain.schema.messages import BaseMessage
+from opentelemetry.metrics import CallbackOptions, Observation
+from opentelemetry.trace import Span
 
 _SPAN_NAME_CHAIN = "chain"
 _SPAN_NAME_AGENT = "agent"
@@ -25,10 +24,10 @@ _INSTRUMENT_LIB_VERSION = (
     "0.1.0"  # TODO(yuanbohan): update this version after publish to pypi
 )
 
-_LLM_HOST_ENV_NAME = "GREPTIME_LLM_HOST"
-_LLM_DATABASE_ENV_NAME = "GREPTIME_LLM_DATABASE"
-_LLM_USERNAME_ENV_NAME = "GREPTIME_LLM_USERNAME"
-_LLM_PASSWORD_ENV_NAME = "GREPTIME_LLM_PASSWORD"
+_GREPTIME_HOST_ENV_NAME = "GREPTIMEAI_HOST"
+_GREPTIME_DATABASE_ENV_NAME = "GREPTIMEAI_DATABASE"
+_GREPTIME_USERNAME_ENV_NAME = "GREPTIMEAI_USERNAME"
+_GREPTIME_PASSWORD_ENV_NAME = "GREPTIMEAI_PASSWORD"
 
 
 def _check_non_null_or_empty(name: str, env_name: str, val: Optional[str]):
@@ -92,7 +91,7 @@ def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return result
 
 
-def _parse(obj: Any) -> Dict[str, Any] | Sequence[Any] | Any:
+def _parse(obj: Any) -> Union[Dict[str, Any], Sequence[Any], Any]:
     if hasattr(obj, "to_json"):
         return obj.to_json()
 
