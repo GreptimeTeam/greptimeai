@@ -1,3 +1,4 @@
+import logging
 import time
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 from uuid import UUID
@@ -21,7 +22,7 @@ _MODEL_NAME_LABEL = "model"
 
 _INSTRUMENT_LIB_NAME = "greptime-llm"
 _INSTRUMENT_LIB_VERSION = (
-    "0.1.0"  # TODO(yuanbohan): update this version after publish to pypi
+    "0.1.2"
 )
 
 _GREPTIME_HOST_ENV_NAME = "GREPTIMEAI_HOST"
@@ -147,7 +148,7 @@ def _parse_generation(gen: Generation) -> Optional[Dict[str, Any]]:
     info = gen.generation_info or {}
     attrs = {
         "text": gen.text,
-        # TODO(yuanbohan): the following is OpenAI only?
+        # the following is OpenAI only?
         "finish_reason": info.get("finish_reason"),
         "log_probability": info.get("logprobs"),
     }
@@ -306,7 +307,7 @@ class _Observation:
         if attrs is None or empty, nothing will happen
         """
         if attrs is None or len(attrs) == 0:
-            print(f"None key for { attrs }")
+            logging.info(f"None key for { attrs }")
             return
 
         tuple_key = self._dict_to_tuple(attrs)

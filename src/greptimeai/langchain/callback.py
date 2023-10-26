@@ -1,4 +1,5 @@
 import base64
+import logging
 import os
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 from uuid import UUID
@@ -68,6 +69,7 @@ class _Collector:
         greptimeai_database: Optional[str] = None,
         greptimeai_username: Optional[str] = None,
         greptimeai_password: Optional[str] = None,
+        insecure: bool = False,
         verbose=True,
     ):
         """
@@ -86,22 +88,24 @@ class _Collector:
         self._trace_tables = _TraceTable()
 
         if not skip_otel_init:
-            self._setup_greptime(
+            self._setup_greptime_otel_exporter(
                 resource_name,
                 greptimeai_host,
                 greptimeai_database,
                 greptimeai_username,
                 greptimeai_password,
+                insecure,
             )
-        self._setup_otel()
+        self._setup_otel_metrics()
 
-    def _setup_greptime(
+    def _setup_greptime_otel_exporter(
         self,
         resource_name: Optional[str] = None,
         host: Optional[str] = None,
         database: Optional[str] = None,
         username: Optional[str] = None,
         password: Optional[str] = None,
+        insecure: bool = False,
     ):
         resource = Resource.create(
             {SERVICE_NAME: resource_name or "greptimeai-langchain"}
@@ -111,6 +115,7 @@ class _Collector:
         database = database or os.getenv(_GREPTIME_DATABASE_ENV_NAME)
         username = username or os.getenv(_GREPTIME_USERNAME_ENV_NAME)
         password = password or os.getenv(_GREPTIME_PASSWORD_ENV_NAME)
+        scheme = "http" if insecure else "https"
 
         _check_non_null_or_empty(
             _GREPTIME_HOST_ENV_NAME.lower(), _GREPTIME_HOST_ENV_NAME, host
@@ -125,8 +130,8 @@ class _Collector:
             _GREPTIME_PASSWORD_ENV_NAME.lower(), _GREPTIME_PASSWORD_ENV_NAME, password
         )
 
-        metrics_endpoint = f"https://{host}/v1/otlp/v1/metrics"
-        trace_endpoint = f"https://{host}/v1/otlp/v1/traces"
+        metrics_endpoint = f"{scheme}://{host}/v1/otlp/v1/metrics"
+        trace_endpoint = f"{scheme}://{host}/v1/otlp/v1/traces"
 
         auth = f"{username}:{password}"
         b64_auth = base64.b64encode(auth.encode()).decode("ascii")
@@ -157,7 +162,7 @@ class _Collector:
         trace_provider.add_span_processor(span_processor)
         trace.set_tracer_provider(trace_provider)
 
-    def _setup_otel(self):
+    def _setup_otel_metrics(self):
         """
         setup opentelemetry, and raise Error if something wrong
         """
@@ -231,7 +236,7 @@ class _Collector:
                 context = set_span_in_context(parent_span)
                 _do_start_span(context)
             else:
-                print(
+                logging.error(
                     f"unexpected behavior. parent span of { parent_run_id } not found."
                 )
         else:
@@ -250,7 +255,7 @@ class _Collector:
         if span:
             span.add_event(event_name, attributes=event_attrs)
         else:
-            print(f"{run_id} span not found for {event_name}")
+            logging.error(f"{run_id} span not found for {event_name}")
 
     def _end_span(
         self,
@@ -275,7 +280,7 @@ class _Collector:
             span.add_event(event_name, attributes=event_attrs)
             span.end()
         else:
-            print(f"unexpected behavior. span of { run_id } not found.")
+            logging.error(f"unexpected behavior. span of { run_id } not found.")
 
     def _collect_llm_metrics(
         self,
@@ -336,8 +341,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         metadata: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
     ) -> Any:
-        # TODO(yuanbohan): remove this print in the near future
-        print(f"on_chain_start. { run_id =} { parent_run_id =} { kwargs = }")
+        logging.debug(f"on_chain_start. { run_id =} { parent_run_id =} { kwargs = }")
 
         span_attrs = {
             "user_id": _get_user_id(metadata),
@@ -369,8 +373,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
-        # TODO(yuanbohan): remove this print in the near future
-        print(f"on_chain_end. { run_id =} { parent_run_id =} { kwargs = }")
+        logging.debug(f"on_chain_end. { run_id =} { parent_run_id =} { kwargs = }")
         event_attrs = {}
         if self._verbose:
             event_attrs["outputs"] = _parse_output(outputs)
@@ -391,8 +394,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
-        # TODO(yuanbohan): remove this print in the near future
-        print(f"on_chain_error. { run_id =} { parent_run_id =} { kwargs = }")
+        logging.debug(f"on_chain_error. { run_id =} { parent_run_id =} { kwargs = }")
         event_attrs = {
             _ERROR_TYPE_LABEL: error.__class__.__name__,
         }
@@ -419,8 +421,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         invocation_params: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
     ) -> Any:
-        # TODO(yuanbohan): remove this print in the near future
-        print(f"on_llm_start. { run_id =} { parent_run_id =} { kwargs = }")
+        logging.debug(f"on_llm_start. { run_id =} { parent_run_id =} { kwargs = }")
 
         span_attrs = {
             "user_id": _get_user_id(metadata),
@@ -458,8 +459,9 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         invocation_params: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
     ) -> Any:
-        # TODO(yuanbohan): remove this print in the near future
-        print(f"on_chat_model_start. { run_id =} { parent_run_id =} { kwargs = }")
+        logging.debug(
+            f"on_chat_model_start. { run_id =} { parent_run_id =} { kwargs = }"
+        )
 
         span_attrs = {
             "user_id": _get_user_id(metadata),
@@ -493,8 +495,9 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
-        # TODO(yuanbohan): remove this print in the near future
-        print(f"on_llm_end. { run_id =} { parent_run_id =} { kwargs = } { response = }")
+        logging.debug(
+            f"on_llm_end. { run_id =} { parent_run_id =} { kwargs = } { response = }"
+        )
         output = response.llm_output or {}
         token_usage = output.get("token_usage", {})
         completion_tokens = token_usage.get("completion_tokens", 0)
@@ -538,8 +541,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
-        # TODO(yuanbohan): remove this print in the near future
-        print(f"on_llm_error. { run_id =} { parent_run_id =} { kwargs = }")
+        logging.debug(f"on_llm_error. { run_id =} { parent_run_id =} { kwargs = }")
         event_attrs = {
             _ERROR_TYPE_LABEL: error.__class__.__name__,
         }
@@ -567,12 +569,13 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         """
         on_llm_start, or on_chat_model_start has already started this span.
         """
-        if not self._verbose:
-            return
+        logging.debug(
+            f"on_llm_new_token. { run_id = } { parent_run_id = } { kwargs = } { token = } { chunk = }"
+        )
 
-        event_attrs = {
-            "token": token,
-        }
+        event_attrs = {}
+        if self._verbose:
+            event_attrs["token"] = token
 
         self._add_span_event(
             run_id=run_id, event_name="streaming", event_attrs=event_attrs
@@ -589,8 +592,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         metadata: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
     ) -> Any:
-        # TODO(yuanbohan): remove this print in the near future
-        print(f"on_tool_start. { run_id = } { parent_run_id = } { kwargs = }")
+        logging.debug(f"on_tool_start. { run_id = } { parent_run_id = } { kwargs = }")
 
         span_attrs = {
             "user_id": _get_user_id(metadata),
@@ -623,8 +625,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
-        # TODO(yuanbohan): remove this print in the near future
-        print(f"on_tool_end. { run_id =} { parent_run_id =} { kwargs = }")
+        logging.debug(f"on_tool_end. { run_id =} { parent_run_id =} { kwargs = }")
         event_attrs = {}
         if self._verbose:
             event_attrs["output"] = output
@@ -646,8 +647,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
-        # TODO(yuanbohan): remove this print in the near future
-        print(f"on_tool_error. { run_id =} { parent_run_id =} { kwargs = }")
+        logging.debug(f"on_tool_error. { run_id =} { parent_run_id =} { kwargs = }")
         event_attrs = {
             _ERROR_TYPE_LABEL: error.__class__.__name__,
         }
@@ -673,8 +673,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         metadata: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
     ) -> Any:
-        # TODO(yuanbohan): remove this print in the near future
-        print(f"on_agent_action. { run_id =} { parent_run_id =} { kwargs = }")
+        logging.debug(f"on_agent_action. { run_id =} { parent_run_id =} { kwargs = }")
 
         span_attrs = {
             "user_id": _get_user_id(metadata),
@@ -708,8 +707,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
-        # TODO(yuanbohan): remove this print in the near future
-        print(f"on_agent_finish. { run_id =} { parent_run_id =} { kwargs = }")
+        logging.debug(f"on_agent_finish. { run_id =} { parent_run_id =} { kwargs = }")
         event_attrs = {
             _CLASS_TYPE_LABEL: finish.__class__.__name__,
             "log": finish.log,
@@ -737,7 +735,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
-        print(f"on_retriever_start. {run_id=} {parent_run_id=} {kwargs=}")
+        logging.debug(f"on_retriever_start. {run_id=} {parent_run_id=} {kwargs=}")
 
         span_attrs = {
             "user_id": _get_user_id(metadata),
@@ -769,7 +767,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
-        print(f"on_retriever_error. {run_id=} {parent_run_id=} {kwargs=}")
+        logging.debug(f"on_retriever_error. {run_id=} {parent_run_id=} {kwargs=}")
         event_attrs = {
             _ERROR_TYPE_LABEL: error.__class__.__name__,
         }
@@ -792,7 +790,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         tags: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> Any:
-        print(f"on_retriever_end. {run_id=} {parent_run_id=} {kwargs=}")
+        logging.debug(f"on_retriever_end. {run_id=} {parent_run_id=} {kwargs=}")
         event_attrs: Dict[str, Any] = {
             "tags": tags,
         }
@@ -816,7 +814,7 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
-        print(f"on_retriever_end. {run_id=} {parent_run_id=} {kwargs=}")
+        logging.debug(f"on_retriever_end. {run_id=} {parent_run_id=} {kwargs=}")
         event_attrs = {
             "retry_state": f"{retry_state}",
         }
