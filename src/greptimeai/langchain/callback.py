@@ -104,7 +104,7 @@ class _Collector:
         password: Optional[str] = None,
     ):
         resource = Resource.create(
-            {SERVICE_NAME: resource_name or "greptime-llm-langchain-example"}
+            {SERVICE_NAME: resource_name or "greptimeai-langchain"}
         )
 
         host = host or os.getenv(_GREPTIME_HOST_ENV_NAME)

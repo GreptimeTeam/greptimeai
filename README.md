@@ -1,6 +1,7 @@
 # greptimeai
 
-Observability and analytics tool for LLM framework, service, etc.
+Observability and analytics tool for LLM framework, service, etc. You can find more
+examples and guides on [greptimeai-cookbook][greptimeai-cookbook]
 
 ## Installation
 
@@ -20,24 +21,13 @@ To get started, create a service by registering [greptimeai][greptimeai], and ge
 - username
 - password
 
-Either set it as the `GREPTIMEAI_xxx` environment variable before using the library:
+Set it as the `GREPTIMEAI_xxx` environment variable before using the library:
 
 ```bash
 export GREPTIMEAI_HOST=''
 export GREPTIMEAI_DATABASE=''
 export GREPTIMEAI_USERNAME=''
 export GREPTIMEAI_PASSWORD=''
-```
-
-Or set to its value via `GreptimeCallbackHandler` constructor:
-
-```python
-GreptimeCallbackHandler(
-  greptimeai_host="",
-  greptimeai_database="",
-  greptimeai_username="",
-  greptimeai_password="",
-)
 ```
 
 #### LangChain
@@ -77,5 +67,6 @@ export OPENAI_API_KEY='sk-...'
 
 TODO
 
-[greptimeai]: https://console.greptime.cloud
+[greptimeai]: https://console.greptime.cloud/ai
+[greptimeai-cookbook]: https://github.com/GreptimeTeam/greptimeai-cookbook
 [openai]: https://platform.openai.com/account/api-keys
