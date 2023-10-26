@@ -1,3 +1,4 @@
+import logging
 import time
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 from uuid import UUID
@@ -306,7 +307,7 @@ class _Observation:
         if attrs is None or empty, nothing will happen
         """
         if attrs is None or len(attrs) == 0:
-            print(f"None key for { attrs }")
+            logging.info(f"None key for { attrs }")
             return
 
         tuple_key = self._dict_to_tuple(attrs)
