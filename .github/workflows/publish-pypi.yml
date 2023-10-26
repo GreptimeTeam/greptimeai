@@ -7,7 +7,7 @@ run-name: publish packages by @${{ github.actor }}
 on:
   push:
     tags:
-      - "v*.*.*"
+      - '[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
   build:
