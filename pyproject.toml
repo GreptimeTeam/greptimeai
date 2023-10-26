@@ -1,6 +1,6 @@
 [project]
 name = "greptimeai"
-version = "0.1.0"
+version = "0.1.1"
 description = "Observability tool for LLM application"
 authors = [
     { name = "Greptime", email = "info@greptime.com" },
@@ -23,16 +23,13 @@ readme = "README.md"
 requires-python = ">= 3.8"
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
 
 [tool.rye]
 managed = true
 dev-dependencies = [
 ]
 
-[tool.hatch.metadata]
-allow-direct-references = true
-
 [tool.rye.scripts]
-test = { cmd = "python -m unittest -v src/greptimeai/langchain/test_trace.py" }
+test = { cmd = "python -m unittest discover tests/langchain -v" }
