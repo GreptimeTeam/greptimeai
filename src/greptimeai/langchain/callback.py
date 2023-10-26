@@ -115,9 +115,7 @@ class _Collector:
         database = database or os.getenv(_GREPTIME_DATABASE_ENV_NAME)
         username = username or os.getenv(_GREPTIME_USERNAME_ENV_NAME)
         password = password or os.getenv(_GREPTIME_PASSWORD_ENV_NAME)
-        scheme = "https"
-        if insecure:
-            scheme = "http"
+        scheme = "http" if insecure else "https"
 
         _check_non_null_or_empty(
             _GREPTIME_HOST_ENV_NAME.lower(), _GREPTIME_HOST_ENV_NAME, host
@@ -461,7 +459,9 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         invocation_params: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
     ) -> Any:
-        logging.debug(f"on_chat_model_start. { run_id =} { parent_run_id =} { kwargs = }")
+        logging.debug(
+            f"on_chat_model_start. { run_id =} { parent_run_id =} { kwargs = }"
+        )
 
         span_attrs = {
             "user_id": _get_user_id(metadata),
@@ -495,7 +495,9 @@ class GreptimeCallbackHandler(_Collector, BaseCallbackHandler):
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
-        logging.debug(f"on_llm_end. { run_id =} { parent_run_id =} { kwargs = } { response = }")
+        logging.debug(
+            f"on_llm_end. { run_id =} { parent_run_id =} { kwargs = } { response = }"
+        )
         output = response.llm_output or {}
         token_usage = output.get("token_usage", {})
         completion_tokens = token_usage.get("completion_tokens", 0)
