@@ -34,7 +34,6 @@ from greptimeai.langchain import (
     _GREPTIME_PASSWORD_ENV_NAME,
     _GREPTIME_USERNAME_ENV_NAME,
     _INSTRUMENT_LIB_NAME,
-    _INSTRUMENT_LIB_VERSION,
     _MODEL_NAME_LABEL,
     _SPAN_NAME_AGENT,
     _SPAN_NAME_CHAIN,
@@ -54,6 +53,7 @@ from greptimeai.langchain import (
     _TimeTable,
     _TraceTable,
 )
+from greptimeai.version import __version__
 
 
 class _Collector:
@@ -168,12 +168,10 @@ class _Collector:
         """
         self._tracer = trace.get_tracer(
             instrumenting_module_name=_INSTRUMENT_LIB_NAME,
-            instrumenting_library_version=_INSTRUMENT_LIB_VERSION,
+            instrumenting_library_version=__version__,
         )
 
-        meter = metrics.get_meter(
-            name=_INSTRUMENT_LIB_NAME, version=_INSTRUMENT_LIB_VERSION
-        )
+        meter = metrics.get_meter(name=_INSTRUMENT_LIB_NAME, version=__version__)
 
         self._prompt_tokens_count = meter.create_counter(
             "llm_prompt_tokens",

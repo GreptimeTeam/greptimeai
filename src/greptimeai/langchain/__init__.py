@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
@@ -21,9 +22,6 @@ _SPAN_TYPE_LABEL = "type"
 _MODEL_NAME_LABEL = "model"
 
 _INSTRUMENT_LIB_NAME = "greptime-llm"
-_INSTRUMENT_LIB_VERSION = (
-    "0.1.2"
-)
 
 _GREPTIME_HOST_ENV_NAME = "GREPTIMEAI_HOST"
 _GREPTIME_DATABASE_ENV_NAME = "GREPTIMEAI_DATABASE"
@@ -78,7 +76,7 @@ def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Dict[str, Any]:
             if _is_valid_otel_attributes_value_type(item):
                 result.append(item)
             else:
-                result.append(str(item))
+                result.append(json.dumps(item))
         return result
 
     for key, val in attrs.items():
@@ -87,7 +85,7 @@ def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         elif isinstance(val, list):
             result[key] = _sanitate_list(val)
         else:
-            result[key] = str(val)
+            result[key] = json.dumps(val)
 
     return result
 
@@ -168,7 +166,7 @@ def _parse_generations(
     parse LLMResult.generations[0] to structured fields
     """
     if gens and len(gens) > 0:
-        return filter(None, [_parse_generation(gen) for gen in gens if gen])
+        return list(filter(None, [_parse_generation(gen) for gen in gens if gen]))
 
     return None
 
