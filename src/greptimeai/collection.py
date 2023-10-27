@@ -17,7 +17,7 @@ from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Span, Status, StatusCode, set_span_in_context
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from .scope import _NAME, _VERSION
 
@@ -70,13 +70,12 @@ def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return result
 
 
-class _TraceTable:
-    def __init__(self):
-        """
-        maintain the OTel span object of run_id.
-        Pay Attention: different name may have same run_id.
-        """
-        self._traces: Dict[str, List[Tuple[str, Span]]] = {}
+class _TraceTable(BaseModel):
+    """
+    NOTE: different name may have same run_id.
+    """
+
+    _traces: Dict[str, List[Tuple[str, Span]]] = {}
 
     def put_span(self, name: str, run_id: UUID, span: Span):
         """
@@ -133,10 +132,8 @@ class _TraceTable:
         return target_span
 
 
-class _TimeTable:
-    def __init__(self):
-        "track multiple timer specified by key"
-        self.__tables = {}
+class _TimeTable(BaseModel):
+    _tables: Dict[str, float] = {}
 
     def _key(self, name: str, run_id: UUID) -> str:
         return f"{name}.{run_id}"
@@ -146,7 +143,7 @@ class _TimeTable:
         set start time of named run_id. for different name may have same run_id
         """
         key = self._key(name, run_id)
-        self.__tables[key] = time.time()
+        self._tables[key] = time.time()
 
     def latency_in_ms(self, name: str, run_id: UUID) -> Optional[float]:
         """
@@ -154,30 +151,32 @@ class _TimeTable:
         """
         key = self._key(name, run_id)
         now = time.time()
-        start = self.__tables.pop(key, None)
+        start = self._tables.pop(key, None)
         if start:
             return 1000 * (now - start)
         return None
 
 
-class _Observation:
+class _Observation(BaseModel):
     """
     # FIXME(yuanbohan): concurrent conflict. refer to Mutex or other solutions
     """
 
-    def __init__(self, name: str = ""):
-        self._name = name
+    name: str
+    _cost: Dict[Tuple, float] = {}
+
+    def __init__(self, name):
         self._cost = {}
 
     def _reset(self):
         self._cost = {}
 
-    def _dict_to_tuple(self, attrs: Dict) -> Optional[Tuple]:
+    def _dict_to_tuple(self, attrs: Dict) -> Tuple:
         """
         sort keys first
         """
         if attrs is None or len(attrs) == 0:
-            return None
+            return ()
 
         lst = [(key, attrs[key]) for key in sorted(attrs.keys())]
         return tuple(lst)
@@ -215,18 +214,20 @@ class Collector(BaseModel):
     collect metrics and traces
     """
 
+    model_config = ConfigDict(frozen=True)
+
     host: Optional[str] = None
     database: Optional[str] = None
     username: Optional[str] = None
     password: Optional[str] = None
     insecure: bool = False
 
-    def setup(self):
-        self._time_tables = _TimeTable()
-        self._prompt_cost = _Observation("prompt_cost")
-        self._completion_cost = _Observation("completion_cost")
-        self._trace_tables = _TraceTable()
+    _time_tables = _TimeTable()
+    _prompt_cost = _Observation("prompt_cost")
+    _completion_cost = _Observation("completion_cost")
+    _trace_tables = _TraceTable()
 
+    def setup(self):
         self._setup_greptime_otel_exporter()
         self._setup_otel_metrics()
 
