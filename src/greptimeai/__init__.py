@@ -27,3 +27,7 @@ def setup(
         password=password,
         insecure=insecure,
     )
+
+
+def _get_collector() -> Collector:
+    return collector
