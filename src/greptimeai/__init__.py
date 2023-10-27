@@ -1,12 +1,9 @@
 import logging
 from typing import Optional
 
-from greptimeai.collection import Collector
+from .collection import Collector
 
-_VERSION = "0.1.4"
-_SCOPE_NAME = "greptimeai"
-
-logger = logging.getLogger(_SCOPE_NAME)
+logger = logging.getLogger("greptimeai")
 
 collector: Collector = None  # type: ignore
 
@@ -19,6 +16,10 @@ def setup(
     insecure: bool = False,
 ):
     global collector
+    if collector:
+        logger.info("collector has been initiated, no need to setup again.")
+        return
+
     collector = Collector(
         host=host,
         database=database,

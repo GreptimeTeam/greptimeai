@@ -19,7 +19,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Span, Status, StatusCode, set_span_in_context
 from pydantic import BaseModel
 
-from greptimeai import _SCOPE_NAME, _VERSION
+from .scope import _NAME, _VERSION
 
 _GREPTIME_HOST_ENV_NAME = "GREPTIMEAI_HOST"
 _GREPTIME_DATABASE_ENV_NAME = "GREPTIMEAI_DATABASE"
@@ -289,11 +289,11 @@ class Collector(BaseModel):
         setup opentelemetry, and raise Error if something wrong
         """
         self._tracer = trace.get_tracer(
-            instrumenting_module_name=_SCOPE_NAME,
+            instrumenting_module_name=_NAME,
             instrumenting_library_version=_VERSION,
         )
 
-        meter = metrics.get_meter(name=_SCOPE_NAME, version=_VERSION)
+        meter = metrics.get_meter(name=_NAME, version=_VERSION)
 
         self._prompt_tokens_count = meter.create_counter(
             "llm_prompt_tokens",

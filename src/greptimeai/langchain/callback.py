@@ -14,7 +14,8 @@ from langchain.schema.output import ChatGenerationChunk, GenerationChunk, LLMRes
 from tenacity import RetryCallState
 
 from greptimeai import collector, logger
-from greptimeai.langchain import (
+
+from . import (
     _CLASS_TYPE_LABEL,
     _ERROR_TYPE_LABEL,
     _SPAN_NAME_AGENT,
