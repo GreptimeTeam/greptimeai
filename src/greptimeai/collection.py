@@ -222,51 +222,50 @@ class Collector:
         password: Optional[str] = None,
         insecure: bool = False,
     ):
-        self.host = host
-        self.database = database
-        self.username = username
-        self.password = password
-        self.insecure = insecure
+        self.host = host or os.getenv(_GREPTIME_HOST_ENV_NAME)
+        self.database = database or os.getenv(_GREPTIME_DATABASE_ENV_NAME)
+        self.username = username or os.getenv(_GREPTIME_USERNAME_ENV_NAME)
+        self.password = password or os.getenv(_GREPTIME_PASSWORD_ENV_NAME)
+        self.insecure = insecure or os.getenv(_GREPTIME_INSECURE_ENV_NAME)
+
+        _check_non_null_or_empty(
+            _GREPTIME_HOST_ENV_NAME.lower(), _GREPTIME_HOST_ENV_NAME, self.host
+        )
+        _check_non_null_or_empty(
+            _GREPTIME_DATABASE_ENV_NAME.lower(),
+            _GREPTIME_DATABASE_ENV_NAME,
+            self.database,
+        )
+        _check_non_null_or_empty(
+            _GREPTIME_USERNAME_ENV_NAME.lower(),
+            _GREPTIME_USERNAME_ENV_NAME,
+            self.username,
+        )
+        _check_non_null_or_empty(
+            _GREPTIME_PASSWORD_ENV_NAME.lower(),
+            _GREPTIME_PASSWORD_ENV_NAME,
+            self.password,
+        )
 
         self._time_tables = _TimeTable()
         self._prompt_cost = _Observation("prompt_cost")
         self._completion_cost = _Observation("completion_cost")
         self._trace_tables = _TraceTable()
 
-        self._setup_greptime_otel_exporter()
+        self._setup_otel_exporter()
         self._setup_otel_metrics()
 
-    def _setup_greptime_otel_exporter(self):
-        host = self.host or os.getenv(_GREPTIME_HOST_ENV_NAME)
-        database = self.database or os.getenv(_GREPTIME_DATABASE_ENV_NAME)
-        username = self.username or os.getenv(_GREPTIME_USERNAME_ENV_NAME)
-        password = self.password or os.getenv(_GREPTIME_PASSWORD_ENV_NAME)
-        insecure = self.insecure or os.getenv(_GREPTIME_INSECURE_ENV_NAME)
-        scheme = "http" if insecure else "https"
-
-        _check_non_null_or_empty(
-            _GREPTIME_HOST_ENV_NAME.lower(), _GREPTIME_HOST_ENV_NAME, host
-        )
-        _check_non_null_or_empty(
-            _GREPTIME_DATABASE_ENV_NAME.lower(), _GREPTIME_DATABASE_ENV_NAME, database
-        )
-        _check_non_null_or_empty(
-            _GREPTIME_USERNAME_ENV_NAME.lower(), _GREPTIME_USERNAME_ENV_NAME, username
-        )
-        _check_non_null_or_empty(
-            _GREPTIME_PASSWORD_ENV_NAME.lower(), _GREPTIME_PASSWORD_ENV_NAME, password
-        )
-
+    def _setup_otel_exporter(self):
         resource = Resource.create({SERVICE_NAME: "greptimeai-langchain"})
+        scheme = "http" if self.insecure else "https"
+        metrics_endpoint = f"{scheme}://{self.host}/v1/otlp/v1/metrics"
+        trace_endpoint = f"{scheme}://{self.host}/v1/otlp/v1/traces"
 
-        metrics_endpoint = f"{scheme}://{host}/v1/otlp/v1/metrics"
-        trace_endpoint = f"{scheme}://{host}/v1/otlp/v1/traces"
-
-        auth = f"{username}:{password}"
+        auth = f"{self.username}:{self.password}"
         b64_auth = base64.b64encode(auth.encode()).decode("ascii")
         greptime_headers = {
             "Authorization": f"Basic {b64_auth}",
-            "x-greptime-db-name": database,
+            "x-greptime-db-name": self.database,
         }
 
         metrics_exporter = OTLPMetricExporter(
