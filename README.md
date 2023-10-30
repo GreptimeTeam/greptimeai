@@ -37,13 +37,11 @@ application. Import GreptimeCallbackHandler, which helps to collect metrics and 
 GreptimeCloud.
 
 ```python
-import greptimeai
 from greptimeai.langchain.callback import GreptimeCallbackHandler
 from langchain.chains import LLMChain
 from langchain.llms import OpenAI
 from langchain.prompts import PromptTemplate
 
-greptimeai.setup()
 callbacks = [GreptimeCallbackHandler()]
 llm = OpenAI()
 prompt = PromptTemplate.from_template("1 + {number} = ")
