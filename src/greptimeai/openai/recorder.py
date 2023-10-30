@@ -72,12 +72,12 @@ class Recorder:
         return None
 
     def _trace_completion_req(
-        self,
-        span: Span,
-        args,
-        kwargs,
-        result,
-        exception,
+            self,
+            span: Span,
+            args,
+            kwargs,
+            result,
+            exception,
     ):
         params = kwargs
         model = ""
@@ -90,6 +90,7 @@ class Recorder:
             span.set_attribute("model", model)
         param_names = [
             "model",
+            "prompt",
             "max_tokens",
             "temperature",
             "top_p",
@@ -108,22 +109,22 @@ class Recorder:
 
         if "stream" in params and params["stream"]:
             if "model" in params and "prompt" in params:
-                prompt_usage = {"token_count": 0}
+                prompt_usage = {"prompt_tokens": 0}
                 if not exception:
                     if isinstance(params["prompt"], str):
                         prompt_tokens = self._count_tokens(
                             params["model"], params["prompt"]
                         )
                         if prompt_tokens:
-                            prompt_usage["token_count"] = prompt_tokens
+                            prompt_usage["prompt_tokens"] = prompt_tokens
                     elif isinstance(params["prompt"], list):
                         for prompt in params["prompt"]:
                             prompt_tokens = self._count_tokens(params["model"], prompt)
                             if prompt_tokens:
-                                prompt_usage["token_count"] += prompt_tokens
+                                prompt_usage["prompt_tokens"] += prompt_tokens
                 span.set_attributes(prompt_usage)
                 go._collector.prompt_tokens_count.add(
-                    prompt_usage["token_count"], {"model": model}
+                    prompt_usage["prompt_tokens"], {"model": model}
                 )
             return
 
@@ -135,9 +136,11 @@ class Recorder:
         completion_usage = {"finish_reason_stop": 0, "finish_reason_length": 0}
         if result and "usage" in result and not exception:
             if "prompt_tokens" in result["usage"]:
-                prompt_usage["token_count"] = result["usage"]["prompt_tokens"]
+                prompt_usage["prompt_tokens"] = result["usage"]["prompt_tokens"]
             if "completion_tokens" in result["usage"]:
-                completion_usage["token_count"] = result["usage"]["completion_tokens"]
+                completion_usage["completion_tokens"] = result["usage"][
+                    "completion_tokens"
+                ]
                 go._collector.completion_tokens_count.add(
                     result["usage"]["completion_tokens"], {"model": model}
                 )
@@ -155,23 +158,41 @@ class Recorder:
                             completion_usage["finish_reason_length"] += 1
         span.set_attributes(completion_usage)
 
-    def _trace_completion_res(self, span: Span, item):
-        completion_usage = {
-            "finish_reason_stop": 0,
-            "finish_reason_length": 0,
-            "token_count": 0,
-        }
+    def _trace_completion_res(self, span: Span, item, data):
+        if data is None:
+            data = {
+                "finish_reason_stop": 0,
+                "finish_reason_length": 0,
+                "completion_tokens": 0,
+                "model": "",
+                "text": "",
+            }
         if item and "choices" in item:
+            if "model" in item:
+                data["model"] = item["model"]
+
             for choice in item["choices"]:
+                data["completion_tokens"] += 1
+                if "text" in choice:
+                    data["text"] += choice["text"]
                 if "finish_reason" in choice:
                     if choice["finish_reason"] == "stop":
-                        completion_usage["finish_reason_stop"] += 1
+                        data["finish_reason_stop"] += 1
+                        try:
+                            tokens = self._count_tokens(
+                                data["model"], data["text"]
+                            )
+                            if tokens and tokens != 0:
+                                data["completion_tokens"] = tokens
+                        finally:
+                            span.set_attributes(data)
+                            go._collector.completion_tokens_count.add(
+                                data["completion_tokens"]
+                            )
                     elif choice["finish_reason"] == "length":
-                        completion_usage["finish_reason_length"] += 1
-                completion_usage["token_count"] += 1
-            span.set_attributes(completion_usage)
-            go._collector.completion_tokens_count.add(completion_usage["token_count"])
+                        data["finish_reason_length"] += 1
 
+            return data
 
 
 def _is_generator(obj):
@@ -179,9 +200,10 @@ def _is_generator(obj):
 
 
 def _trace_generator(result, trace_res_func, span):
+    data = None
     for item in result:
         try:
-            trace_res_func(span, item)
+            data = trace_res_func(span, item, data)
         except Exception:
             logging.debug("trace res failed", exc_info=True)
         yield item
@@ -189,7 +211,7 @@ def _trace_generator(result, trace_res_func, span):
 
 
 def _instrument_sync(
-    obj, func_name: str, operation: str, trace_req_func, trace_res_func
+        obj, func_name: str, operation: str, trace_req_func, trace_res_func
 ):
     """
     instrument openai by wrapping
@@ -213,6 +235,7 @@ def _instrument_sync(
             if exception is not None:
                 span.record_exception(exception)
             trace_req_func(span, args, kwargs, result, exception)
+            # trace request params and no-stream response data
 
         except Exception:
             logging.debug("trace %s failed", func_name, exc_info=True)
@@ -221,7 +244,7 @@ def _instrument_sync(
             span.end()
         else:
             result = _trace_generator(result, trace_res_func, span)
-        # span.end()
+            # trace stream response data
         return result
 
     @wraps(openai_func)
