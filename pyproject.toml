@@ -23,6 +23,9 @@ keywords = [
 readme = "README.md"
 requires-python = ">= 3.8"
 
+[project.optional-dependencies]
+openai=["openai>=0.28.1"]
+
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
