@@ -2,13 +2,13 @@ import os
 from typing import Optional
 
 from greptimeai.openai.collector import Collector
+from greptimeai.collection import (
+    _GREPTIME_HOST_ENV_NAME,
+    _GREPTIME_DATABASE_ENV_NAME,
+    _GREPTIME_USERNAME_ENV_NAME,
+    _GREPTIME_PASSWORD_ENV_NAME,
+)
 
-
-
-_GREPTIME_HOST_ENV_NAME = "GREPTIMEAI_HOST"
-_GREPTIME_DATABASE_ENV_NAME = "GREPTIMEAI_DATABASE"
-_GREPTIME_USERNAME_ENV_NAME = "GREPTIMEAI_USERNAME"
-_GREPTIME_PASSWORD_ENV_NAME = "GREPTIMEAI_PASSWORD"
 
 _collector: Collector = None
 
