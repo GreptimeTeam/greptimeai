@@ -57,7 +57,7 @@ chain.run(number=2, callbacks=callbacks)
 ```
 
 This example needs to be configured with your OpenAI account's private API key which is available on
-our [developer platform](openai). Set it as the `OPENAI_API_KEY` environment variable:
+our [developer platform][openai]. Set it as the `OPENAI_API_KEY` environment variable:
 
 ```bash
 export OPENAI_API_KEY='sk-...'
