@@ -24,6 +24,7 @@ _GREPTIME_HOST_ENV_NAME = "GREPTIMEAI_HOST"
 _GREPTIME_DATABASE_ENV_NAME = "GREPTIMEAI_DATABASE"
 _GREPTIME_USERNAME_ENV_NAME = "GREPTIMEAI_USERNAME"
 _GREPTIME_PASSWORD_ENV_NAME = "GREPTIMEAI_PASSWORD"
+_GREPTIME_INSECURE_ENV_NAME = "GREPTIMEAI_INSECURE"
 
 
 def _check_non_null_or_empty(name: str, env_name: str, val: Optional[str]):
@@ -240,6 +241,8 @@ class Collector:
         database = self.database or os.getenv(_GREPTIME_DATABASE_ENV_NAME)
         username = self.username or os.getenv(_GREPTIME_USERNAME_ENV_NAME)
         password = self.password or os.getenv(_GREPTIME_PASSWORD_ENV_NAME)
+        insecure = self.insecure or os.getenv(_GREPTIME_INSECURE_ENV_NAME)
+        scheme = "http" if insecure else "https"
 
         _check_non_null_or_empty(
             _GREPTIME_HOST_ENV_NAME.lower(), _GREPTIME_HOST_ENV_NAME, host
@@ -255,16 +258,15 @@ class Collector:
         )
 
         resource = Resource.create({SERVICE_NAME: "greptimeai-langchain"})
-        scheme = "http" if self.insecure else "https"
 
-        metrics_endpoint = f"{scheme}://{self.host}/v1/otlp/v1/metrics"
-        trace_endpoint = f"{scheme}://{self.host}/v1/otlp/v1/traces"
+        metrics_endpoint = f"{scheme}://{host}/v1/otlp/v1/metrics"
+        trace_endpoint = f"{scheme}://{host}/v1/otlp/v1/traces"
 
-        auth = f"{self.username}:{self.password}"
+        auth = f"{username}:{password}"
         b64_auth = base64.b64encode(auth.encode()).decode("ascii")
         greptime_headers = {
             "Authorization": f"Basic {b64_auth}",
-            "x-greptime-db-name": self.database,
+            "x-greptime-db-name": database,
         }
 
         metrics_exporter = OTLPMetricExporter(
