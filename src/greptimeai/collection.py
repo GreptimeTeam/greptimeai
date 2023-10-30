@@ -17,7 +17,6 @@ from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Span, Status, StatusCode, set_span_in_context
-from pydantic import BaseModel, ConfigDict
 
 from .scope import _NAME, _VERSION
 
@@ -70,12 +69,13 @@ def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     return result
 
 
-class _TraceTable(BaseModel):
+class _TraceTable:
     """
     NOTE: different name may have same run_id.
     """
 
-    _traces: Dict[str, List[Tuple[str, Span]]] = {}
+    def __init__(self):
+        self._traces: Dict[str, List[Tuple[str, Span]]] = {}
 
     def put_span(self, name: str, run_id: UUID, span: Span):
         """
@@ -132,8 +132,9 @@ class _TraceTable(BaseModel):
         return target_span
 
 
-class _TimeTable(BaseModel):
-    _tables: Dict[str, float] = {}
+class _TimeTable:
+    def __init__(self):
+        self._tables: Dict[str, float] = {}
 
     def _key(self, name: str, run_id: UUID) -> str:
         return f"{name}.{run_id}"
@@ -157,16 +158,14 @@ class _TimeTable(BaseModel):
         return None
 
 
-class _Observation(BaseModel):
+class _Observation:
     """
     # FIXME(yuanbohan): concurrent conflict. refer to Mutex or other solutions
     """
 
-    name: str
-    _cost: Dict[Tuple, float] = {}
-
-    def __init__(self, name):
-        self._cost = {}
+    def __init__(self, name: str):
+        self._name = name
+        self._cost: Dict[Tuple, float] = {}
 
     def _reset(self):
         self._cost = {}
@@ -209,25 +208,30 @@ class _Observation(BaseModel):
         return callback
 
 
-class Collector(BaseModel):
+class Collector:
     """
     collect metrics and traces
     """
 
-    model_config = ConfigDict(frozen=True)
+    def __init__(
+        self,
+        host: Optional[str] = None,
+        database: Optional[str] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        insecure: bool = False,
+    ):
+        self.host = host
+        self.database = database
+        self.username = username
+        self.password = password
+        self.insecure = insecure
 
-    host: Optional[str] = None
-    database: Optional[str] = None
-    username: Optional[str] = None
-    password: Optional[str] = None
-    insecure: bool = False
+        self._time_tables = _TimeTable()
+        self._prompt_cost = _Observation("prompt_cost")
+        self._completion_cost = _Observation("completion_cost")
+        self._trace_tables = _TraceTable()
 
-    _time_tables = _TimeTable()
-    _prompt_cost = _Observation("prompt_cost")
-    _completion_cost = _Observation("completion_cost")
-    _trace_tables = _TraceTable()
-
-    def setup(self):
         self._setup_greptime_otel_exporter()
         self._setup_otel_metrics()
 
