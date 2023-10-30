@@ -1,10 +1,9 @@
 import importlib
 import logging
 import types
-import openai
-
 from functools import wraps
 
+import openai
 from opentelemetry.trace import Span
 
 import greptimeai.openai as go
@@ -72,12 +71,12 @@ class Recorder:
         return None
 
     def _trace_completion_req(
-            self,
-            span: Span,
-            args,
-            kwargs,
-            result,
-            exception,
+        self,
+        span: Span,
+        args,
+        kwargs,
+        result,
+        exception,
     ):
         params = kwargs
         model = ""
@@ -179,9 +178,7 @@ class Recorder:
                     if choice["finish_reason"] == "stop":
                         data["finish_reason_stop"] += 1
                         try:
-                            tokens = self._count_tokens(
-                                data["model"], data["text"]
-                            )
+                            tokens = self._count_tokens(data["model"], data["text"])
                             if tokens and tokens != 0:
                                 data["completion_tokens"] = tokens
                         finally:
@@ -211,7 +208,7 @@ def _trace_generator(result, trace_res_func, span):
 
 
 def _instrument_sync(
-        obj, func_name: str, operation: str, trace_req_func, trace_res_func
+    obj, func_name: str, operation: str, trace_req_func, trace_res_func
 ):
     """
     instrument openai by wrapping

@@ -12,9 +12,10 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Span
 
 from greptimeai.openai.recorder import Recorder
-
-_INSTRUMENT_LIB_NAME = "greptime-openai"
-_INSTRUMENT_LIB_VERSION = "0.1.2"
+from greptimeai.scope import (
+    _NAME,
+    _VERSION,
+)
 
 
 class Collector:
@@ -46,7 +47,6 @@ class Collector:
         recorder.setup()
 
     def _init_open_telemetry(self):
-        # 设置服务名、主机名
         resource = Resource.create({SERVICE_NAME: self.resource_name})
 
         metrics_endpoint = f"https://{self.host}/v1/otlp/v1/metrics"
@@ -58,8 +58,6 @@ class Collector:
             "Authorization": f"Basic {b64_auth}",
             "x-greptime-db-name": self.database,
         }
-
-        # 使用HTTP协议上报
 
         # metric
         metrics_exporter = OTLPMetricExporter(
@@ -85,13 +83,11 @@ class Collector:
 
         # init class.tracer
         self.tracer = trace.get_tracer(
-            instrumenting_module_name=_INSTRUMENT_LIB_NAME,
-            instrumenting_library_version=_INSTRUMENT_LIB_VERSION,
+            instrumenting_module_name=_NAME,
+            instrumenting_library_version=_VERSION,
         )
 
-        meter = metrics.get_meter(
-            name=_INSTRUMENT_LIB_NAME, version=_INSTRUMENT_LIB_VERSION
-        )
+        meter = metrics.get_meter(name=_NAME, version=_VERSION)
 
         self.prompt_tokens_count = meter.create_counter(
             "openai_prompt_tokens",
