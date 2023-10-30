@@ -68,14 +68,15 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         metadata: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
     ) -> Any:
-        logger.debug(f"on_chain_start. { run_id =} { parent_run_id =} { kwargs = }")
+        logger.debug(
+            f"on_chain_start. { run_id =} { parent_run_id =} { kwargs = } { serialized = }"
+        )
 
         span_attrs = {
             "user_id": _get_user_id(metadata),
         }
 
         event_attrs = {
-            "serialized": serialized,  # this will be removed when lib is stable
             _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
             "metadata": metadata,
             "tags": tags,
@@ -148,14 +149,15 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         invocation_params: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
     ) -> Any:
-        logger.debug(f"on_llm_start. { run_id =} { parent_run_id =} { kwargs = }")
+        logger.debug(
+            f"on_llm_start. { run_id =} { parent_run_id =} { kwargs = } { serialized = }"
+        )
 
         span_attrs = {
             "user_id": _get_user_id(metadata),
         }
 
         event_attrs = {
-            "serialized": serialized,  # this will be removed when lib is stable
             _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
             "metadata": metadata,
             "tags": tags,
@@ -187,7 +189,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> Any:
         logger.debug(
-            f"on_chat_model_start. { run_id =} { parent_run_id =} { kwargs = }"
+            f"on_chat_model_start. { run_id =} { parent_run_id =} { kwargs = } { serialized = }"
         )
 
         span_attrs = {
@@ -195,7 +197,6 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         }
 
         event_attrs = {
-            "serialized": serialized,  # this will be removed when lib is stable
             _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
             "metadata": metadata,
             "tags": tags,
@@ -333,13 +334,14 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         metadata: Union[Dict[str, Any], None] = None,
         **kwargs: Any,
     ) -> Any:
-        logger.debug(f"on_tool_start. { run_id = } { parent_run_id = } { kwargs = }")
+        logger.debug(
+            f"on_tool_start. { run_id = } { parent_run_id = } { kwargs = } { serialized = }"
+        )
 
         span_attrs = {
             "user_id": _get_user_id(metadata),
         }
         event_attrs = {
-            "serialized": serialized,  # this will be removed when lib is stable
             _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
             "tool_name": serialized.get("name"),
             "tags": tags,
@@ -426,6 +428,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
 
         event_attrs = {
             "tool": action.tool,
+            "tool_input": action.tool_input,
             _CLASS_TYPE_LABEL: action.__class__.__name__,
             "log": action.log,
             "tags": tags,
@@ -482,13 +485,14 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
-        logger.debug(f"on_retriever_start. {run_id=} {parent_run_id=} {kwargs=}")
+        logger.debug(
+            f"on_retriever_start. { run_id = } { parent_run_id = } { kwargs = } { serialized = }"
+        )
 
         span_attrs = {
             "user_id": _get_user_id(metadata),
         }
         event_attrs = {
-            "serialized": serialized,  # this will be removed when lib is stable
             _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
             "tags": tags,
             "metadata": metadata,
