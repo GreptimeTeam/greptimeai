@@ -274,7 +274,9 @@ class Collector:
             headers=greptime_headers,
             timeout=5,
         )
-        metric_reader = PeriodicExportingMetricReader(metrics_exporter, 5000)
+        metric_reader = PeriodicExportingMetricReader(
+            metrics_exporter, export_interval_millis=15000
+        )
         metre_provider = MeterProvider(
             resource=resource, metric_readers=[metric_reader]
         )
