@@ -132,10 +132,17 @@ class Recorder:
             span.set_attribute("model", model)
 
         prompt_usage = {}
-        completion_usage = {"finish_reason_stop": 0, "finish_reason_length": 0}
+        completion_usage = {
+            "finish_reason_stop": 0,
+            "finish_reason_length": 0,
+            "text": "",
+        }
         if result and "usage" in result and not exception:
             if "prompt_tokens" in result["usage"]:
                 prompt_usage["prompt_tokens"] = result["usage"]["prompt_tokens"]
+                go._collector.prompt_tokens_count.add(
+                    result["usage"]["prompt_tokens"], {"model": model}
+                )
             if "completion_tokens" in result["usage"]:
                 completion_usage["completion_tokens"] = result["usage"][
                     "completion_tokens"
@@ -150,6 +157,8 @@ class Recorder:
         if result:
             if "choices" in result:
                 for choice in result["choices"]:
+                    if "text" in choice:
+                        completion_usage["text"] += choice["text"]
                     if "finish_reason" in choice:
                         if choice["finish_reason"] == "stop":
                             completion_usage["finish_reason_stop"] += 1
