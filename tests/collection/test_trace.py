@@ -1,12 +1,11 @@
-import unittest
 import uuid
 
 from opentelemetry.trace import NoOpTracer
 
-from greptimeai.langchain import _TraceTable
+from greptimeai.collection import _TraceTable
 
 
-class TestTrace(unittest.TestCase):
+class TestTrace:
     """
     test trace and span
     """
@@ -23,17 +22,17 @@ class TestTrace(unittest.TestCase):
 
         tables.put_span(span_name, run_id, origin_span)
 
-        self.assertIsNone(tables.get_id_span(uuid.uuid1()))
-        self.assertIsNone(tables.get_name_span("not_exist_name", run_id))
-        self.assertEqual(origin_span, tables.get_id_span(run_id))
-        self.assertEqual(origin_span, tables.get_name_span(span_name, run_id))
+        assert tables.get_id_span(uuid.uuid1()) is None
+        assert tables.get_name_span("not_exist_name", run_id) is None
+        assert origin_span == tables.get_id_span(run_id)
+        assert origin_span == tables.get_name_span(span_name, run_id)
 
         # pop will remove this span
-        self.assertEqual(origin_span, tables.pop_span(span_name, run_id))
+        assert origin_span == tables.pop_span(span_name, run_id)
 
         # None after pop_span
-        self.assertIsNone(tables.get_id_span(run_id))
-        self.assertIsNone(tables.get_name_span(span_name, run_id))
+        assert tables.get_id_span(run_id) is None
+        assert tables.get_name_span(span_name, run_id) is None
 
     def test_duplicated_id_traces(self):
         tables = _TraceTable()
@@ -45,18 +44,18 @@ class TestTrace(unittest.TestCase):
         tables.put_span(agent_name, run_id, agent_span)
 
         # check before pop
-        self.assertEqual(agent_span, tables.get_id_span(run_id))
-        self.assertEqual(chain_span, tables.get_name_span(chain_name, run_id))
-        self.assertEqual(agent_span, tables.get_name_span(agent_name, run_id))
+        assert agent_span == tables.get_id_span(run_id)
+        assert chain_span == tables.get_name_span(chain_name, run_id)
+        assert agent_span == tables.get_name_span(agent_name, run_id)
 
         # pop chain span
-        self.assertEqual(chain_span, tables.pop_span(chain_name, run_id))
-        self.assertEqual(agent_span, tables.get_id_span(run_id))
-        self.assertIsNone(tables.get_name_span(chain_name, run_id))
-        self.assertEqual(agent_span, tables.get_name_span(agent_name, run_id))
+        assert chain_span == tables.pop_span(chain_name, run_id)
+        assert agent_span == tables.get_id_span(run_id)
+        assert tables.get_name_span(chain_name, run_id) is None
+        assert agent_span == tables.get_name_span(agent_name, run_id)
 
         # pop agent span
-        self.assertEqual(agent_span, tables.pop_span(agent_name, run_id))
-        self.assertIsNone(tables.get_id_span(run_id))
-        self.assertIsNone(tables.get_name_span(chain_name, run_id))
-        self.assertIsNone(tables.get_name_span(agent_name, run_id))
+        assert agent_span == tables.pop_span(agent_name, run_id)
+        assert tables.get_id_span(run_id) is None
+        assert tables.get_name_span(chain_name, run_id) is None
+        assert tables.get_name_span(agent_name, run_id) is None
