@@ -11,6 +11,8 @@ import greptimeai.openai as go
 from greptimeai.collection import (
     Collector,
     _OpenAI_TYPE,
+    _PROMPT_TYPE,
+    _COMPLETION_TYPE,
 )
 
 
@@ -132,7 +134,7 @@ class OpenaiTracker:
 
         if "stream" in params and params["stream"]:
             if "model" in params and "prompt" in params:
-                prompt_usage = {"prompt_tokens": 0}
+                prompt_usage = {"prompt_tokens": 0, "prompt_cost": 0}
                 if not exception:
                     if isinstance(params["prompt"], str):
                         prompt_tokens = self._count_tokens(
@@ -145,9 +147,15 @@ class OpenaiTracker:
                             prompt_tokens = self._count_tokens(params["model"], prompt)
                             if prompt_tokens:
                                 prompt_usage["prompt_tokens"] += prompt_tokens
+                prompt_usage["prompt_cost"] = calculate_cost(
+                    model, prompt_usage["prompt_tokens"], _OpenAI_TYPE
+                )
                 span.set_attributes(prompt_usage)
                 go._openai_tracker._collector._prompt_tokens_count.add(
                     prompt_usage["prompt_tokens"], {"model": model}
+                )
+                go._openai_tracker._collector._prompt_cost.put(
+                    prompt_usage["prompt_cost"], {"model": model}
                 )
             return
 
@@ -160,19 +168,33 @@ class OpenaiTracker:
             "finish_reason_stop": 0,
             "finish_reason_length": 0,
             "text": "",
+            "completion_cost": 0,
         }
         if result and "usage" in result and not exception:
             if "prompt_tokens" in result["usage"]:
                 prompt_usage["prompt_tokens"] = result["usage"]["prompt_tokens"]
+                prompt_usage["prompt_cost"] = calculate_cost(
+                    model, result["usage"]["prompt_tokens"], _OpenAI_TYPE
+                )
                 go._openai_tracker._collector._prompt_tokens_count.add(
                     result["usage"]["prompt_tokens"], {"model": model}
+                )
+                go._openai_tracker._collector._prompt_cost.put(
+                    prompt_usage["prompt_cost"], {"model": model}
                 )
             if "completion_tokens" in result["usage"]:
                 completion_usage["completion_tokens"] = result["usage"][
                     "completion_tokens"
                 ]
+                completion_usage["completion_cost"] = calculate_cost(
+                    model, result["usage"]["completion_tokens"], _OpenAI_TYPE
+                )
+
                 go._openai_tracker._collector._completion_tokens_count.add(
                     result["usage"]["completion_tokens"], {"model": model}
+                )
+                go._openai_tracker._collector._completion_cost.put(
+                    completion_usage["completion_cost"], {"model": model}
                 )
 
         if "prompt" in params:
@@ -198,6 +220,7 @@ class OpenaiTracker:
                 "completion_tokens": 0,
                 "model": "",
                 "text": "",
+                "completion_cost": 0,
             }
         if item and "choices" in item:
             if "model" in item:
@@ -215,9 +238,15 @@ class OpenaiTracker:
                             if tokens and tokens != 0:
                                 data["completion_tokens"] = tokens
                         finally:
+                            data["completion_cost"] = calculate_cost(
+                                data["model"], data["completion_tokens"], _OpenAI_TYPE
+                            )
                             span.set_attributes(data)
                             go._openai_tracker._collector._completion_tokens_count.add(
                                 data["completion_tokens"]
+                            )
+                            go._openai_tracker._collector._completion_cost.put(
+                                data["completion_cost"], {"model": data["model"]}
                             )
                     elif choice["finish_reason"] == "length":
                         data["finish_reason_length"] += 1
@@ -295,3 +324,30 @@ def _instrument_sync(
         return result
 
     setattr(obj, func_name, wrapper)
+
+
+def calculate_cost(model: str, tokens, tpe: str):
+    cost = 0
+    if model in ["gpt-4", "gpt-4-0314"]:
+        if tpe == _PROMPT_TYPE:
+            cost = tokens * 0.03 / 1000
+        else:
+            cost = tokens * 0.06 / 1000
+    elif model in ["gpt-4-32k", "gpt-4-32k-0314"]:
+        if tpe == _PROMPT_TYPE:
+            cost = tokens * 0.06 / 1000
+        else:
+            cost = tokens * 0.12 / 1000
+    elif "gpt-3.5-turbo" in model:
+        cost = tokens * 0.002 / 1000
+    elif "davinci" in model:
+        cost = tokens * 0.02 / 1000
+    elif "curie" in model:
+        cost = tokens * 0.002 / 1000
+    elif "babbage" in model:
+        cost = tokens * 0.0005 / 1000
+    elif "ada" in model:
+        cost = tokens * 0.0004 / 1000
+    else:
+        cost = 0
+    return cost
