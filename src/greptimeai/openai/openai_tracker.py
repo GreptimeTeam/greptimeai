@@ -10,7 +10,6 @@ from opentelemetry.trace import Span
 import greptimeai.openai as go
 from greptimeai.collection import (
     Collector,
-    _OpenAI_TYPE,
     _PROMPT_TYPE,
     _COMPLETION_TYPE,
 )
@@ -56,7 +55,6 @@ class OpenaiTracker:
             password=password,
             service_name=service_name,
             insecure=insecure,
-            tpe=_OpenAI_TYPE,
         )
 
     def setup(self):
@@ -148,7 +146,7 @@ class OpenaiTracker:
                             if prompt_tokens:
                                 prompt_usage["prompt_tokens"] += prompt_tokens
                 prompt_usage["prompt_cost"] = calculate_cost(
-                    model, prompt_usage["prompt_tokens"], _OpenAI_TYPE
+                    model, prompt_usage["prompt_tokens"], _PROMPT_TYPE
                 )
                 span.set_attributes(prompt_usage)
                 go._openai_tracker._collector._prompt_tokens_count.add(
@@ -174,7 +172,7 @@ class OpenaiTracker:
             if "prompt_tokens" in result["usage"]:
                 prompt_usage["prompt_tokens"] = result["usage"]["prompt_tokens"]
                 prompt_usage["prompt_cost"] = calculate_cost(
-                    model, result["usage"]["prompt_tokens"], _OpenAI_TYPE
+                    model, result["usage"]["prompt_tokens"], _PROMPT_TYPE
                 )
                 go._openai_tracker._collector._prompt_tokens_count.add(
                     result["usage"]["prompt_tokens"], {"model": model}
@@ -187,7 +185,7 @@ class OpenaiTracker:
                     "completion_tokens"
                 ]
                 completion_usage["completion_cost"] = calculate_cost(
-                    model, result["usage"]["completion_tokens"], _OpenAI_TYPE
+                    model, result["usage"]["completion_tokens"], _COMPLETION_TYPE
                 )
 
                 go._openai_tracker._collector._completion_tokens_count.add(
@@ -239,7 +237,7 @@ class OpenaiTracker:
                                 data["completion_tokens"] = tokens
                         finally:
                             data["completion_cost"] = calculate_cost(
-                                data["model"], data["completion_tokens"], _OpenAI_TYPE
+                                data["model"], data["completion_tokens"], _COMPLETION_TYPE
                             )
                             span.set_attributes(data)
                             go._openai_tracker._collector._completion_tokens_count.add(
