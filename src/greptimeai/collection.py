@@ -26,7 +26,7 @@ _GREPTIME_TOKEN_ENV_NAME = "GREPTIMEAI_TOKEN"
 
 
 def _extract_token(token: Optional[str]) -> Tuple[str, str]:
-    if token is None:
+    if token is None or token.strip() == "":
         raise ValueError("greptimeai_token MUST be supplied.")
 
     lst = token.split(":", 2)
@@ -40,11 +40,11 @@ def _extract_token(token: Optional[str]) -> Tuple[str, str]:
 
 
 def _get_with_default_env(s: Optional[str], env: str) -> Optional[str]:
-    return s if s and s != "" else os.getenv(env)
+    return s if s and s.strip() != "" else os.getenv(env)
 
 
 def _check_non_null_or_empty(name: str, env_name: str, val: Optional[str]):
-    if val is None or val.strip == "":
+    if val is None or val.strip() == "":
         raise ValueError(
             f"{name} MUST BE provided either by passing arguments or setup environment variable {env_name}"
         )
