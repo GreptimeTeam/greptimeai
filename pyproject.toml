@@ -30,7 +30,8 @@ build-backend = "setuptools.build_meta"
 managed = true
 dev-dependencies = [
     "ruff>=0.1.3",
+    "pytest>=7.4.3",
 ]
 
 [tool.rye.scripts]
-test = { cmd = "python -m unittest discover tests/langchain -v" }
+test = { cmd = "pytest tests/" }
