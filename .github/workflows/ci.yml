@@ -1,6 +1,21 @@
 name: CI
 
-on: [push]
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'examples/**'
+      - '.gitignore'
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'examples/**'
+      - '.gitignore'
 
 jobs:
   ci:
