@@ -25,12 +25,15 @@ _GREPTIME_DATABASE_ENV_NAME = "GREPTIMEAI_DATABASE"
 _GREPTIME_TOKEN_ENV_NAME = "GREPTIMEAI_TOKEN"
 
 
-def _extract_username_password(token: Optional[str]) -> Tuple[str, str]:
+def _extract_token(token: Optional[str]) -> Tuple[str, str]:
     if token is None:
         raise ValueError("greptimeai_token MUST be supplied.")
 
     lst = token.split(":", 2)
     if len(lst) != 2:
+        raise ValueError(f"{token} is not a valid greptimeai_token")
+
+    if lst[0] == "" or lst[1] == "":
         raise ValueError(f"{token} is not a valid greptimeai_token")
 
     return lst[0], lst[1]
@@ -265,7 +268,7 @@ class Collector:
         metrics_endpoint = f"{scheme}://{self.host}/v1/otlp/v1/metrics"
         trace_endpoint = f"{scheme}://{self.host}/v1/otlp/v1/traces"
 
-        username, password = _extract_username_password(self.token)
+        username, password = _extract_token(self.token)
         auth = f"{username}:{password}"
         b64_auth = base64.b64encode(auth.encode()).decode("ascii")
         greptime_headers = {
