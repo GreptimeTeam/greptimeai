@@ -14,20 +14,20 @@ pip install --upgrade greptimeai
 
 ## Usage
 
+TODO(yuanbohan): make sure this link is correct!!
+
 To get started, create a service by registering [greptimeai][greptimeai], and get:
 
 - host
 - database
-- username
-- password
+- token
 
 Set it as the `GREPTIMEAI_xxx` environment variable before using the library:
 
 ```bash
 export GREPTIMEAI_HOST=''
 export GREPTIMEAI_DATABASE=''
-export GREPTIMEAI_USERNAME=''
-export GREPTIMEAI_PASSWORD=''
+export GREPTIMEAI_TOKEN=''
 ```
 
 #### LangChain

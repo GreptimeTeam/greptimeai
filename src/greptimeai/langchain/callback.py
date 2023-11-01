@@ -41,18 +41,16 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
 
     def __init__(
         self,
-        host: Optional[str] = None,
-        database: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        host: str = "",
+        database: str = "",
+        token: str = "",
         insecure: bool = False,
         verbose: bool = True,
     ):
         self._collector = Collector(
             host=host,
             database=database,
-            username=username,
-            password=password,
+            token=token,
             insecure=insecure,
         )
         self._verbose = verbose

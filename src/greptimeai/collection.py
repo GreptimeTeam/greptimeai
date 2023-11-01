@@ -22,13 +22,29 @@ from .scope import _NAME, _VERSION
 
 _GREPTIME_HOST_ENV_NAME = "GREPTIMEAI_HOST"
 _GREPTIME_DATABASE_ENV_NAME = "GREPTIMEAI_DATABASE"
-_GREPTIME_USERNAME_ENV_NAME = "GREPTIMEAI_USERNAME"
-_GREPTIME_PASSWORD_ENV_NAME = "GREPTIMEAI_PASSWORD"
-_GREPTIME_INSECURE_ENV_NAME = "GREPTIMEAI_INSECURE"
+_GREPTIME_TOKEN_ENV_NAME = "GREPTIMEAI_TOKEN"
+
+
+def _extract_token(token: Optional[str]) -> Tuple[str, str]:
+    if token is None or token.strip() == "":
+        raise ValueError("greptimeai_token MUST be supplied.")
+
+    lst = token.split(":", 2)
+    if len(lst) != 2:
+        raise ValueError(f"{token} is not a valid greptimeai_token")
+
+    if lst[0] == "" or lst[1] == "":
+        raise ValueError(f"{token} is not a valid greptimeai_token")
+
+    return lst[0], lst[1]
+
+
+def _get_with_default_env(s: Optional[str], env: str) -> Optional[str]:
+    return s if s and s.strip() != "" else os.getenv(env)
 
 
 def _check_non_null_or_empty(name: str, env_name: str, val: Optional[str]):
-    if val is None or val.strip == "":
+    if val is None or val.strip() == "":
         raise ValueError(
             f"{name} MUST BE provided either by passing arguments or setup environment variable {env_name}"
         )
@@ -216,17 +232,15 @@ class Collector:
 
     def __init__(
         self,
-        host: Optional[str] = None,
-        database: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        host: str = "",
+        database: str = "",
+        token: str = "",
         insecure: bool = False,
     ):
-        self.host = host or os.getenv(_GREPTIME_HOST_ENV_NAME)
-        self.database = database or os.getenv(_GREPTIME_DATABASE_ENV_NAME)
-        self.username = username or os.getenv(_GREPTIME_USERNAME_ENV_NAME)
-        self.password = password or os.getenv(_GREPTIME_PASSWORD_ENV_NAME)
-        self.insecure = insecure or os.getenv(_GREPTIME_INSECURE_ENV_NAME)
+        self.host = _get_with_default_env(host, _GREPTIME_HOST_ENV_NAME)
+        self.database = _get_with_default_env(database, _GREPTIME_DATABASE_ENV_NAME)
+        self.token = _get_with_default_env(token, _GREPTIME_TOKEN_ENV_NAME)
+        self.insecure = insecure
 
         _check_non_null_or_empty(
             _GREPTIME_HOST_ENV_NAME.lower(), _GREPTIME_HOST_ENV_NAME, self.host
@@ -237,14 +251,7 @@ class Collector:
             self.database,
         )
         _check_non_null_or_empty(
-            _GREPTIME_USERNAME_ENV_NAME.lower(),
-            _GREPTIME_USERNAME_ENV_NAME,
-            self.username,
-        )
-        _check_non_null_or_empty(
-            _GREPTIME_PASSWORD_ENV_NAME.lower(),
-            _GREPTIME_PASSWORD_ENV_NAME,
-            self.password,
+            _GREPTIME_TOKEN_ENV_NAME.lower(), _GREPTIME_TOKEN_ENV_NAME, self.token
         )
 
         self._time_tables = _TimeTable()
@@ -261,7 +268,8 @@ class Collector:
         metrics_endpoint = f"{scheme}://{self.host}/v1/otlp/v1/metrics"
         trace_endpoint = f"{scheme}://{self.host}/v1/otlp/v1/traces"
 
-        auth = f"{self.username}:{self.password}"
+        username, password = _extract_token(self.token)
+        auth = f"{username}:{password}"
         b64_auth = base64.b64encode(auth.encode()).decode("ascii")
         greptime_headers = {
             "Authorization": f"Basic {b64_auth}",
