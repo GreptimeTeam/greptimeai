@@ -3,7 +3,7 @@ import json
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
 from opentelemetry import metrics, trace
@@ -19,6 +19,8 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Span, Status, StatusCode, set_span_in_context
 
 from .scope import _NAME, _VERSION
+
+_JSON_KEYS_IN_OTLP_ATTRIBUTES = "otlp_json_keys"
 
 _GREPTIME_HOST_ENV_NAME = "GREPTIMEAI_HOST"
 _GREPTIME_DATABASE_ENV_NAME = "GREPTIMEAI_DATABASE"
@@ -60,29 +62,44 @@ def _is_valid_otel_attributes_value_type(val: Any) -> bool:
 def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """
     prepare attributes value to any of ['bool', 'str', 'bytes', 'int', 'float']
-    or a sequence of these types
+    or a sequence of these types.
+
+    Other types will be sanitated to json string, and
+    append this key in `_JSON_KEYS_IN_OTLP_ATTRIBUTES`
     """
     result = {}
     if not attrs:
         return result
 
-    def _sanitate_list(lst: list) -> list:
-        result = []
+    def _sanitate_list(lst: list) -> Union[list, str]:
+        contains_any_invalid_value_type = False
         for item in lst:
-            if _is_valid_otel_attributes_value_type(item):
-                result.append(item)
-            else:
-                result.append(json.dumps(item))
-        return result
+            if not _is_valid_otel_attributes_value_type(item):
+                contains_any_invalid_value_type = True
+                break
+        if contains_any_invalid_value_type:
+            return json.dumps(lst)
+        else:
+            return lst
 
+    json_keys = []
     for key, val in attrs.items():
-        if _is_valid_otel_attributes_value_type(val):
+        if val is None:
+            continue
+        elif _is_valid_otel_attributes_value_type(val):
             result[key] = val
         elif isinstance(val, list):
-            result[key] = _sanitate_list(val)
+            sanitated_lst = _sanitate_list(val)
+            result[key] = sanitated_lst
+
+            if isinstance(sanitated_lst, str):
+                json_keys.append(key)
         else:
             result[key] = json.dumps(val)
+            json_keys.append(key)
 
+    if len(json_keys) > 0:
+        result[_JSON_KEYS_IN_OTLP_ATTRIBUTES] = json_keys
     return result
 
 
