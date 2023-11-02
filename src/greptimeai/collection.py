@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
 from opentelemetry import metrics, trace
-from opentelemetry.metrics import Counter
+from opentelemetry.metrics import Counter, Histogram
 from opentelemetry.context.context import Context
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -288,8 +288,8 @@ class Collector:
         self._trace_tables = _TraceTable()
 
         self._tracer: trace.Tracer = None
-        self._greptimeai_error_count = None
-        self._requests_duration_histogram = None
+        self._llm_error_count: Counter = None
+        self._requests_duration_histogram: Histogram = None
         self._completion_tokens_count: Counter = None
         self._prompt_tokens_count: Counter = None
 
