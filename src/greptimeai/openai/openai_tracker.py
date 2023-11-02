@@ -2,17 +2,31 @@ import importlib
 import logging
 import types
 from functools import wraps
+from typing import Optional
 
 import openai
 from opentelemetry.trace import Span
 
 import greptimeai.openai as go
+from greptimeai.collection import (
+    Collector,
+    _OpenAI_TYPE,
+)
 
 
-class Recorder:
-    def __init__(self):
+class OpenaiTracker:
+    def __init__(
+        self,
+        host: Optional[str] = None,
+        database: Optional[str] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        insecure: bool = False,
+        service_name: Optional[str] = None,
+    ):
         self._api_base = None
         self._library = None
+        self._collector: Collector = None
         self._cached_encodings = {}
         self._extra_content_tokens = {
             "gpt-3.5-turbo": 4,
@@ -32,6 +46,16 @@ class Recorder:
             "gpt-4": 3,
             "gpt-4-0314": 3,
         }
+        service_name = service_name or "greptimeai-openai"
+        self._collector = Collector(
+            host=host,
+            database=database,
+            username=username,
+            password=password,
+            service_name=service_name,
+            insecure=insecure,
+            tpe=_OpenAI_TYPE,
+        )
 
     def setup(self):
         self._api_base = openai.api_base
@@ -122,7 +146,7 @@ class Recorder:
                             if prompt_tokens:
                                 prompt_usage["prompt_tokens"] += prompt_tokens
                 span.set_attributes(prompt_usage)
-                go._collector.prompt_tokens_count.add(
+                go._openai_tracker._collector._prompt_tokens_count.add(
                     prompt_usage["prompt_tokens"], {"model": model}
                 )
             return
@@ -140,14 +164,14 @@ class Recorder:
         if result and "usage" in result and not exception:
             if "prompt_tokens" in result["usage"]:
                 prompt_usage["prompt_tokens"] = result["usage"]["prompt_tokens"]
-                go._collector.prompt_tokens_count.add(
+                go._openai_tracker._collector._prompt_tokens_count.add(
                     result["usage"]["prompt_tokens"], {"model": model}
                 )
             if "completion_tokens" in result["usage"]:
                 completion_usage["completion_tokens"] = result["usage"][
                     "completion_tokens"
                 ]
-                go._collector.completion_tokens_count.add(
+                go._openai_tracker._collector._completion_tokens_count.add(
                     result["usage"]["completion_tokens"], {"model": model}
                 )
 
@@ -192,7 +216,7 @@ class Recorder:
                                 data["completion_tokens"] = tokens
                         finally:
                             span.set_attributes(data)
-                            go._collector.completion_tokens_count.add(
+                            go._openai_tracker._collector._completion_tokens_count.add(
                                 data["completion_tokens"]
                             )
                     elif choice["finish_reason"] == "length":
@@ -234,7 +258,7 @@ def _instrument_sync(
     openai_func = getattr(obj, func_name)
 
     def before() -> Span:
-        return go._collector.get_new_span(operation)
+        return go._openai_tracker._collector.get_new_span(operation)
 
     def after(args, kwargs, result, exception, span: Span):
         try:

@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
 from opentelemetry import metrics, trace
+from opentelemetry.metrics import Counter
 from opentelemetry.context.context import Context
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -264,10 +265,12 @@ class Collector:
         host: str = "",
         database: str = "",
         token: str = "",
+        service_name: Optional[str] = None,
     ):
         self.host = _get_with_default_env(host, _GREPTIME_HOST_ENV_NAME)
         self.database = _get_with_default_env(database, _GREPTIME_DATABASE_ENV_NAME)
         self.token = _get_with_default_env(token, _GREPTIME_TOKEN_ENV_NAME)
+        self.service_name = service_name
 
         _check_non_null_or_empty(
             _GREPTIME_HOST_ENV_NAME.lower(), _GREPTIME_HOST_ENV_NAME, self.host
@@ -282,6 +285,12 @@ class Collector:
         self._prompt_cost = _Observation("prompt_cost")
         self._completion_cost = _Observation("completion_cost")
         self._trace_tables = _TraceTable()
+
+        self._tracer: trace.Tracer = None
+        self._greptimeai_error_count = None
+        self._requests_duration_histogram = None
+        self._completion_tokens_count: Counter = None
+        self._prompt_tokens_count: Counter = None
 
         self._setup_otel_exporter()
         self._setup_otel_metrics()
@@ -471,3 +480,6 @@ class Collector:
         if not latency:
             return
         self._requests_duration_histogram.record(latency, attributes)
+
+    def get_new_span(self, name: str) -> Span:
+        return self._tracer.start_span(name)
