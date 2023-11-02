@@ -2,7 +2,6 @@ import os
 from typing import Optional
 from unittest import mock
 
-import pytest
 
 from greptimeai.collection import (
     _JSON_KEYS_IN_OTLP_ATTRIBUTES,
@@ -24,8 +23,7 @@ def test_extract_valid_token():
 
 def test_extract_invalid_token():
     def do_test(token: Optional[str]):
-        with pytest.raises(ValueError):
-            _extract_token(token)
+        assert ("", "") == _extract_token(token)
 
     do_test("")
     do_test("  ")

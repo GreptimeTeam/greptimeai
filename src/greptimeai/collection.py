@@ -28,15 +28,15 @@ _GREPTIME_TOKEN_ENV_NAME = "GREPTIMEAI_TOKEN"
 
 
 def _extract_token(token: Optional[str]) -> Tuple[str, str]:
+    """
+    if token is invalid or empty, then invalid auth header will be included
+    """
     if token is None or token.strip() == "":
-        raise ValueError("greptimeai_token MUST be supplied.")
+        return "", ""
 
     lst = token.split(":", 2)
     if len(lst) != 2:
-        raise ValueError(f"{token} is not a valid greptimeai_token")
-
-    if lst[0] == "" or lst[1] == "":
-        raise ValueError(f"{token} is not a valid greptimeai_token")
+        return "", ""
 
     return lst[0], lst[1]
 
@@ -266,9 +266,6 @@ class Collector:
             _GREPTIME_DATABASE_ENV_NAME.lower(),
             _GREPTIME_DATABASE_ENV_NAME,
             self.database,
-        )
-        _check_non_null_or_empty(
-            _GREPTIME_TOKEN_ENV_NAME.lower(), _GREPTIME_TOKEN_ENV_NAME, self.token
         )
 
         self._time_tables = _TimeTable()
