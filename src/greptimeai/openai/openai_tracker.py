@@ -147,11 +147,12 @@ class OpenaiTracker:
                     model, prompt_usage["prompt_tokens"], _PROMPT_TYPE
                 )
                 span.set_attributes(prompt_usage)
-                go._openai_tracker._collector._prompt_tokens_count.add(
-                    prompt_usage["prompt_tokens"], {"model": model}
-                )
-                go._openai_tracker._collector._prompt_cost.put(
-                    prompt_usage["prompt_cost"], {"model": model}
+                go._openai_tracker._collector.collect_llm_metrics(
+                    model,
+                    prompt_usage["prompt_tokens"],
+                    prompt_usage["prompt_cost"],
+                    0,
+                    0,
                 )
             return
 
@@ -172,12 +173,14 @@ class OpenaiTracker:
                 prompt_usage["prompt_cost"] = calculate_cost(
                     model, result["usage"]["prompt_tokens"], _PROMPT_TYPE
                 )
-                go._openai_tracker._collector._prompt_tokens_count.add(
-                    result["usage"]["prompt_tokens"], {"model": model}
+                go._openai_tracker._collector.collect_llm_metrics(
+                    model,
+                    prompt_usage["prompt_tokens"],
+                prompt_usage["prompt_cost"],
+                    0,
+                    0,
                 )
-                go._openai_tracker._collector._prompt_cost.put(
-                    prompt_usage["prompt_cost"], {"model": model}
-                )
+
             if "completion_tokens" in result["usage"]:
                 completion_usage["completion_tokens"] = result["usage"][
                     "completion_tokens"
@@ -186,11 +189,12 @@ class OpenaiTracker:
                     model, result["usage"]["completion_tokens"], _COMPLETION_TYPE
                 )
 
-                go._openai_tracker._collector._completion_tokens_count.add(
-                    result["usage"]["completion_tokens"], {"model": model}
-                )
-                go._openai_tracker._collector._completion_cost.put(
-                    completion_usage["completion_cost"], {"model": model}
+                go._openai_tracker._collector.collect_llm_metrics(
+                    model,
+                    0,
+                    0,
+                    completion_usage["completion_tokens"],
+                    completion_usage["completion_cost"],
                 )
 
         if "prompt" in params:
@@ -238,11 +242,12 @@ class OpenaiTracker:
                                 data["model"], data["completion_tokens"], _COMPLETION_TYPE
                             )
                             span.set_attributes(data)
-                            go._openai_tracker._collector._completion_tokens_count.add(
-                                data["completion_tokens"]
-                            )
-                            go._openai_tracker._collector._completion_cost.put(
-                                data["completion_cost"], {"model": data["model"]}
+                            go._openai_tracker._collector.collect_llm_metrics(
+                                data["model"],
+                                0,
+                                0,
+                                data["completion_tokens"],
+                                data["completion_cost"],
                             )
                     elif choice["finish_reason"] == "length":
                         data["finish_reason_length"] += 1

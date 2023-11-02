@@ -384,7 +384,7 @@ class Collector:
 
     def _setup_otel_gauge(self):
         self._prompt_cost = _Observation("prompt_cost")
-        self._completion_cost = _Observation("{completion_cost")
+        self._completion_cost = _Observation("completion_cost")
 
     def start_span(
         self,
@@ -474,10 +474,14 @@ class Collector:
             "model": model_name,
         }
 
-        self._prompt_tokens_count.add(prompt_tokens, attrs)
-        self._completion_tokens_count.add(completion_tokens, attrs)
-        self._completion_cost.put(completion_cost, attrs)
-        self._prompt_cost.put(prompt_cost, attrs)
+        if prompt_tokens:
+            self._prompt_tokens_count.add(prompt_tokens, attrs)
+        if completion_tokens:
+            self._completion_tokens_count.add(completion_tokens, attrs)
+        if completion_cost:
+            self._completion_cost.put(completion_cost, attrs)
+        if prompt_cost:
+            self._prompt_cost.put(prompt_cost, attrs)
 
     def start_latency(self, name: str, run_id: UUID):
         self._time_tables.set(name, run_id)
