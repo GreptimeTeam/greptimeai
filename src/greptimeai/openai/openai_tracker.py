@@ -20,8 +20,7 @@ class OpenaiTracker:
         self,
         host: Optional[str] = None,
         database: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        token: Optional[str] = None,
         insecure: bool = False,
         service_name: Optional[str] = None,
     ):
@@ -51,8 +50,7 @@ class OpenaiTracker:
         self._collector = Collector(
             host=host,
             database=database,
-            username=username,
-            password=password,
+            token=token,
             service_name=service_name,
             insecure=insecure,
         )

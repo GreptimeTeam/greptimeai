@@ -9,8 +9,7 @@ def init(
     service_name: Optional[str] = None,
     greptimeai_host: Optional[str] = None,
     greptimeai_database: Optional[str] = None,
-    greptimeai_username: Optional[str] = None,
-    greptimeai_password: Optional[str] = None,
+    greptimeai_token: Optional[str] = None,
     insecure: bool = False,
 ):
     global _openai_tracker
@@ -20,8 +19,7 @@ def init(
         service_name=service_name,
         host=greptimeai_host,
         database=greptimeai_database,
-        username=greptimeai_username,
-        password=greptimeai_password,
+        token=greptimeai_token,
         insecure=insecure,
     )
 

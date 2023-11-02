@@ -53,6 +53,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         service_name: Optional[str] = None,
         verbose: bool = True,
     ):
+        service_name = service_name or "greptimeai-langchain"
         self._collector = Collector(
             host=host,
             database=database,
