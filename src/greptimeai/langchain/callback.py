@@ -50,12 +50,14 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         host: str = "",
         database: str = "",
         token: str = "",
+        service_name: Optional[str] = None,
         verbose: bool = True,
     ):
         self._collector = Collector(
             host=host,
             database=database,
             token=token,
+            service_name=service_name,
         )
         self._verbose = verbose
 
