@@ -4,7 +4,13 @@ from unittest import mock
 
 import pytest
 
-from greptimeai.collection import _extract_token, _get_with_default_env
+from greptimeai.collection import (
+    _JSON_KEYS_IN_OTLP_ATTRIBUTES,
+    _extract_token,
+    _get_with_default_env,
+    _is_valid_otel_attributes_value_type,
+    _sanitate_attributes,
+)
 
 
 def test_extract_valid_token():
@@ -40,3 +46,44 @@ def test_get_with_default_env():
 
     assert _get_with_default_env("real_value", "not_exist_env") == "real_value"
     assert _get_with_default_env("real_value", "mock_env_variable") == "real_value"
+
+
+def test_is_valid_otlp_value_type():
+    assert _is_valid_otel_attributes_value_type("value")
+    assert _is_valid_otel_attributes_value_type(True)
+    assert _is_valid_otel_attributes_value_type(False)
+    assert _is_valid_otel_attributes_value_type(1)
+    assert _is_valid_otel_attributes_value_type(1.1)
+
+    assert not _is_valid_otel_attributes_value_type([])
+    assert not _is_valid_otel_attributes_value_type({})
+    assert not _is_valid_otel_attributes_value_type(None)
+
+
+def test_sanitate_attributes():
+    assert _sanitate_attributes(None) == {}
+    assert _sanitate_attributes({}) == {}
+
+    common = {
+        "string": "otlp",
+        "bool": True,
+        "int": 1,
+        "float": 1.1,
+    }
+
+    attrs = {
+        "list": [1, 2, 3],
+        "list1": [{"key": "val"}],
+        "dict1": {"key": "val"},
+    }
+    attrs.update(common)
+
+    expected_attrs = {
+        "list": [1, 2, 3],
+        "list1": '[{"key": "val"}]',
+        "dict1": '{"key": "val"}',
+        _JSON_KEYS_IN_OTLP_ATTRIBUTES: ["list1", "dict1"],
+    }
+    expected_attrs.update(common)
+
+    assert _sanitate_attributes(attrs) == expected_attrs
