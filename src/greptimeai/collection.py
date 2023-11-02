@@ -26,7 +26,8 @@ _JSON_KEYS_IN_OTLP_ATTRIBUTES = "otlp_json_keys"
 _GREPTIME_HOST_ENV_NAME = "GREPTIMEAI_HOST"
 _GREPTIME_DATABASE_ENV_NAME = "GREPTIMEAI_DATABASE"
 _GREPTIME_TOKEN_ENV_NAME = "GREPTIMEAI_TOKEN"
-
+_PROMPT_TYPE = "prompt"
+_COMPLETION_TYPE = "completion"
 
 def _extract_token(token: Optional[str]) -> Tuple[str, str]:
     """
@@ -282,8 +283,8 @@ class Collector:
         )
 
         self._time_tables = _TimeTable()
-        self._prompt_cost = _Observation("prompt_cost")
-        self._completion_cost = _Observation("completion_cost")
+        self._prompt_cost: _Observation = None
+        self._completion_cost: Optional = None
         self._trace_tables = _TraceTable()
 
         self._tracer: trace.Tracer = None
@@ -292,6 +293,7 @@ class Collector:
         self._completion_tokens_count: Counter = None
         self._prompt_tokens_count: Counter = None
 
+        self._setup_otel_gauge()
         self._setup_otel_exporter()
         self._setup_otel_metrics()
 
@@ -376,8 +378,13 @@ class Collector:
             description="completion token cost in US Dollar",
         )
 
+
     def get_id_model(self, run_id: UUID) -> Optional[str]:
         return self._trace_tables.get_id_model(run_id)
+
+    def _setup_otel_gauge(self):
+        self._prompt_cost = _Observation("prompt_cost")
+        self._completion_cost = _Observation("{completion_cost")
 
     def start_span(
         self,
