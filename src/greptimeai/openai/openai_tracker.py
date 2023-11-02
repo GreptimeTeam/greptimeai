@@ -1,6 +1,7 @@
 import importlib
 import logging
 import types
+import uuid
 from functools import wraps
 from typing import Optional
 
@@ -13,6 +14,8 @@ from greptimeai.collection import (
     _PROMPT_TYPE,
     _COMPLETION_TYPE,
 )
+
+_SPAN_TYPE_LABEL = "type"
 
 
 class OpenaiTracker:
@@ -176,7 +179,7 @@ class OpenaiTracker:
                 go._openai_tracker._collector.collect_llm_metrics(
                     model,
                     prompt_usage["prompt_tokens"],
-                prompt_usage["prompt_cost"],
+                    prompt_usage["prompt_cost"],
                     0,
                     0,
                 )
@@ -239,7 +242,9 @@ class OpenaiTracker:
                                 data["completion_tokens"] = tokens
                         finally:
                             data["completion_cost"] = calculate_cost(
-                                data["model"], data["completion_tokens"], _COMPLETION_TYPE
+                                data["model"],
+                                data["completion_tokens"],
+                                _COMPLETION_TYPE,
                             )
                             span.set_attributes(data)
                             go._openai_tracker._collector.collect_llm_metrics(
@@ -259,7 +264,7 @@ def _is_generator(obj):
     return obj and isinstance(obj, types.GeneratorType)
 
 
-def _trace_generator(result, trace_res_func, span):
+def _trace_generator(result, trace_res_func, span, operation, run_id):
     data = None
     for item in result:
         try:
@@ -267,6 +272,9 @@ def _trace_generator(result, trace_res_func, span):
         except Exception:
             logging.debug("trace res failed", exc_info=True)
         yield item
+    go._openai_tracker._collector.end_latency(
+        operation, run_id, attributes={_SPAN_TYPE_LABEL: operation}
+    )
     span.end()
 
 
@@ -286,8 +294,10 @@ def _instrument_sync(
         logging.debug("instrument %s failed", func_name)
 
     openai_func = getattr(obj, func_name)
+    run_id = uuid.uuid1()
 
     def before() -> Span:
+        go._openai_tracker._collector.start_latency(operation, run_id)
         return go._openai_tracker._collector.get_new_span(operation)
 
     def after(args, kwargs, result, exception, span: Span):
@@ -301,9 +311,12 @@ def _instrument_sync(
             logging.debug("trace %s failed", func_name, exc_info=True)
 
         if not _is_generator(result):
+            go._openai_tracker._collector.end_latency(
+                operation, run_id, attributes={_SPAN_TYPE_LABEL: operation}
+            )
             span.end()
         else:
-            result = _trace_generator(result, trace_res_func, span)
+            result = _trace_generator(result, trace_res_func, span, operation, run_id)
             # trace stream response data
         return result
 
