@@ -244,7 +244,7 @@ class _Observation:
 
 class Collector:
     """
-    collect metrics and traces
+    collect metrics and traces.
     """
 
     def __init__(
@@ -252,12 +252,10 @@ class Collector:
         host: str = "",
         database: str = "",
         token: str = "",
-        insecure: bool = False,
     ):
         self.host = _get_with_default_env(host, _GREPTIME_HOST_ENV_NAME)
         self.database = _get_with_default_env(database, _GREPTIME_DATABASE_ENV_NAME)
         self.token = _get_with_default_env(token, _GREPTIME_TOKEN_ENV_NAME)
-        self.insecure = insecure
 
         _check_non_null_or_empty(
             _GREPTIME_HOST_ENV_NAME.lower(), _GREPTIME_HOST_ENV_NAME, self.host
@@ -278,9 +276,8 @@ class Collector:
 
     def _setup_otel_exporter(self):
         resource = Resource.create({SERVICE_NAME: "greptimeai-langchain"})
-        scheme = "http" if self.insecure else "https"
-        metrics_endpoint = f"{scheme}://{self.host}/v1/otlp/v1/metrics"
-        trace_endpoint = f"{scheme}://{self.host}/v1/otlp/v1/traces"
+        metrics_endpoint = f"{self.host}/v1/otlp/v1/metrics"
+        trace_endpoint = f"{self.host}/v1/otlp/v1/traces"
 
         username, password = _extract_token(self.token)
         auth = f"{username}:{password}"
