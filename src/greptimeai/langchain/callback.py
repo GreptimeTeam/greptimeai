@@ -44,14 +44,12 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         host: str = "",
         database: str = "",
         token: str = "",
-        insecure: bool = False,
         verbose: bool = True,
     ):
         self._collector = Collector(
             host=host,
             database=database,
             token=token,
-            insecure=insecure,
         )
         self._verbose = verbose
 
