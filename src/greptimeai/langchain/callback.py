@@ -143,6 +143,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         tags: Union[List[str], None] = None,
         metadata: Union[Dict[str, Any], None] = None,
         invocation_params: Union[Dict[str, Any], None] = None,
+        streaming: bool,
         **kwargs: Any,
     ) -> Any:
         logger.debug(
@@ -182,6 +183,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         tags: Union[List[str], None] = None,
         metadata: Union[Dict[str, Any], None] = None,
         invocation_params: Union[Dict[str, Any], None] = None,
+        streaming: bool,
         **kwargs: Any,
     ) -> Any:
         logger.debug(
