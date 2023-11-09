@@ -1,4 +1,3 @@
-from operator import is_
 from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
 

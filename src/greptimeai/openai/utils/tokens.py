@@ -1,6 +1,3 @@
-from inspect import modulesbyfile
-from typing import List, Tuple
-
 import tiktoken
 from langchain.callbacks.openai_info import get_openai_token_cost_for_model
 
@@ -49,11 +46,7 @@ def num_tokens_from_messages(messages: str, model="gpt-3.5-turbo-0613") -> int:
         "gpt-4-0613",
         "gpt-4-32k-0613",
     }:
-        tokens_per_message = 3
-        tokens_per_name = 1
-    elif model == "gpt-3.5-turbo-0301":
-        tokens_per_message = 4
-        tokens_per_name = -1
+        return len(encoding.encode(messages))
     elif "gpt-3.5-turbo" in model:
         return num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613")
     elif "gpt-4" in model:
@@ -63,5 +56,3 @@ def num_tokens_from_messages(messages: str, model="gpt-3.5-turbo-0613") -> int:
             f"num_tokens_from_messages() is not implemented for model {model}, use gpt-3.5-turbo-0613 instead"
         )
         return num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613")
-
-    return len(encoding.encode(messages))
