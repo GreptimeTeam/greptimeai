@@ -33,6 +33,21 @@ def _get_serialized_id(serialized: Dict[str, Any]) -> Optional[str]:
     return None
 
 
+def _get_serialized_streaming(serialized: Dict[str, Any]) -> bool:
+    """
+    get streaming if exist
+    """
+    id = _get_serialized_id(serialized)
+    if not id:
+        return False
+
+    if id == "OpenAI" or id == "ChatOpenAI":
+        #         DEBUG:greptimeai:on_llm_start.  run_id =UUID('4b45f679-cc69-44da-939c-5e1c98d1e5e6')  parent_run_id =UUID('515b0b7d-118b-4644-8a13-d1344ae538af')  kwargs = {'options': {'stop': None}, 'name': None}  serialized = {'lc': 1, 'type': 'constructor', 'id': ['langchain', 'llms', 'openai', 'OpenAI'], 'kwargs': {'streaming': True, 'openai_api_key': {'
+        # lc': 1, 'type': 'secret', 'id': ['OPENAI_API_KEY']}}}
+        return serialized.get("kwargs", {}).get("streaming")
+    return False
+
+
 def _parse(obj: Any) -> Union[Dict[str, Any], Sequence[Any], Any]:
     if hasattr(obj, "to_json"):
         return obj.to_json()

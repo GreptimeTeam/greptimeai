@@ -31,6 +31,7 @@ from . import (
     _SPAN_NAME_TOOL,
     _SPAN_TYPE_LABEL,
     _get_serialized_id,
+    _get_serialized_streaming,
     _get_user_id,
     _parse_documents,
     _parse_generations,
@@ -148,7 +149,6 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         tags: Union[List[str], None] = None,
         metadata: Union[Dict[str, Any], None] = None,
         invocation_params: Union[Dict[str, Any], None] = None,
-        streaming: bool,
         **kwargs: Any,
     ) -> Any:
         logger.debug(
@@ -159,6 +159,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             "user_id": _get_user_id(metadata),
         }
 
+        streaming = _get_serialized_streaming(serialized)
         if streaming and invocation_params:
             str_messages = " ".join(prompts)
             model_name: str = invocation_params.get("model_name")  # type: ignore
@@ -197,7 +198,6 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         tags: Union[List[str], None] = None,
         metadata: Union[Dict[str, Any], None] = None,
         invocation_params: Union[Dict[str, Any], None] = None,
-        streaming: bool,
         **kwargs: Any,
     ) -> Any:
         logger.debug(
@@ -209,6 +209,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             "user_id": _get_user_id(metadata),
         }
 
+        streaming = _get_serialized_streaming(serialized)
         if streaming and invocation_params:
             model_name: str = invocation_params.get("model_name")  # type: ignore
             prompt_tokens = num_tokens_from_messages(str_messages, model_name)
