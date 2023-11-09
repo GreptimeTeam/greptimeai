@@ -202,6 +202,7 @@ class _Observation:
         self._cost: Dict[Tuple, float] = {}
 
     def _reset(self):
+        self._name = ""
         self._cost = {}
 
     def _dict_to_tuple(self, attrs: Dict) -> Tuple:

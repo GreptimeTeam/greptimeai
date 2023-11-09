@@ -1,4 +1,7 @@
-from greptimeai.openai.utils.tokens import num_tokens_from_messages
+from greptimeai.openai.utils.tokens import (
+    cal_openai_token_cost_for_model,
+    num_tokens_from_messages,
+)
 
 
 def test_num_tokens():
@@ -21,3 +24,42 @@ def test_num_tokens():
     ]
     for token_count, message in cases:
         assert token_count == num_tokens_from_messages(message)
+
+
+def test_cal_openai_token_cost_for_model():
+    cases = [
+        (
+            0.15,
+            [
+                "gpt-3.5-turbo-0613",
+                100000,
+                False,
+            ],
+        ),
+        (
+            0.2,
+            [
+                "gpt-3.5-turbo-0613",
+                100000,
+                True,
+            ],
+        ),
+        (
+            0,
+            [
+                "unknown",
+                10,
+                False,
+            ],
+        ),
+        (
+            0,
+            [
+                "unknown",
+                10,
+                True,
+            ],
+        ),
+    ]
+    for cost, args in cases:
+        assert cost == cal_openai_token_cost_for_model(*args)

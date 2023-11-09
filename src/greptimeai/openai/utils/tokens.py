@@ -1,6 +1,25 @@
+from inspect import modulesbyfile
+from typing import List, Tuple
+
 import tiktoken
+from langchain.callbacks.openai_info import get_openai_token_cost_for_model
 
 from greptimeai import logger
+
+
+def cal_openai_token_cost_for_model(
+    model_name: str, num_tokens: int, is_completion: bool = False
+) -> float:
+    """
+    just wrapped by try/catch
+    """
+    try:
+        return get_openai_token_cost_for_model(
+            model_name=model_name, num_tokens=num_tokens, is_completion=is_completion
+        )
+    except Exception as e:
+        logger.warn(f"calculate cost for '{model_name}' Exception: {e}")
+        return 0
 
 
 def num_tokens_from_messages(messages: str, model="gpt-3.5-turbo-0613") -> int:
