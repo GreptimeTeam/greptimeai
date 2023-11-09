@@ -15,7 +15,7 @@ def cal_openai_token_cost_for_model(
             model_name=model_name, num_tokens=num_tokens, is_completion=is_completion
         )
     except Exception as e:
-        logger.warn(f"calculate cost for '{model_name}' Exception: {e}")
+        logger.warning(f"calculate cost for '{model_name}' Exception: {e}")
         return 0
 
 
@@ -35,7 +35,7 @@ def num_tokens_from_messages(messages: str, model="gpt-3.5-turbo-0613") -> int:
     try:
         encoding = tiktoken.encoding_for_model(model)
     except KeyError:
-        logger.warn("model not found. Using cl100k_base encoding.")
+        logger.warning("model not found. Using cl100k_base encoding.")
         encoding = tiktoken.get_encoding("cl100k_base")
 
     if model in {
@@ -52,7 +52,7 @@ def num_tokens_from_messages(messages: str, model="gpt-3.5-turbo-0613") -> int:
     elif "gpt-4" in model:
         return num_tokens_from_messages(messages, model="gpt-4-0613")
     else:
-        logger.warn(
+        logger.warning(
             f"num_tokens_from_messages() is not implemented for model {model}, use gpt-3.5-turbo-0613 instead"
         )
         return num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613")

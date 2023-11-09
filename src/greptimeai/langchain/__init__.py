@@ -19,8 +19,7 @@ def _get_user_id(metadata: Optional[Dict[str, Any]]) -> str:
     """
     get user id from metadata
     """
-    user_id = (metadata or {}).get("user_id")
-    return user_id if user_id else ""
+    return (metadata or {}).get("user_id", "")
 
 
 def _get_serialized_id(serialized: Dict[str, Any]) -> Optional[str]:
