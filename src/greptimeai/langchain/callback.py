@@ -248,21 +248,22 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         logger.debug(
             f"on_llm_end. { run_id =} { parent_run_id =} { kwargs = } { response = }"
         )
-        unknown_model = "unknown"
         generations: List[Generation] = (
             response.generations[0]
             if response and len(response.generations) > 0
             else []
         )
         output = response.llm_output or {}
-        model_name = output.get("model_name", unknown_model)
-        model_name = standardize_model_name(model_name)
+        model_name: Optional[str] = output.get("model_name")
+        if model_name is None:
+            model_name = self._collector.get_id_model(run_id) or ""
+        model_name = standardize_model_name(model_name)  # type: ignore
 
         token_usage = output.get("token_usage", {})
 
         # NOTE: only cost of OpenAI model will be calculated and collected so far
         prompt_tokens, prompt_cost, completion_cost, completion_tokens = 0, 0, 0, 0
-        if model_name != unknown_model:
+        if model_name.strip() != "":
             if len(token_usage) > 0:
                 prompt_tokens = token_usage.get("prompt_tokens", 0)
                 completion_tokens = token_usage.get("completion_tokens", 0)
@@ -286,9 +287,10 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             completion_cost=completion_cost,
         )
 
-        attrs: Dict[str, Any] = {
-            "model": model_name,
-        }
+        attrs: Dict[str, Any] = {}
+
+        if model_name.strip() != "":
+            attrs["model"] = model_name
         if prompt_tokens > 0:
             attrs["prompt_tokens"] = prompt_tokens
         if prompt_cost > 0:
