@@ -2,19 +2,24 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
 
 from langchain.callbacks.base import BaseCallbackHandler
-from langchain.callbacks.openai_info import (
-    MODEL_COST_PER_1K_TOKENS,
-    get_openai_token_cost_for_model,
-    standardize_model_name,
-)
+from langchain.callbacks.openai_info import standardize_model_name
 from langchain.schema.agent import AgentAction, AgentFinish
 from langchain.schema.document import Document
 from langchain.schema.messages import BaseMessage, get_buffer_string
-from langchain.schema.output import ChatGenerationChunk, GenerationChunk, LLMResult
+from langchain.schema.output import (
+    ChatGenerationChunk,
+    Generation,
+    GenerationChunk,
+    LLMResult,
+)
 from tenacity import RetryCallState
 
 from greptimeai import logger
 from greptimeai.collection import Collector
+from greptimeai.openai.utils.tokens import (
+    cal_openai_token_cost_for_model,
+    num_tokens_from_messages,
+)
 
 from . import (
     _CLASS_TYPE_LABEL,
@@ -26,6 +31,7 @@ from . import (
     _SPAN_NAME_TOOL,
     _SPAN_TYPE_LABEL,
     _get_serialized_id,
+    _get_serialized_streaming,
     _get_user_id,
     _parse_documents,
     _parse_generations,
@@ -149,9 +155,19 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             f"on_llm_start. { run_id =} { parent_run_id =} { kwargs = } { serialized = }"
         )
 
-        span_attrs = {
+        span_attrs: dict[str, Any] = {
             "user_id": _get_user_id(metadata),
         }
+
+        streaming = _get_serialized_streaming(serialized)
+        if streaming and invocation_params:
+            str_messages = " ".join(prompts)
+            model_name: str = invocation_params.get("model_name")  # type: ignore
+            prompt_tokens = num_tokens_from_messages(str_messages, model_name)
+            prompt_cost = cal_openai_token_cost_for_model(model_name, prompt_tokens)
+            span_attrs["model"] = model_name
+            span_attrs["prompt_tokens"] = prompt_tokens
+            span_attrs["prompt_cost"] = prompt_cost
 
         event_attrs = {
             _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
@@ -188,9 +204,19 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             f"on_chat_model_start. { run_id =} { parent_run_id =} { kwargs = } { serialized = }"
         )
 
-        span_attrs = {
+        str_messages = get_buffer_string(messages[0])
+        span_attrs: dict[str, Any] = {
             "user_id": _get_user_id(metadata),
         }
+
+        streaming = _get_serialized_streaming(serialized)
+        if streaming and invocation_params:
+            model_name: str = invocation_params.get("model_name")  # type: ignore
+            prompt_tokens = num_tokens_from_messages(str_messages, model_name)
+            prompt_cost = cal_openai_token_cost_for_model(model_name, prompt_tokens)
+            span_attrs["model"] = model_name
+            span_attrs["prompt_tokens"] = prompt_tokens
+            span_attrs["prompt_cost"] = prompt_cost
 
         event_attrs = {
             _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
@@ -199,7 +225,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             "params": invocation_params,
         }
         if self._verbose:
-            event_attrs["messages"] = get_buffer_string(messages[0])
+            event_attrs["messages"] = str_messages
 
         self._collector.start_latency(_SPAN_NAME_LLM, run_id)
         self._collector.start_span(
@@ -222,21 +248,36 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         logger.debug(
             f"on_llm_end. { run_id =} { parent_run_id =} { kwargs = } { response = }"
         )
+        generations: List[Generation] = (
+            response.generations[0]
+            if response and len(response.generations) > 0
+            else []
+        )
         output = response.llm_output or {}
+        model_name: Optional[str] = output.get("model_name")
+        if model_name is None:
+            model_name = self._collector.get_id_model(run_id) or ""
+        model_name = standardize_model_name(model_name)  # type: ignore
+
         token_usage = output.get("token_usage", {})
-        completion_tokens = token_usage.get("completion_tokens", 0)
-        prompt_tokens = token_usage.get("prompt_tokens", 0)
 
-        model_name = output.get("model_name", "unknown")
-        model_name = standardize_model_name(model_name)
-
-        # only cost of OpenAI model will be calculated and collected
-        prompt_cost, completion_cost = 0, 0
-        if model_name in MODEL_COST_PER_1K_TOKENS:
-            prompt_cost = get_openai_token_cost_for_model(model_name, prompt_tokens)
-            completion_cost = get_openai_token_cost_for_model(
-                model_name, completion_tokens, is_completion=True
-            )
+        # NOTE: only cost of OpenAI model will be calculated and collected so far
+        prompt_tokens, prompt_cost, completion_cost, completion_tokens = 0, 0, 0, 0
+        if model_name.strip() != "":
+            if len(token_usage) > 0:
+                prompt_tokens = token_usage.get("prompt_tokens", 0)
+                completion_tokens = token_usage.get("completion_tokens", 0)
+                prompt_cost = cal_openai_token_cost_for_model(model_name, prompt_tokens)
+                completion_cost = cal_openai_token_cost_for_model(
+                    model_name, completion_tokens, is_completion=True
+                )
+            else:  # streaming
+                texts = [generation.text for generation in generations]
+                str_messages = " ".join(texts)
+                completion_tokens = num_tokens_from_messages(str_messages, model_name)
+                completion_cost = cal_openai_token_cost_for_model(
+                    model_name, prompt_tokens, is_completion=True
+                )
 
         self._collector.collect_llm_metrics(
             model_name=model_name,
@@ -246,17 +287,22 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             completion_cost=completion_cost,
         )
 
-        attrs = {
-            "model": model_name,
-            "prompt_tokens": prompt_tokens,
-            "prompt_cost": prompt_cost,
-            "completion_tokens": completion_tokens,
-            "completion_cost": completion_cost,
-        }
+        attrs: Dict[str, Any] = {}
+
+        if model_name.strip() != "":
+            attrs["model"] = model_name
+        if prompt_tokens > 0:
+            attrs["prompt_tokens"] = prompt_tokens
+        if prompt_cost > 0:
+            attrs["prompt_cost"] = prompt_cost
+        if completion_tokens > 0:
+            attrs["completion_tokens"] = completion_tokens
+        if completion_cost > 0:
+            attrs["completion_cost"] = completion_cost
 
         event_attrs = attrs.copy()
         if self._verbose:
-            event_attrs["outputs"] = _parse_generations(response.generations[0])
+            event_attrs["outputs"] = _parse_generations(generations)
 
         self._collector.end_latency(
             _SPAN_NAME_LLM, run_id, attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_LLM}

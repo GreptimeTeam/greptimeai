@@ -111,14 +111,21 @@ class _TraceTable:
     def __init__(self):
         self._traces: Dict[str, List[Tuple[str, Span]]] = {}
 
-    def put_span(self, name: str, run_id: UUID, span: Span):
+        # models is cache for later usage.
+        # on streaming scenario, start can know the model, but end have no chance to know it
+        self._models: Dict[str, str] = {}
+
+    def put_span(self, name: str, run_id: UUID, span: Span, model_name: str):
         """
         Pay Attention: different name may have same run_id.
         """
         str_run_id = str(run_id)
         span_list = self._traces.get(str_run_id, [])
         span_list.append((name, span))
+
         self._traces[str_run_id] = span_list
+        if model_name.strip() != "":
+            self._models[str_run_id] = model_name
 
     def get_name_span(self, name: str, run_id: UUID) -> Optional[Span]:
         """
@@ -141,6 +148,9 @@ class _TraceTable:
             return tpl[1]
         return None
 
+    def get_id_model(self, run_id: UUID) -> Optional[str]:
+        return self._models.get(str(run_id))
+
     def pop_span(self, name: str, run_id: UUID) -> Optional[Span]:
         """
         if there is only one span matched this run_id, then run_id key will be removed
@@ -160,6 +170,7 @@ class _TraceTable:
 
         if len(rest_list) == 0:
             self._traces.pop(str_run_id, None)
+            self._models.pop(str_run_id, None)
         else:
             self._traces[str_run_id] = rest_list
 
@@ -202,6 +213,7 @@ class _Observation:
         self._cost: Dict[Tuple, float] = {}
 
     def _reset(self):
+        self._name = ""
         self._cost = {}
 
     def _dict_to_tuple(self, attrs: Dict) -> Tuple:
@@ -355,13 +367,16 @@ class Collector:
             description="completion token cost in US Dollar",
         )
 
+    def get_id_model(self, run_id: UUID) -> Optional[str]:
+        return self._trace_tables.get_id_model(run_id)
+
     def start_span(
         self,
         run_id: UUID,
         parent_run_id: Optional[UUID],
         span_name: str,
         event_name: str,
-        span_attrs: Dict[str, Any] = {},
+        span_attrs: Dict[str, Any] = {},  # model may exist in span attrs
         event_attrs: Dict[str, Any] = {},
     ):
         span_attrs = _sanitate_attributes(span_attrs)
@@ -372,7 +387,9 @@ class Collector:
                 span_name, context=ctx, attributes=span_attrs
             )
             span.add_event(event_name, attributes=event_attrs)
-            self._trace_tables.put_span(span_name, run_id, span)
+
+            model_name = span_attrs.get("model", "")
+            self._trace_tables.put_span(span_name, run_id, span, model_name)
 
         if not run_id:
             return
