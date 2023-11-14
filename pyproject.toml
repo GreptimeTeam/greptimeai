@@ -9,7 +9,6 @@ dependencies = [
     "opentelemetry-api>=1.20.0",
     "opentelemetry-sdk>=1.20.0",
     "opentelemetry-exporter-otlp-proto-http>=1.20.0",
-    "tiktoken>=0.5.1",
 ]
 keywords = [
     "greptime",
@@ -22,6 +21,9 @@ keywords = [
 readme = "README.md"
 requires-python = ">= 3.8"
 
+[project.optional-dependencies]
+openai = ["tiktoken>=0.5.1"]
+
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
@@ -32,6 +34,7 @@ dev-dependencies = [
     "ruff>=0.1.3",
     "pytest>=7.4.3",
     "langchain>=0.0.27",
+    "tiktoken>=0.5.1",
 ]
 
 [tool.rye.scripts]
