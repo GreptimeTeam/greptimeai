@@ -42,7 +42,7 @@ jobs:
       # TODO(yuanbohan): code coverage with pytest-cov
       - name: Test with pytest
         run: |
-          pip install pytest
+          pip install pytest langchain
           pytest tests/
 
       - name: Lint & Format with Ruff

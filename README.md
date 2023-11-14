@@ -14,8 +14,6 @@ pip install --upgrade greptimeai
 
 ## Usage
 
-TODO(yuanbohan): make sure this link is correct!!
-
 To get started, create a service by registering [greptimeai][greptimeai], and get:
 
 - host
@@ -33,8 +31,9 @@ export GREPTIMEAI_TOKEN=''
 #### LangChain
 
 LangChain provides a callback system that allows you to hook into the various stages of your LLM
-application. Import GreptimeCallbackHandler, which helps to collect metrics and traces to
-GreptimeCloud.
+application.
+Assuming you're using LangChain to empower your Application, what you need to do is just initiate
+GreptimeCallbackHandler as the following:
 
 ```python
 from greptimeai.langchain.callback import GreptimeCallbackHandler
@@ -57,7 +56,7 @@ chain.run(number=2, callbacks=callbacks)
 ```
 
 This example needs to be configured with your OpenAI account's private API key which is available on
-our [developer platform][openai]. Set it as the `OPENAI_API_KEY` environment variable:
+[openai platform][openai]. Set it as the `OPENAI_API_KEY` environment variable:
 
 ```bash
 export OPENAI_API_KEY='sk-...'
@@ -65,7 +64,7 @@ export OPENAI_API_KEY='sk-...'
 
 #### OpenAI
 
-TODO
+Coming
 
 [greptimeai]: https://console.greptime.cloud/ai
 [greptimeai-cookbook]: https://github.com/GreptimeTeam/greptimeai-cookbook
