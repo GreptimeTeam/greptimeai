@@ -215,7 +215,7 @@ class _DurationTable:
         else:
             return str(run_id)
 
-    def set(self, run_id: Union[UUID, str], name: Optional[str]):
+    def set(self, run_id: Union[UUID, str], name: Optional[str] = None):
         """
         set start time of run_id.
 
@@ -227,7 +227,7 @@ class _DurationTable:
         self._tables[key] = time.time()
 
     def latency_in_ms(
-        self, run_id: Union[UUID, str], name: Optional[str]
+        self, run_id: Union[UUID, str], name: Optional[str] = None
     ) -> Optional[float]:
         """
         return latency in milli second if key exist, None if not exist.
@@ -250,7 +250,6 @@ class _Observation:
         self._value: Dict[Tuple, float] = {}
 
     def _reset(self):
-        self._name = ""
         self._value = {}
 
     def _dict_to_tuple(self, attrs: Dict) -> Tuple:
