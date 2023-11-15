@@ -39,4 +39,4 @@ dev-dependencies = [
 
 [tool.rye.scripts]
 check = { cmd = "ruff check ."}
-test = { cmd = "pytest tests/" }
+test = { cmd = "pytest tests/ -v" }

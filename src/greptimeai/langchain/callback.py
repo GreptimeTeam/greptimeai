@@ -178,7 +178,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         if self._verbose:
             event_attrs["prompts"] = prompts
 
-        self._collector.start_latency(_SPAN_NAME_LLM, run_id)
+        self._collector.start_latency(run_id, _SPAN_NAME_LLM)
         self._collector.start_span(
             run_id=run_id,
             parent_run_id=parent_run_id,
@@ -227,7 +227,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         if self._verbose:
             event_attrs["messages"] = str_messages
 
-        self._collector.start_latency(_SPAN_NAME_LLM, run_id)
+        self._collector.start_latency(run_id, _SPAN_NAME_LLM)
         self._collector.start_span(
             run_id=run_id,
             parent_run_id=parent_run_id,
@@ -256,7 +256,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         output = response.llm_output or {}
         model_name: Optional[str] = output.get("model_name")
         if model_name is None:
-            model_name = self._collector.get_id_model(run_id) or ""
+            model_name = self._collector.get_model_in_context(run_id) or ""
         model_name = standardize_model_name(model_name)  # type: ignore
 
         token_usage = output.get("token_usage", {})
@@ -279,7 +279,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
                     model_name, prompt_tokens, is_completion=True
                 )
 
-        self._collector.collect_llm_metrics(
+        self._collector.collect_metrics(
             model_name=model_name,
             prompt_tokens=prompt_tokens,
             prompt_cost=prompt_cost,
@@ -305,7 +305,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             event_attrs["outputs"] = _parse_generations(generations)
 
         self._collector.end_latency(
-            _SPAN_NAME_LLM, run_id, attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_LLM}
+            run_id, _SPAN_NAME_LLM, attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_LLM}
         )
         self._collector.end_span(
             run_id=run_id,
@@ -329,7 +329,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         }
 
         self._collector.end_latency(
-            _SPAN_NAME_LLM, run_id, attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_LLM}
+            run_id, _SPAN_NAME_LLM, attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_LLM}
         )
         self._collector.end_span(
             run_id=run_id,
@@ -392,7 +392,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         if self._verbose:
             event_attrs["input"] = input_str
 
-        self._collector.start_latency(_SPAN_NAME_TOOL, run_id)
+        self._collector.start_latency(run_id, _SPAN_NAME_TOOL)
         self._collector.start_span(
             run_id=run_id,
             parent_run_id=parent_run_id,
@@ -416,7 +416,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             event_attrs["output"] = output
 
         self._collector.end_latency(
-            _SPAN_NAME_TOOL, run_id, attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_TOOL}
+            run_id, _SPAN_NAME_TOOL, attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_TOOL}
         )
         self._collector.end_span(
             run_id=run_id,
@@ -440,7 +440,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         }
 
         self._collector.end_latency(
-            _SPAN_NAME_TOOL, run_id, attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_TOOL}
+            run_id, _SPAN_NAME_TOOL, attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_TOOL}
         )
         self._collector.end_span(
             run_id=run_id,
@@ -479,7 +479,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         if self._verbose:
             event_attrs["input"] = _parse_input(action.tool_input)
 
-        self._collector.start_latency(_SPAN_NAME_AGENT, run_id)
+        self._collector.start_latency(run_id, _SPAN_NAME_AGENT)
         self._collector.start_span(
             run_id=run_id,
             parent_run_id=parent_run_id,
@@ -506,7 +506,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             event_attrs["output"] = _parse_output(finish.return_values)
 
         self._collector.end_latency(
-            _SPAN_NAME_AGENT, run_id, attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_AGENT}
+            run_id, _SPAN_NAME_AGENT, attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_AGENT}
         )
         self._collector.end_span(
             run_id=run_id,
@@ -542,7 +542,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         if self._verbose:
             event_attrs["query"] = query
 
-        self._collector.start_latency(_SPAN_NAME_RETRIEVER, run_id)
+        self._collector.start_latency(run_id, _SPAN_NAME_RETRIEVER)
         self._collector.start_span(
             run_id=run_id,
             parent_run_id=parent_run_id,
@@ -565,8 +565,8 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             _ERROR_TYPE_LABEL: error.__class__.__name__,
         }
         self._collector.end_latency(
-            _SPAN_NAME_RETRIEVER,
             run_id,
+            _SPAN_NAME_RETRIEVER,
             attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_RETRIEVER},
         )
         self._collector.end_span(
@@ -595,8 +595,8 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             event_attrs["docs"] = _parse_documents(documents)
 
         self._collector.end_latency(
-            _SPAN_NAME_RETRIEVER,
             run_id,
+            _SPAN_NAME_RETRIEVER,
             attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_RETRIEVER},
         )
         self._collector.end_span(
