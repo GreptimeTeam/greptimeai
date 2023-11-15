@@ -2,17 +2,19 @@ import os
 from typing import Optional
 from unittest import mock
 
+import pytest
 
 from greptimeai.collection import (
     _JSON_KEYS_IN_OTLP_ATTRIBUTES,
+    _check_with_env,
     _extract_token,
-    _get_with_default_env,
     _is_valid_otel_attributes_value_type,
     _sanitate_attributes,
 )
 
 
-def test_extract_valid_token():
+def test_extract_token():
+    # valid token
     username, password = "fake_username", "fake_password"
     token = f"{username}:{password}"
 
@@ -20,8 +22,7 @@ def test_extract_valid_token():
     assert expected_username == username
     assert expected_password == password
 
-
-def test_extract_invalid_token():
+    # invalid token
     def do_test(token: Optional[str]):
         assert ("", "") == _extract_token(token)
 
@@ -33,17 +34,27 @@ def test_extract_invalid_token():
 
 
 @mock.patch.dict(os.environ, {"mock_env_variable": "mock_value"}, clear=True)
-def test_get_with_default_env():
-    assert _get_with_default_env(None, "not_exist_env") is None
-    assert _get_with_default_env("", "not_exist_env") is None
-    assert _get_with_default_env("   ", "not_exist_env") is None
+def test_check_with_env():
+    assert _check_with_env("var_name", None, "not_exist_env", False) is None
+    assert _check_with_env("val_name", "", "not_exist_env", False) is None
+    assert _check_with_env("val_name", "   ", "not_exist_env", False) is None
 
-    assert _get_with_default_env(None, "mock_env_variable") == "mock_value"
-    assert _get_with_default_env("", "mock_env_variable") == "mock_value"
-    assert _get_with_default_env("  ", "mock_env_variable") == "mock_value"
+    assert _check_with_env("var_name", None, "mock_env_variable") == "mock_value"
+    assert _check_with_env("var_name", "", "mock_env_variable") == "mock_value"
+    assert _check_with_env("var_name", "  ", "mock_env_variable") == "mock_value"
 
-    assert _get_with_default_env("real_value", "not_exist_env") == "real_value"
-    assert _get_with_default_env("real_value", "mock_env_variable") == "real_value"
+    assert _check_with_env("var_name", "real_value", "not_exist_env") == "real_value"
+    assert (
+        _check_with_env("var_name", "real_value", "mock_env_variable") == "real_value"
+    )
+
+    def do_required(value: Optional[str]):
+        with pytest.raises(ValueError):
+            _check_with_env("var_name", value, "not_exist_env", True)
+
+    do_required(None)
+    do_required("")
+    do_required("  ")
 
 
 def test_is_valid_otlp_value_type():
@@ -73,15 +84,15 @@ def test_sanitate_attributes():
         "list": [1, 2, 3],
         "list1": [{"key": "val"}],
         "dict1": {"key": "val"},
+        **common,
     }
-    attrs.update(common)
 
     expected_attrs = {
         "list": [1, 2, 3],
         "list1": '[{"key": "val"}]',
         "dict1": '{"key": "val"}',
         _JSON_KEYS_IN_OTLP_ATTRIBUTES: ["list1", "dict1"],
+        **common,
     }
-    expected_attrs.update(common)
 
     assert _sanitate_attributes(attrs) == expected_attrs
