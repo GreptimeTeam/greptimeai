@@ -125,6 +125,12 @@ class _TraceContext:
         """
         return set_span_in_context(self.span, Context({}))
 
+    def __repr__(self) -> str:
+        span_context = self.span.get_span_context()
+        return (
+            f"{self.name}.{self.model}.{span_context.trace_id}.{span_context.span_id}"
+        )
+
 
 class _TraceTable:
     """
@@ -423,18 +429,16 @@ class Collector:
             self._trace_tables.put_trace_context(run_id, trace_context)
 
         if not run_id:
-            logger.error("unexpected behavior. run_id MUST NOT be empty to start_span")
+            logger.error("unexpected behavior of start_span. run_id MUST NOT be empty.")
             return
 
         if parent_run_id:
-            trace_context = self._trace_tables.get_trace_context(
-                parent_run_id, span_name
-            )
+            trace_context = self._trace_tables.get_trace_context(parent_run_id)
             if trace_context:
                 _do_start_span(trace_context.set_self_as_current())
             else:
                 logging.error(
-                    f"unexpected behavior. parent span of { parent_run_id } not found."
+                    f"unexpected behavior of start_span. parent span of { parent_run_id } not found."
                 )
         else:
             # trace_context may exist for the same run_id in LangChain. For Example:
@@ -486,7 +490,7 @@ class Collector:
             span.end()
         else:
             logging.error(
-                f"unexpected behavior. context of { run_id } and { span_name } not found."
+                f"unexpected behavior of end_span. context of { run_id } and { span_name } not found."
             )
 
     def collect_metrics(
