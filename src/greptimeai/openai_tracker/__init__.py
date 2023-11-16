@@ -4,7 +4,7 @@ from typing import Callable, Optional
 
 import openai
 
-from greptimeai import logger
+from greptimeai.logger import logger
 from greptimeai.tracker import BaseTracker
 
 
@@ -63,6 +63,7 @@ class OpenaiTracker(BaseTracker):
             finally:
                 latency = time.time() - start
                 logger.debug(f"{ func = } { latency = }")
+                logger.debug(f"{ resp = }")
                 resp_processor(resp)
             return resp
 

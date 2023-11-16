@@ -16,7 +16,7 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.trace import Span, Status, StatusCode, set_span_in_context
+from opentelemetry.trace import Span, Status, StatusCode, Tracer, set_span_in_context
 from opentelemetry.util.types import Attributes
 
 from .logger import logger
@@ -539,7 +539,7 @@ class Collector:
         return None
 
     @property
-    def tracer(self):
+    def tracer(self) -> Tracer:
         return self._tracer
 
     def record_latency(
@@ -547,3 +547,7 @@ class Collector:
     ):
         if latency:
             self._requests_duration_histogram.record(latency, attributes)
+        else:
+            logger.warning(
+                f"latency won't be recorded for None value. attribute is: { attributes }"
+            )
