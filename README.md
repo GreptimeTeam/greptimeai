@@ -36,7 +36,7 @@ Assuming you're using LangChain to empower your Application, what you need to do
 GreptimeCallbackHandler as the following:
 
 ```python
-from greptimeai.langchain.callback import GreptimeCallbackHandler
+from greptimeai.langchain_callback import GreptimeCallbackHandler
 from langchain.chains import LLMChain
 from langchain.llms import OpenAI
 from langchain.prompts import PromptTemplate
