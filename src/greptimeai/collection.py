@@ -147,6 +147,8 @@ class _TraceTable:
         context_list.append(context)
         self._traces[str_run_id] = context_list
 
+        logger.debug(f"==== after put_trace_context. { self._traces = }")
+
     def get_trace_context(
         self, run_id: Union[UUID, str], span_name: Optional[str] = None
     ) -> Optional[_TraceContext]:
@@ -155,6 +157,7 @@ class _TraceTable:
 
             span_name: if is None or empty, the last context will be returned
         """
+        logger.debug(f"==== before get_trace_context. { self._traces = }")
         context_list = self._traces.get(str(run_id), [])
         if len(context_list) == 0:
             return None
@@ -178,6 +181,7 @@ class _TraceTable:
 
             span_name: if is None or empty, the last context will be returned
         """
+        logger.debug(f"==== before pop_trace_context. { self._traces = }")
         str_run_id = str(run_id)
         context_list = self._traces.get(str_run_id, [])
 
@@ -202,6 +206,7 @@ class _TraceTable:
         else:
             self._traces[str_run_id] = rest_list
 
+        logger.debug(f"==== after pop_trace_context. { self._traces = }")
         return target_context
 
 
@@ -423,18 +428,16 @@ class Collector:
             self._trace_tables.put_trace_context(run_id, trace_context)
 
         if not run_id:
-            logger.error("unexpected behavior. run_id MUST NOT be empty to start_span")
+            logger.error("unexpected behavior of start_span. run_id MUST NOT be empty.")
             return
 
         if parent_run_id:
-            trace_context = self._trace_tables.get_trace_context(
-                parent_run_id, span_name
-            )
+            trace_context = self._trace_tables.get_trace_context(parent_run_id)
             if trace_context:
                 _do_start_span(trace_context.set_self_as_current())
             else:
                 logging.error(
-                    f"unexpected behavior. parent span of { parent_run_id } not found."
+                    f"unexpected behavior of start_span. parent span of { parent_run_id } not found."
                 )
         else:
             # trace_context may exist for the same run_id in LangChain. For Example:
@@ -486,7 +489,7 @@ class Collector:
             span.end()
         else:
             logging.error(
-                f"unexpected behavior. context of { run_id } and { span_name } not found."
+                f"unexpected behavior of end_span. context of { run_id } and { span_name } not found."
             )
 
     def collect_metrics(
