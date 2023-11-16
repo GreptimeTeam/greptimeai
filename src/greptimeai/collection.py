@@ -125,6 +125,12 @@ class _TraceContext:
         """
         return set_span_in_context(self.span, Context({}))
 
+    def __repr__(self) -> str:
+        span_context = self.span.get_span_context()
+        return (
+            f"{self.name}.{self.model}.{span_context.trace_id}.{span_context.span_id}"
+        )
+
 
 class _TraceTable:
     """
@@ -147,8 +153,6 @@ class _TraceTable:
         context_list.append(context)
         self._traces[str_run_id] = context_list
 
-        logger.debug(f"==== after put_trace_context. { self._traces = }")
-
     def get_trace_context(
         self, run_id: Union[UUID, str], span_name: Optional[str] = None
     ) -> Optional[_TraceContext]:
@@ -157,7 +161,6 @@ class _TraceTable:
 
             span_name: if is None or empty, the last context will be returned
         """
-        logger.debug(f"==== before get_trace_context. { self._traces = }")
         context_list = self._traces.get(str(run_id), [])
         if len(context_list) == 0:
             return None
@@ -181,7 +184,6 @@ class _TraceTable:
 
             span_name: if is None or empty, the last context will be returned
         """
-        logger.debug(f"==== before pop_trace_context. { self._traces = }")
         str_run_id = str(run_id)
         context_list = self._traces.get(str_run_id, [])
 
@@ -206,7 +208,6 @@ class _TraceTable:
         else:
             self._traces[str_run_id] = rest_list
 
-        logger.debug(f"==== after pop_trace_context. { self._traces = }")
         return target_context
 
 
