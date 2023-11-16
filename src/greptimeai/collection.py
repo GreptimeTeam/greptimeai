@@ -6,7 +6,6 @@ import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
-import attr
 from opentelemetry import metrics, trace
 from opentelemetry.context.context import Context
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
@@ -17,7 +16,7 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.trace import Span, Status, StatusCode, Tracer, set_span_in_context
+from opentelemetry.trace import Span, Status, StatusCode, set_span_in_context
 from opentelemetry.util.types import Attributes
 
 from .logger import logger
