@@ -1,3 +1,2 @@
-import logging
-
-logger = logging.getLogger("greptimeai")
+# ruff: noqa: F401
+from greptimeai.langchain_tracker.callback import GreptimeCallbackHandler

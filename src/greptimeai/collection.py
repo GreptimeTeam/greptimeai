@@ -18,7 +18,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Span, Status, StatusCode, set_span_in_context
 
-from . import logger
+from .logger import logger
 from .scope import _NAME, _VERSION
 
 _JSON_KEYS_IN_OTLP_ATTRIBUTES = "otlp_json_keys"

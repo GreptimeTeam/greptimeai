@@ -1,7 +1,9 @@
 import tiktoken
-from langchain.callbacks.openai_info import get_openai_token_cost_for_model
+from langchain.callbacks.openai_info import (
+    get_openai_token_cost_for_model,  # FIXME(yuanbohan): do not rely on langchain to calculate openai cost
+)
 
-from greptimeai import logger
+from greptimeai.logger import logger
 
 
 def cal_openai_token_cost_for_model(

@@ -1,4 +1,4 @@
-from greptimeai.langchain import (
+from greptimeai.langchain_tracker import (
     _get_serialized_id,
     _get_serialized_streaming,
     _get_user_id,
