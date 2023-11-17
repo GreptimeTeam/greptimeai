@@ -1,3 +1,5 @@
 import logging
 
-logger = logging.getLogger("greptimeai")
+from .scope import _NAME, _VERSION
+
+logger = logging.getLogger(f"{_NAME}:{_VERSION}")

@@ -16,7 +16,8 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.trace import Span, Status, StatusCode, set_span_in_context
+from opentelemetry.trace import Span, Status, StatusCode, Tracer, set_span_in_context
+from opentelemetry.util.types import Attributes
 
 from . import logger
 from .scope import _NAME, _VERSION
@@ -545,8 +546,7 @@ class Collector:
         attributes: Dict[str, Any],
     ):
         latency = self._duration_tables.latency_in_ms(run_id, span_name)
-        if latency:
-            self._requests_duration_histogram.record(latency, attributes)
+        self.record_latency(latency, attributes)
 
     def get_model_in_context(self, run_id: Union[UUID, str]) -> Optional[str]:
         context = self._trace_tables.get_trace_context(run_id)
@@ -555,3 +555,17 @@ class Collector:
             return context.model
 
         return None
+
+    @property
+    def tracer(self) -> Tracer:
+        return self._tracer
+
+    def record_latency(
+        self, latency: Union[None, int, float], attributes: Optional[Attributes] = None
+    ):
+        if latency:
+            self._requests_duration_histogram.record(latency, attributes)
+        else:
+            logger.warning(
+                f"latency won't be recorded for None value. attribute is: { attributes }"
+            )

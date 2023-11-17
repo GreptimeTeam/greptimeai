@@ -1,6 +1,6 @@
 [project]
 name = "greptimeai"
-version = "0.1.10"
+version = "0.1.10" # update scope._VERSION at the same time
 description = "Observability tool for LLM application"
 authors = [
     { name = "Greptime", email = "info@greptime.com" },
@@ -9,15 +9,18 @@ dependencies = [
     "opentelemetry-api>=1.20.0",
     "opentelemetry-sdk>=1.20.0",
     "opentelemetry-exporter-otlp-proto-http>=1.20.0",
-    "tiktoken>=0.5.1"
+    "tiktoken>=0.5.1",
 ]
 keywords = [
     "greptime",
+    "greptimeai",
+    "greptimedb",
     "observability",
     "monitoring",
     "llm",
+    "ai",
     "langchain",
-    "openai"
+    "openai",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"

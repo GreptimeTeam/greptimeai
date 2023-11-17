@@ -42,8 +42,8 @@ jobs:
       # TODO(yuanbohan): code coverage with pytest-cov
       - name: Test with pytest
         run: |
-          pip install pytest langchain tiktoken
-          pytest tests/
+          pip install pytest langchain tiktoken openai
+          pytest tests/ -v
 
       - name: Lint & Format with Ruff
         run: |
