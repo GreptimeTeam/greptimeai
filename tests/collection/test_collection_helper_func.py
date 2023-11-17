@@ -9,6 +9,7 @@ from greptimeai.collection import (
     _check_with_env,
     _extract_token,
     _is_valid_otel_attributes_value_type,
+    _prefix_with_scheme_if_not_found,
     _sanitate_attributes,
 )
 
@@ -96,3 +97,16 @@ def test_sanitate_attributes():
     }
 
     assert _sanitate_attributes(attrs) == expected_attrs
+
+
+def test_prefix_with_scheme():
+    assert (
+        _prefix_with_scheme_if_not_found("https://example.com") == "https://example.com"
+    )
+    assert (
+        _prefix_with_scheme_if_not_found("http://example.com") == "http://example.com"
+    )
+    assert _prefix_with_scheme_if_not_found("example.com") == "https://example.com"
+    assert _prefix_with_scheme_if_not_found(None) is None
+    assert _prefix_with_scheme_if_not_found("") == ""
+    assert _prefix_with_scheme_if_not_found(" ") == ""

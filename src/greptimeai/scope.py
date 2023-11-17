@@ -1,2 +1,2 @@
 _NAME = "greptimeai"
-_VERSION = "0.1.7"
+_VERSION = "0.1.10"
