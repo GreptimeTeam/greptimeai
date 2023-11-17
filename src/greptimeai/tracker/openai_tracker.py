@@ -1,12 +1,12 @@
 import functools
 import time
-from typing import Callable, Optional
+from typing import Optional
 
 import openai
 
 from greptimeai import logger
 
-from . import BaseTracker
+from . import _GREPTIMEAI_WRAPPED, BaseTracker
 
 
 def setup(
@@ -41,29 +41,45 @@ class OpenaiTracker(BaseTracker):
         super().__init__(host, database, token)
 
     def setup(self, client: Optional[openai.OpenAI] = None):
-        self._patch_chat_completion()
+        self._patch_chat_completion(client)
 
     def _patch_chat_completion(self, client: Optional[openai.OpenAI] = None):
         if client:
-            self._patch(client.chat.completions.create, print)
+            self._patch(client.chat.completions, "create")
         else:
-            self._patch(openai.chat.completions.create, print)
+            self._patch(openai.chat.completions, "create")
 
-    def _patch(self, func: Callable, resp_processor: Callable):
+    def _patch(self, obj: object, func_name: str):
+        if not hasattr(obj, func_name):
+            logger.warning(f"{repr(obj)} has no '{func_name}' attribute.")
+            return
+
+        func = getattr(obj, func_name)
+        logger.debug(f"{repr(func) = }")
+
+        if hasattr(func, _GREPTIMEAI_WRAPPED):
+            logger.info(f"no need to patch {func_name} multiple times.")
+            return
+
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
+            logger.debug(f"{repr(obj)} calling {func_name}")
             logger.debug(f"{ args = } { kwargs = }")
             start = time.time()
-            resp = None
+            ex, resp = None, None
             try:
                 resp = func(*args, **kwargs)
-            except Exception as ex:
+            except Exception as e:
+                ex = e
                 logger.error(f"{ ex = }")
             finally:
                 latency = time.time() - start
-                logger.debug(f"{ func = } { latency = }")
+                logger.debug(f"{ latency = }")
                 logger.debug(f"{ resp = }")
-                resp_processor(resp)
+
+            if ex:
+                raise ex
             return resp
 
-        func = wrapper
+        setattr(wrapper, _GREPTIMEAI_WRAPPED, True)
+        setattr(obj, func_name, wrapper)
