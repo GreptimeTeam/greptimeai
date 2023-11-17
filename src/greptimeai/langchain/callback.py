@@ -16,7 +16,7 @@ from tenacity import RetryCallState
 
 from greptimeai import logger
 from greptimeai.collection import Collector
-from greptimeai.openai.utils.tokens import (
+from greptimeai.utils.openai_token import (
     cal_openai_token_cost_for_model,
     num_tokens_from_messages,
 )
