@@ -28,6 +28,22 @@ _GREPTIME_DATABASE_ENV_NAME = "GREPTIMEAI_DATABASE"
 _GREPTIME_TOKEN_ENV_NAME = "GREPTIMEAI_TOKEN"
 
 
+def _prefix_with_scheme_if_not_found(endpoint: Optional[str]) -> Optional[str]:
+    if not endpoint:
+        return endpoint
+
+    endpoint = endpoint.strip()
+
+    if (
+        endpoint == ""
+        or endpoint.startswith("https://")
+        or endpoint.startswith("http://")
+    ):
+        return endpoint
+
+    return f"https://{endpoint}"
+
+
 def _extract_token(token: Optional[str]) -> Tuple[str, str]:
     """
     if token is invalid or empty, then invalid auth header will be included
@@ -307,7 +323,9 @@ class Collector:
         database: str = "",
         token: str = "",
     ):
-        self.host = _check_with_env("host", host, _GREPTIME_HOST_ENV_NAME, True)
+        self.host = _prefix_with_scheme_if_not_found(
+            _check_with_env("host", host, _GREPTIME_HOST_ENV_NAME, True)
+        )
         self.database = _check_with_env(
             "database", database, _GREPTIME_DATABASE_ENV_NAME, True
         )
