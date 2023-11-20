@@ -17,6 +17,7 @@ from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Span, Status, StatusCode, Tracer, set_span_in_context
+from opentelemetry.trace.span import format_span_id
 from opentelemetry.util.types import Attributes
 
 from . import logger
@@ -128,7 +129,7 @@ def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 
 class _TraceContext:
     """
-    ease context management for OTLP Context and LangChain run_id
+    ease context management for OTLP Context and span_id
     """
 
     def __init__(self, name: str, model: str, span: Span):
@@ -151,7 +152,7 @@ class _TraceContext:
 
 class _TraceTable:
     """
-    NOTE: different span_name may have same run_id.
+    NOTE: different span_name may have same span_id.
     """
 
     def __init__(self):
@@ -159,26 +160,26 @@ class _TraceTable:
 
     def put_trace_context(
         self,
-        run_id: Union[UUID, str],
+        span_id: Union[UUID, str],
         context: _TraceContext,
     ):
         """
         Pay Attention: different span_name may have same run_id in LangChain.
         """
-        str_run_id = str(run_id)
-        context_list = self._traces.get(str_run_id, [])
+        str_id = str(span_id)
+        context_list = self._traces.get(str_id, [])
         context_list.append(context)
-        self._traces[str_run_id] = context_list
+        self._traces[str_id] = context_list
 
     def get_trace_context(
-        self, run_id: Union[UUID, str], span_name: Optional[str] = None
+        self, span_id: Union[UUID, str], span_name: Optional[str] = None
     ) -> Optional[_TraceContext]:
         """
         Args:
 
             span_name: if is None or empty, the last context will be returned
         """
-        context_list = self._traces.get(str(run_id), [])
+        context_list = self._traces.get(str(span_id), [])
         if len(context_list) == 0:
             return None
 
@@ -192,17 +193,17 @@ class _TraceTable:
         return None
 
     def pop_trace_context(
-        self, run_id: Union[UUID, str], span_name: Optional[str] = None
+        self, span_id: Union[UUID, str], span_name: Optional[str] = None
     ) -> Optional[_TraceContext]:
         """
-        if there is only one span matched this run_id, then run_id key will be removed
+        if there is only one span matched this span_id, then span_id key will be removed
 
         Args:
 
             span_name: if is None or empty, the last context will be returned
         """
-        str_run_id = str(run_id)
-        context_list = self._traces.get(str_run_id, [])
+        str_id = str(span_id)
+        context_list = self._traces.get(str_id, [])
 
         if len(context_list) == 0:
             return None
@@ -221,9 +222,9 @@ class _TraceTable:
                     rest_list.append(context)
 
         if len(rest_list) == 0:
-            self._traces.pop(str_run_id, None)
+            self._traces.pop(str_id, None)
         else:
-            self._traces[str_run_id] = rest_list
+            self._traces[str_id] = rest_list
 
         return target_context
 
@@ -232,30 +233,30 @@ class _DurationTable:
     def __init__(self):
         self._tables: Dict[str, float] = {}
 
-    def _key(self, run_id: Union[UUID, str], name: Optional[str]) -> str:
+    def _key(self, span_id: Union[UUID, str], name: Optional[str]) -> str:
         if name:
-            return f"{name}.{run_id}"
+            return f"{name}.{span_id}"
         else:
-            return str(run_id)
+            return str(span_id)
 
-    def set(self, run_id: Union[UUID, str], name: Optional[str] = None):
+    def set(self, span_id: Union[UUID, str], name: Optional[str] = None):
         """
-        set start time of run_id.
+        set start time of span_id.
 
         Args:
 
             name: same span may have different name, this is to diffirentiate them.
         """
-        key = self._key(run_id, name)
+        key = self._key(span_id, name)
         self._tables[key] = time.time()
 
     def latency_in_ms(
-        self, run_id: Union[UUID, str], name: Optional[str] = None
+        self, span_id: Union[UUID, str], name: Optional[str] = None
     ) -> Optional[float]:
         """
         return latency in milli second if key exist, None if not exist.
         """
-        key = self._key(run_id, name)
+        key = self._key(span_id, name)
         start = self._tables.pop(key, None)
         if start:
             now = time.time()
@@ -423,16 +424,24 @@ class Collector:
 
     def start_span(
         self,
-        run_id: Union[UUID, str],
-        parent_run_id: Union[UUID, str, None],
+        span_id: Union[UUID, str, None],
+        parent_id: Union[UUID, str, None],
         span_name: str,
         event_name: str,
         span_attrs: Dict[str, Any] = {},  # model may exist in span attrs
         event_attrs: Dict[str, Any] = {},
-    ):
+    ) -> Union[UUID, str, None]:
         """
-        this is mainly focused on LangChain.
+        Args:
+
+            span_id: span id. If None, this id will be automatically generated.
+            parent_id: parent span id. if None, this is a root span.
+
+        Returns:
+
+            id: can retrieve context via this id. If None, no span has been started.
         """
+        logger.debug(f"start span for {span_name} with {span_id=} or {parent_id=}")
         span_attrs = _sanitate_attributes(span_attrs)
         event_attrs = _sanitate_attributes(event_attrs)
 
@@ -445,58 +454,64 @@ class Collector:
             trace_context = _TraceContext(
                 name=span_name, model=span_attrs.get("model", ""), span=span
             )
-            self._trace_tables.put_trace_context(run_id, trace_context)
 
-        if not run_id:
-            logger.error("unexpected behavior of start_span. run_id MUST NOT be empty.")
-            return
+            final_id = span_id or format_span_id(span.get_span_context().span_id)
+            self._trace_tables.put_trace_context(final_id, trace_context)
+            return final_id
 
-        if parent_run_id:
-            trace_context = self._trace_tables.get_trace_context(parent_run_id)
+        if parent_id:
+            trace_context = self._trace_tables.get_trace_context(parent_id)
             if trace_context:
-                _do_start_span(trace_context.set_self_as_current())
+                return _do_start_span(trace_context.set_self_as_current())
             else:
                 logging.error(
-                    f"unexpected behavior of start_span. parent span of { parent_run_id } not found."
+                    f"unexpected behavior of start_span. parent span of { parent_id } not found."
                 )
+                return None
+
+        if span_id is None:
+            return _do_start_span()
+
+        # trace_context may exist for the same run_id in LangChain. For Example:
+        # different Chain triggered in the same trace may have the same run_id.
+        trace_context = self._trace_tables.get_trace_context(span_id)
+        if trace_context:
+            return _do_start_span(trace_context.set_self_as_current())
         else:
-            # trace_context may exist for the same run_id in LangChain. For Example:
-            # different Chain triggered in the same trace may have the same run_id.
-            trace_context = self._trace_tables.get_trace_context(run_id)
-            if trace_context:
-                _do_start_span(trace_context.set_self_as_current())
-            else:
-                _do_start_span()
+            return _do_start_span()
 
     def add_span_event(
-        self, run_id: Union[UUID, str], event_name: str, event_attrs: Dict[str, Any]
+        self, span_id: Union[UUID, str], event_name: str, event_attrs: Dict[str, Any]
     ):
         """
         this is mainly focused on LangChain.
         """
+        logger.debug(f"add event for {event_name} with {span_id=}")
         event_attrs = _sanitate_attributes(event_attrs)
-        context = self._trace_tables.get_trace_context(run_id)
+        context = self._trace_tables.get_trace_context(span_id)
         if context:
             context.span.add_event(event_name, attributes=event_attrs)
         else:
-            logging.error(f"{run_id} span not found for {event_name}")
+            logging.error(f"{span_id} span not found for {event_name}")
 
     def end_span(
         self,
-        run_id: Union[UUID, str],
+        span_id: Union[UUID, str],
         span_name: str,
-        span_attrs: Dict[str, Any],
         event_name: str,
-        event_attrs: Dict[str, Any],
+        span_attrs: Dict[str, Any] = {},
+        event_attrs: Dict[str, Any] = {},
         ex: Optional[Exception] = None,
     ):
         """
         this is mainly focused on LangChain.
         """
+        logger.debug(f"end span for {span_name} with {span_id=}")
+
         span_attrs = _sanitate_attributes(span_attrs)
         event_attrs = _sanitate_attributes(event_attrs)
 
-        context = self._trace_tables.pop_trace_context(run_id, span_name)
+        context = self._trace_tables.pop_trace_context(span_id, span_name)
         if context:
             span = context.span
             if ex:
@@ -509,7 +524,7 @@ class Collector:
             span.end()
         else:
             logging.error(
-                f"unexpected behavior of end_span. context of { run_id } and { span_name } not found."
+                f"unexpected behavior of end_span. context of { span_id } and { span_name } not found."
             )
 
     def collect_metrics(
@@ -536,16 +551,16 @@ class Collector:
         if completion_cost:
             self._completion_cost.put(completion_cost, attrs)
 
-    def start_latency(self, run_id: Union[UUID, str], span_name: Optional[str]):
-        self._duration_tables.set(run_id, span_name)
+    def start_latency(self, span_id: Union[UUID, str], span_name: Optional[str]):
+        self._duration_tables.set(span_id, span_name)
 
     def end_latency(
         self,
-        run_id: Union[UUID, str],
+        span_id: Union[UUID, str],
         span_name: Optional[str],
         attributes: Dict[str, Any],
     ):
-        latency = self._duration_tables.latency_in_ms(run_id, span_name)
+        latency = self._duration_tables.latency_in_ms(span_id, span_name)
         self.record_latency(latency, attributes)
 
     def record_latency(
@@ -563,8 +578,8 @@ class Collector:
                 f"latency won't be recorded for None value. attribute is: { attributes }"
             )
 
-    def get_model_in_context(self, run_id: Union[UUID, str]) -> Optional[str]:
-        context = self._trace_tables.get_trace_context(run_id)
+    def get_model_in_context(self, span_id: Union[UUID, str]) -> Optional[str]:
+        context = self._trace_tables.get_trace_context(span_id)
 
         if context:
             return context.model

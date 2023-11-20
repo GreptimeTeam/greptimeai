@@ -1,5 +1,5 @@
-from greptimeai.utils.openai_token import (
-    cal_openai_token_cost_for_model,
+from greptimeai.utils.openai.token import (
+    get_openai_token_cost_for_model,
     num_tokens_from_messages,
 )
 
@@ -62,4 +62,4 @@ def test_cal_openai_token_cost_for_model():
         ),
     ]
     for cost, args in cases:
-        assert cost == cal_openai_token_cost_for_model(*args)
+        assert cost == get_openai_token_cost_for_model(*args)

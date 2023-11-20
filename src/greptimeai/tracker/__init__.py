@@ -14,4 +14,4 @@ class BaseTracker:
         database: str = "",
         token: str = "",
     ):
-        self.collector = Collector(host, database, token)
+        self._collector = Collector(host, database, token)
