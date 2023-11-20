@@ -7,7 +7,7 @@ from openai import OpenAI
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 
-from greptimeai import logger
+from greptimeai import _ERROR_TYPE_LABEL, logger
 from greptimeai.utils.openai.parser import (
     _parse_chat_completion_message_params,
     _parse_choices,
@@ -47,6 +47,7 @@ class OpenaiTracker(BaseTracker):
         token: str = "",
     ):
         super().__init__(host, database, token)
+        self.llm_source = "openai"
 
     def setup(self, client: Optional[OpenAI] = None):
         self._patch_chat_completion(client)
@@ -93,6 +94,13 @@ class OpenaiTracker(BaseTracker):
                 resp = func(*args, **kwargs)
             except Exception as e:
                 ex = e
+                self._collector._llm_error_count.add(
+                    1,
+                    {
+                        "type": f"{self.llm_source}_{span_name}",
+                        _ERROR_TYPE_LABEL: ex.__class__.__name__,
+                    },
+                )
             finally:
                 latency = 1000 * (time.time() - start)
                 self._collector.record_latency(latency)
@@ -122,6 +130,7 @@ class OpenaiTracker(BaseTracker):
         }
 
         event_attrs = {
+            "model": model,
             "messages": _parse_chat_completion_message_params(messages),
             **kwargs,
         }
