@@ -423,8 +423,8 @@ class Collector:
 
     def start_span(
         self,
-        run_id: UUID,
-        parent_run_id: Optional[UUID],
+        run_id: Union[UUID, str],
+        parent_run_id: Union[UUID, str, None],
         span_name: str,
         event_name: str,
         span_attrs: Dict[str, Any] = {},  # model may exist in span attrs
@@ -469,7 +469,7 @@ class Collector:
                 _do_start_span()
 
     def add_span_event(
-        self, run_id: UUID, event_name: str, event_attrs: Dict[str, Any]
+        self, run_id: Union[UUID, str], event_name: str, event_attrs: Dict[str, Any]
     ):
         """
         this is mainly focused on LangChain.
@@ -483,7 +483,7 @@ class Collector:
 
     def end_span(
         self,
-        run_id: UUID,
+        run_id: Union[UUID, str],
         span_name: str,
         span_attrs: Dict[str, Any],
         event_name: str,
@@ -548,6 +548,21 @@ class Collector:
         latency = self._duration_tables.latency_in_ms(run_id, span_name)
         self.record_latency(latency, attributes)
 
+    def record_latency(
+        self, latency: Union[None, int, float], attributes: Optional[Attributes] = None
+    ):
+        """
+        Args:
+
+            latency: millisecond unit
+        """
+        if latency:
+            self._requests_duration_histogram.record(latency, attributes)
+        else:
+            logger.warning(
+                f"latency won't be recorded for None value. attribute is: { attributes }"
+            )
+
     def get_model_in_context(self, run_id: Union[UUID, str]) -> Optional[str]:
         context = self._trace_tables.get_trace_context(run_id)
 
@@ -559,13 +574,3 @@ class Collector:
     @property
     def tracer(self) -> Tracer:
         return self._tracer
-
-    def record_latency(
-        self, latency: Union[None, int, float], attributes: Optional[Attributes] = None
-    ):
-        if latency:
-            self._requests_duration_histogram.record(latency, attributes)
-        else:
-            logger.warning(
-                f"latency won't be recorded for None value. attribute is: { attributes }"
-            )

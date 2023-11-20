@@ -1,8 +1,10 @@
 import functools
 import time
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import openai
+from openai import OpenAI
+from openai.types.chat.chat_completion import ChatCompletion
 
 from greptimeai import logger
 
@@ -13,7 +15,7 @@ def setup(
     host: str = "",
     database: str = "",
     token: str = "",
-    client: Optional[openai.OpenAI] = None,
+    client: Optional[OpenAI] = None,
 ):
     """
     patch openai main functions automatically.
@@ -40,31 +42,29 @@ class OpenaiTracker(BaseTracker):
     ):
         super().__init__(host, database, token)
 
-    def setup(self, client: Optional[openai.OpenAI] = None):
+    def setup(self, client: Optional[OpenAI] = None):
         self._patch_chat_completion(client)
 
-    def _patch_chat_completion(self, client: Optional[openai.OpenAI] = None):
+    def _patch_chat_completion(self, client: Optional[OpenAI] = None):
+        span_name = "chat.completions.create"
         if client:
-            self._patch(client.chat.completions, "create")
+            self._patch(client.chat.completions, "create", span_name)
         else:
-            self._patch(openai.chat.completions, "create")
+            self._patch(openai.chat.completions, "create", span_name)
 
-    def _patch(self, obj: object, func_name: str):
-        if not hasattr(obj, func_name):
-            logger.warning(f"{repr(obj)} has no '{func_name}' attribute.")
+    def _patch(self, obj: object, method_name: str, span_name: str):
+        if not hasattr(obj, method_name):
+            logger.warning(f"{repr(obj)} has no '{method_name}' attribute.")
             return
 
-        func = getattr(obj, func_name)
-        logger.debug(f"{repr(func) = }")
+        func = getattr(obj, method_name)
 
         if hasattr(func, _GREPTIMEAI_WRAPPED):
-            logger.info(f"no need to patch {func_name} multiple times.")
+            logger.warning(f"no need to patch {method_name} multiple times.")
             return
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            logger.debug(f"{repr(obj)} calling {func_name}")
-            logger.debug(f"{ args = } { kwargs = }")
             start = time.time()
             ex, resp = None, None
             try:
@@ -73,13 +73,24 @@ class OpenaiTracker(BaseTracker):
                 ex = e
                 logger.error(f"{ ex = }")
             finally:
-                latency = time.time() - start
-                logger.debug(f"{ latency = }")
-                logger.debug(f"{ resp = }")
-
+                latency = 1000 * (time.time() - start)
+                self.collector.record_latency(latency)
             if ex:
                 raise ex
             return resp
 
         setattr(wrapper, _GREPTIMEAI_WRAPPED, True)
-        setattr(obj, func_name, wrapper)
+        setattr(obj, method_name, wrapper)
+
+
+def _prepare_req_attributes_for_chat_completion(*args, **kwargs) -> Dict[str, Any]:
+    attributes = {}
+    return attributes
+
+
+def _prepare_resp_attributes_for_chat_completion(
+    resp: ChatCompletion,
+    ex: Exception,
+) -> Dict[str, Any]:
+    attributes = {}
+    return attributes
