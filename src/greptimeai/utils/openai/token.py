@@ -134,6 +134,7 @@ def get_openai_token_cost_for_model(
     Returns:
         Cost in USD.
     """
+
     if model_name is None:
         logger.warning("failed to get token cost for model name is none")
         return 0
@@ -144,9 +145,10 @@ def get_openai_token_cost_for_model(
 
     model_name = standardize_model_name(model_name, is_completion=is_completion)
     if model_name not in MODEL_COST_PER_1K_TOKENS:
-        logger.warning(f"failed to get token cost for '{model_name}' is unsopported")
+        logger.warning(f"failed to get token cost for '{model_name}' is unsupported")
         return 0
-    return MODEL_COST_PER_1K_TOKENS[model_name] * (num_tokens / 1000)
+    cost = MODEL_COST_PER_1K_TOKENS[model_name] * (num_tokens / 1000)
+    return round(cost, 6)
 
 
 def num_tokens_from_messages(messages: str, model="gpt-3.5-turbo-0613") -> int:
