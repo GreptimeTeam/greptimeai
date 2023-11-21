@@ -245,7 +245,7 @@ class _DurationTable:
 
         Args:
 
-            name: same span may have different name, this is to diffirentiate them.
+            name: same span may have different name, this is to differentiate them.
         """
         key = self._key(span_id, name)
         self._tables[key] = time.time()
@@ -254,7 +254,7 @@ class _DurationTable:
         self, span_id: Union[UUID, str], name: Optional[str] = None
     ) -> Optional[float]:
         """
-        return latency in milli second if key exist, None if not exist.
+        return latency in millisecond if key exist, None if not exist.
         """
         key = self._key(span_id, name)
         start = self._tables.pop(key, None)
@@ -406,7 +406,7 @@ class Collector:
 
         self._requests_duration_histogram = meter.create_histogram(
             name="llm_request_duration_ms",
-            description="duration of requests of llm in milli seconds",
+            description="duration of requests of llm in milliseconds",
             unit="ms",
         )
 

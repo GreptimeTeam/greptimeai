@@ -14,21 +14,17 @@ from openai.types.chat.chat_completion_message_tool_call import (
 from greptimeai import logger
 
 
-def _parse_choices(choices: List[Choice]) -> List[Dict[str, Any]]:
+def parse_choices(choices: List[Choice], verbose: bool = True) -> List[Dict[str, Any]]:
     def _parse_choice(choice: Choice) -> Dict[str, Any]:
-        return {
+        res: Dict[str, Any] = {
             "index": choice.index,
-            "message": _parse_chat_completion_message(choice.message),
+            "finish_reason": choice.finish_reason,
         }
+        if verbose:
+            res["message"] = _parse_chat_completion_message(choice.message)
+        return res
 
     return list([_parse_choice(choice) for choice in choices])
-
-
-def _parse_function(func: Union[Function, FunctionCall]) -> Dict[str, str]:
-    return {
-        "name": func.name,
-        "arguments": func.arguments,
-    }
 
 
 def _parse_chat_completion_message(message: ChatCompletionMessage) -> Dict[str, Any]:
@@ -49,6 +45,13 @@ def _parse_chat_completion_message(message: ChatCompletionMessage) -> Dict[str, 
     return msg
 
 
+def _parse_function(func: Union[Function, FunctionCall]) -> Dict[str, str]:
+    return {
+        "name": func.name,
+        "arguments": func.arguments,
+    }
+
+
 def _parse_chat_completion_message_tool_call(
     tool: ChatCompletionMessageToolCall,
 ) -> Dict[str, Any]:
@@ -61,7 +64,7 @@ def _parse_chat_completion_message_tool_call(
     return tool_dict
 
 
-def _parse_chat_completion_message_params(
+def parse_chat_completion_message_params(
     messages: List[ChatCompletionMessageParam],
 ) -> List[Dict[str, Any]]:
     def _parse_chat_completion_message_param(
@@ -70,7 +73,9 @@ def _parse_chat_completion_message_params(
         try:
             return dict(message)
         except Exception as ex:
-            logger.error(f"failed to parse chat_completion message {message}, {ex=}")
+            logger.error(
+                f"failed to parse parse_chat_completion_message_param {message}, {ex=}"
+            )
             return {}
 
     return list([_parse_chat_completion_message_param(message) for message in messages])

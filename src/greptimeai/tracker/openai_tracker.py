@@ -20,8 +20,8 @@ from greptimeai import (
     logger,
 )
 from greptimeai.utils.openai.parser import (
-    _parse_chat_completion_message_params,
-    _parse_choices,
+    parse_chat_completion_message_params,
+    parse_choices,
 )
 from greptimeai.utils.openai.token import get_openai_token_cost_for_model
 
@@ -37,7 +37,7 @@ def setup(
     """
     patch openai main functions automatically.
     host, database and token is to setup the place to store the data, and the authority.
-    They MUST BE set explicitely by passing parameters or system environment variables.
+    They MUST BE set explicitly by passing parameters or system environment variables.
     Args:
         host: if None or empty string, GREPTIMEAI_HOST environment variable will be used.
         database: if None or empty string, GREPTIMEAI_DATABASE environment variable will be used.
@@ -168,9 +168,11 @@ class OpenaiTracker(BaseTracker):
 
         event_attrs = {
             _MODEL_LABEL: model,
-            "messages": _parse_chat_completion_message_params(messages),
             **kwargs,
         }
+        if self._verbose:
+            event_attrs["messages"] = parse_chat_completion_message_params(messages)
+
         if args and len(args) > 0:
             event_attrs["args"] = args
 
@@ -196,14 +198,6 @@ class OpenaiTracker(BaseTracker):
             usage[_COMPLETION_TOKENS_LABEL] = completion_tokens
             usage[_COMPLETION_COST_LABEL] = completion_cost
 
-            self._collector.collect_metrics(
-                model_name=model,
-                prompt_tokens=prompt_tokens,
-                prompt_cost=prompt_cost,
-                completion_tokens=completion_tokens,
-                completion_cost=completion_cost,
-            )
-
         span_attrs = {
             _MODEL_LABEL: model,
             **usage,
@@ -211,7 +205,7 @@ class OpenaiTracker(BaseTracker):
 
         event_attrs = {
             "id": resp.id,
-            "choices": _parse_choices(resp.choices),
+            "choices": parse_choices(resp.choices, self._verbose),
             "created": resp.created,
             "object": resp.object,
             "system_fingerprint": resp.system_fingerprint,
