@@ -10,8 +10,11 @@ class BaseTracker:
 
     def __init__(
         self,
+        service_name: str,
         host: str = "",
         database: str = "",
         token: str = "",
     ):
-        self._collector = Collector(host, database, token)
+        self._collector = Collector(
+            service_name=service_name, host=host, database=database, token=token
+        )

@@ -316,15 +316,23 @@ class _Observation:
 
 class Collector:
     """
-    collect metrics and traces.
+    Collector class is responsible for collecting metrics and traces.
+
+    Args:
+        service_name (str): The name of the service.
+        host (str, optional): The host URL. Defaults to "".
+        database (str, optional): The name of the database. Defaults to "".
+        token (str, optional): The authentication token. Defaults to "".
     """
 
     def __init__(
         self,
+        service_name: str,
         host: str = "",
         database: str = "",
         token: str = "",
     ):
+        self.service_name = service_name
         self.host = _prefix_with_scheme_if_not_found(
             _check_with_env("host", host, _GREPTIME_HOST_ENV_NAME, True)
         )
@@ -342,7 +350,7 @@ class Collector:
         self._setup_otel_metrics()
 
     def _setup_otel_exporter(self):
-        resource = Resource.create({SERVICE_NAME: "greptimeai-langchain"})
+        resource = Resource.create({SERVICE_NAME: self.service_name})
         metrics_endpoint = f"{self.host}/v1/otlp/v1/metrics"
         trace_endpoint = f"{self.host}/v1/otlp/v1/traces"
 

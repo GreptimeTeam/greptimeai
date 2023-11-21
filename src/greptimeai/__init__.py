@@ -8,7 +8,6 @@ _ERROR_TYPE_LABEL = "type"
 _CLASS_TYPE_LABEL = "type"
 
 
-_LLM_SOURCE_LABEL = "llm_source"
 _SPAN_NAME_LABEL = "span_name"
 _USER_ID_LABEL = "user_id"
 _MODEL_LABEL = "model"

@@ -18,7 +18,6 @@ from greptimeai import (
     _COMPLETION_COST_LABEL,
     _COMPLETION_TOKENS_LABEL,
     _ERROR_TYPE_LABEL,
-    _LLM_SOURCE_LABEL,
     _MODEL_LABEL,
     _SPAN_NAME_LABEL,
     _USER_ID_LABEL,
@@ -61,8 +60,9 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
         token: str = "",
         verbose: bool = True,
     ):
-        super().__init__(host, database, token)
-        self.llm_source = "langchain"
+        super().__init__(
+            service_name="langchain", host=host, database=database, token=token
+        )
         self._verbose = verbose
 
     def on_chain_start(
@@ -81,7 +81,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
         )
 
         span_attrs = {
-            _LLM_SOURCE_LABEL: self.llm_source,
             _USER_ID_LABEL: _get_user_id(metadata),
         }
 
@@ -147,7 +146,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
         self._collector._llm_error_count.add(
             1,
             {
-                _LLM_SOURCE_LABEL: self.llm_source,
                 _SPAN_NAME_LABEL: _SPAN_NAME_CHAIN,
                 **event_attrs,
             },
@@ -170,7 +168,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
         )
 
         span_attrs: dict[str, Any] = {
-            _LLM_SOURCE_LABEL: self.llm_source,
             _USER_ID_LABEL: _get_user_id(metadata),
         }
 
@@ -221,7 +218,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
 
         str_messages = get_buffer_string(messages[0])
         span_attrs: dict[str, Any] = {
-            _LLM_SOURCE_LABEL: self.llm_source,
             _USER_ID_LABEL: _get_user_id(metadata),
         }
 
@@ -358,7 +354,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
         self._collector._llm_error_count.add(
             1,
             {
-                _LLM_SOURCE_LABEL: self.llm_source,
                 _SPAN_NAME_LABEL: _SPAN_NAME_LLM,
                 **event_attrs,
             },
@@ -404,7 +399,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
         )
 
         span_attrs = {
-            _LLM_SOURCE_LABEL: self.llm_source,
             _USER_ID_LABEL: _get_user_id(metadata),
         }
         event_attrs = {
@@ -477,7 +471,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
         self._collector._llm_error_count.add(
             1,
             {
-                _LLM_SOURCE_LABEL: self.llm_source,
                 _SPAN_NAME_LABEL: _SPAN_NAME_TOOL,
                 **event_attrs,
             },
@@ -496,7 +489,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
         logger.debug(f"on_agent_action. { run_id =} { parent_run_id =} { kwargs = }")
 
         span_attrs = {
-            _LLM_SOURCE_LABEL: self.llm_source,
             _USER_ID_LABEL: _get_user_id(metadata),
         }
 
@@ -564,7 +556,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
         )
 
         span_attrs = {
-            _LLM_SOURCE_LABEL: self.llm_source,
             _USER_ID_LABEL: _get_user_id(metadata),
         }
         event_attrs = {
@@ -613,7 +604,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
         self._collector._llm_error_count.add(
             1,
             {
-                _LLM_SOURCE_LABEL: self.llm_source,
                 _SPAN_NAME_LABEL: _SPAN_NAME_RETRIEVER,
                 **event_attrs,
             },

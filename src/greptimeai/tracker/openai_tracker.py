@@ -11,7 +11,6 @@ from greptimeai import (
     _COMPLETION_COST_LABEL,
     _COMPLETION_TOKENS_LABEL,
     _ERROR_TYPE_LABEL,
-    _LLM_SOURCE_LABEL,
     _MODEL_LABEL,
     _SPAN_NAME_LABEL,
     _USER_ID_LABEL,
@@ -58,8 +57,9 @@ class OpenaiTracker(BaseTracker):
         token: str = "",
         verbose: bool = True,
     ):
-        super().__init__(host, database, token)
-        self.llm_source = "openai"
+        super().__init__(
+            service_name="openai", host=host, database=database, token=token
+        )
         self._verbose = verbose
 
     def setup(self, client: Optional[OpenAI] = None):
@@ -128,7 +128,6 @@ class OpenaiTracker(BaseTracker):
                 self._collector._llm_error_count.add(
                     1,
                     {
-                        _LLM_SOURCE_LABEL: self.llm_source,
                         _SPAN_NAME_LABEL: span_name,
                         _ERROR_TYPE_LABEL: ex.__class__.__name__,
                     },
