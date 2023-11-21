@@ -113,7 +113,12 @@ class OpenaiTracker(BaseTracker):
             ex, resp = None, None
             req_span_attrs, req_event_attrs = pre_extractor(args, **kwargs)
             span_id = self._collector.start_span(
-                None, None, span_name, "start", req_span_attrs, req_event_attrs
+                span_id=None,
+                parent_id=None,
+                span_name=span_name,
+                event_name="start",
+                span_attrs=req_span_attrs,
+                event_attrs=req_event_attrs,
             )
             start = time.time()
             try:
@@ -128,16 +133,20 @@ class OpenaiTracker(BaseTracker):
                         _ERROR_TYPE_LABEL: ex.__class__.__name__,
                     },
                 )
+                raise ex
             finally:
                 latency = 1000 * (time.time() - start)
                 self._collector.record_latency(latency)
-                resp_span_attrs, resp_event_attrs = post_extractor(resp)  # type: ignore
+                resp_span_attrs, resp_event_attrs = post_extractor(resp)
                 self._collector.end_span(
-                    span_id, span_name, resp_span_attrs, "end", resp_event_attrs, ex  # type: ignore
+                    span_id=span_id,  # type: ignore
+                    span_name=span_name,
+                    event_name="end",
+                    span_attrs=resp_span_attrs,
+                    event_attrs=resp_event_attrs,
+                    ex=ex,
                 )
                 self._collect_metrics(span_name, resp_span_attrs)
-            if ex:
-                raise ex
             return resp
 
         setattr(wrapper, _GREPTIMEAI_WRAPPED, True)
