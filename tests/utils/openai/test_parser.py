@@ -54,6 +54,9 @@ def test_parse_choices():
     ]
     assert expect == parse_choices([choice])
 
+    expect_verbose_false = [{"index": 0, "finish_reason": "tool_calls"}]
+    assert expect_verbose_false == parse_choices([choice], False)
+
 
 def test_parse_chat_completion_message_params():
     function = FunctionParam(name="fake_func_name", arguments="{}")
