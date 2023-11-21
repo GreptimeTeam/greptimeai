@@ -37,16 +37,17 @@ def test_parse_choices():
 
     expect = [
         {
-            "index": 0,
             "finish_reason": "tool_calls",
+            "index": 0,
             "message": {
-                "role": "assistant",
                 "content": "hello Python",
+                "role": "assistant",
+                "function_call": None,
                 "tool_calls": [
                     {
                         "id": "fake_id",
+                        "function": {"arguments": "{}", "name": "fake_func_name"},
                         "type": "function",
-                        "function": {"name": "fake_func_name", "arguments": "{}"},
                     }
                 ],
             },

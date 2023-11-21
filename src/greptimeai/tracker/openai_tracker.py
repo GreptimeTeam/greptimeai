@@ -181,35 +181,25 @@ class OpenaiTracker(BaseTracker):
         self,
         resp: ChatCompletion,
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        model = resp.model
         usage = {}
         if resp.usage:
-            prompt_tokens = resp.usage.prompt_tokens
-            prompt_cost = get_openai_token_cost_for_model(model, prompt_tokens, False)
-
-            completion_tokens = resp.usage.completion_tokens
-            completion_cost = get_openai_token_cost_for_model(
-                model, completion_tokens, True
+            usage[_PROMPT_TOKENS_LABEl] = resp.usage.prompt_tokens
+            usage[_PROMPT_COST_LABEl] = get_openai_token_cost_for_model(
+                resp.model, resp.usage.prompt_tokens, False
+            )
+            usage[_COMPLETION_TOKENS_LABEL] = resp.usage.completion_tokens
+            usage[_COMPLETION_COST_LABEL] = get_openai_token_cost_for_model(
+                resp.model, resp.usage.completion_tokens, True
             )
 
-            usage[_PROMPT_TOKENS_LABEl] = prompt_tokens
-            usage[_PROMPT_COST_LABEl] = prompt_cost
-            usage[_COMPLETION_TOKENS_LABEL] = completion_tokens
-            usage[_COMPLETION_COST_LABEL] = completion_cost
-
         span_attrs = {
-            _MODEL_LABEL: model,
+            _MODEL_LABEL: resp.model,
             **usage,
         }
 
-        event_attrs = {
-            "id": resp.id,
-            "choices": parse_choices(resp.choices, self._verbose),
-            "created": resp.created,
-            "object": resp.object,
-            "system_fingerprint": resp.system_fingerprint,
-            **usage,
-        }
+        event_attrs = resp.model_dump()
+        event_attrs["usage"] = usage
+        event_attrs["choices"] = parse_choices(resp.choices, self._verbose)
 
         return (span_attrs, event_attrs)
 

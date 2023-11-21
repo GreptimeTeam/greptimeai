@@ -135,11 +135,11 @@ def get_openai_token_cost_for_model(
         Cost in USD.
     """
 
-    if model_name is None:
+    if not model_name:
         logger.warning("failed to get token cost for model name is none")
         return 0
 
-    if num_tokens is None:
+    if not num_tokens:
         logger.warning("failed to get token cost for num_tokens is zero")
         return 0
 
