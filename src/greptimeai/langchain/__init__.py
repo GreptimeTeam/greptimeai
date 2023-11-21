@@ -10,10 +10,6 @@ _SPAN_NAME_LLM = "llm"
 _SPAN_NAME_TOOL = "tool"
 _SPAN_NAME_RETRIEVER = "retriever"
 
-_ERROR_TYPE_LABEL = "type"
-_CLASS_TYPE_LABEL = "type"
-_SPAN_TYPE_LABEL = "type"
-
 
 def _get_user_id(metadata: Optional[Dict[str, Any]]) -> str:
     """
