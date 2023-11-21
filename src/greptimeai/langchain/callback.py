@@ -2,7 +2,6 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 from uuid import UUID
 
 from langchain.callbacks.base import BaseCallbackHandler
-from langchain.callbacks.openai_info import standardize_model_name
 from langchain.schema.agent import AgentAction, AgentFinish
 from langchain.schema.document import Document
 from langchain.schema.messages import BaseMessage, get_buffer_string
@@ -14,22 +13,32 @@ from langchain.schema.output import (
 )
 from tenacity import RetryCallState
 
-from greptimeai import logger
-from greptimeai.collection import Collector
+from greptimeai import (
+    _CLASS_TYPE_LABEL,
+    _COMPLETION_COST_LABEL,
+    _COMPLETION_TOKENS_LABEL,
+    _ERROR_TYPE_LABEL,
+    _LLM_SOURCE_LABEL,
+    _MODEL_LABEL,
+    _SPAN_NAME_LABEL,
+    _USER_ID_LABEL,
+    _PROMPT_COST_LABEl,
+    _PROMPT_TOKENS_LABEl,
+    logger,
+)
+from greptimeai.tracker import BaseTracker
 from greptimeai.utils.openai.token import (
     get_openai_token_cost_for_model,
     num_tokens_from_messages,
+    standardize_model_name,
 )
 
 from . import (
-    _CLASS_TYPE_LABEL,
-    _ERROR_TYPE_LABEL,
     _SPAN_NAME_AGENT,
     _SPAN_NAME_CHAIN,
     _SPAN_NAME_LLM,
     _SPAN_NAME_RETRIEVER,
     _SPAN_NAME_TOOL,
-    _SPAN_TYPE_LABEL,
     _get_serialized_id,
     _get_serialized_streaming,
     _get_user_id,
@@ -40,7 +49,7 @@ from . import (
 )
 
 
-class GreptimeCallbackHandler(BaseCallbackHandler):
+class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
     """
     Greptime LangChain callback handler to collect metrics and traces.
     """
@@ -52,11 +61,8 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         token: str = "",
         verbose: bool = True,
     ):
-        self._collector = Collector(
-            host=host,
-            database=database,
-            token=token,
-        )
+        super().__init__(host, database, token)
+        self.llm_source = "langchain"
         self._verbose = verbose
 
     def on_chain_start(
@@ -75,7 +81,8 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         )
 
         span_attrs = {
-            "user_id": _get_user_id(metadata),
+            _LLM_SOURCE_LABEL: self.llm_source,
+            _USER_ID_LABEL: _get_user_id(metadata),
         }
 
         event_attrs = {
@@ -137,7 +144,14 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             event_attrs=event_attrs,
             ex=error,  # type: ignore
         )
-        self._collector._llm_error_count.add(1, event_attrs)
+        self._collector._llm_error_count.add(
+            1,
+            {
+                _LLM_SOURCE_LABEL: self.llm_source,
+                _SPAN_NAME_LABEL: _SPAN_NAME_CHAIN,
+                **event_attrs,
+            },
+        )
 
     def on_llm_start(
         self,
@@ -156,7 +170,8 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         )
 
         span_attrs: dict[str, Any] = {
-            "user_id": _get_user_id(metadata),
+            _LLM_SOURCE_LABEL: self.llm_source,
+            _USER_ID_LABEL: _get_user_id(metadata),
         }
 
         streaming = _get_serialized_streaming(serialized)
@@ -165,9 +180,9 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             model_name: str = invocation_params.get("model_name")  # type: ignore
             prompt_tokens = num_tokens_from_messages(str_messages, model_name)
             prompt_cost = get_openai_token_cost_for_model(model_name, prompt_tokens)
-            span_attrs["model"] = model_name
-            span_attrs["prompt_tokens"] = prompt_tokens
-            span_attrs["prompt_cost"] = prompt_cost
+            span_attrs[_MODEL_LABEL] = model_name
+            span_attrs[_PROMPT_TOKENS_LABEl] = prompt_tokens
+            span_attrs[_PROMPT_COST_LABEl] = prompt_cost
 
         event_attrs = {
             _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
@@ -206,7 +221,8 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
 
         str_messages = get_buffer_string(messages[0])
         span_attrs: dict[str, Any] = {
-            "user_id": _get_user_id(metadata),
+            _LLM_SOURCE_LABEL: self.llm_source,
+            _USER_ID_LABEL: _get_user_id(metadata),
         }
 
         streaming = _get_serialized_streaming(serialized)
@@ -214,9 +230,9 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             model_name: str = invocation_params.get("model_name")  # type: ignore
             prompt_tokens = num_tokens_from_messages(str_messages, model_name)
             prompt_cost = get_openai_token_cost_for_model(model_name, prompt_tokens)
-            span_attrs["model"] = model_name
-            span_attrs["prompt_tokens"] = prompt_tokens
-            span_attrs["prompt_cost"] = prompt_cost
+            span_attrs[_MODEL_LABEL] = model_name
+            span_attrs[_PROMPT_TOKENS_LABEl] = prompt_tokens
+            span_attrs[_PROMPT_COST_LABEl] = prompt_cost
 
         event_attrs = {
             _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
@@ -290,22 +306,22 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         attrs: Dict[str, Any] = {}
 
         if model_name.strip() != "":
-            attrs["model"] = model_name
+            attrs[_MODEL_LABEL] = model_name
         if prompt_tokens > 0:
-            attrs["prompt_tokens"] = prompt_tokens
+            attrs[_PROMPT_TOKENS_LABEl] = prompt_tokens
         if prompt_cost > 0:
-            attrs["prompt_cost"] = prompt_cost
+            attrs[_PROMPT_COST_LABEl] = prompt_cost
         if completion_tokens > 0:
-            attrs["completion_tokens"] = completion_tokens
+            attrs[_COMPLETION_TOKENS_LABEL] = completion_tokens
         if completion_cost > 0:
-            attrs["completion_cost"] = completion_cost
+            attrs[_COMPLETION_COST_LABEL] = completion_cost
 
         event_attrs = attrs.copy()
         if self._verbose:
             event_attrs["outputs"] = _parse_generations(generations)
 
         self._collector.end_latency(
-            run_id, _SPAN_NAME_LLM, attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_LLM}
+            run_id, _SPAN_NAME_LLM, attributes={_SPAN_NAME_LABEL: _SPAN_NAME_LLM}
         )
         self._collector.end_span(
             span_id=run_id,
@@ -329,7 +345,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         }
 
         self._collector.end_latency(
-            run_id, _SPAN_NAME_LLM, attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_LLM}
+            run_id, _SPAN_NAME_LLM, attributes={_SPAN_NAME_LABEL: _SPAN_NAME_LLM}
         )
         self._collector.end_span(
             span_id=run_id,
@@ -339,7 +355,14 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             event_attrs=event_attrs,
             ex=error,  # type: ignore
         )
-        self._collector._llm_error_count.add(1, event_attrs)
+        self._collector._llm_error_count.add(
+            1,
+            {
+                _LLM_SOURCE_LABEL: self.llm_source,
+                _SPAN_NAME_LABEL: _SPAN_NAME_LLM,
+                **event_attrs,
+            },
+        )
 
     def on_llm_new_token(
         self,
@@ -381,7 +404,8 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         )
 
         span_attrs = {
-            "user_id": _get_user_id(metadata),
+            _LLM_SOURCE_LABEL: self.llm_source,
+            _USER_ID_LABEL: _get_user_id(metadata),
         }
         event_attrs = {
             _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
@@ -416,7 +440,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             event_attrs["output"] = output
 
         self._collector.end_latency(
-            run_id, _SPAN_NAME_TOOL, attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_TOOL}
+            run_id, _SPAN_NAME_TOOL, attributes={_SPAN_NAME_LABEL: _SPAN_NAME_TOOL}
         )
         self._collector.end_span(
             span_id=run_id,
@@ -440,7 +464,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         }
 
         self._collector.end_latency(
-            run_id, _SPAN_NAME_TOOL, attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_TOOL}
+            run_id, _SPAN_NAME_TOOL, attributes={_SPAN_NAME_LABEL: _SPAN_NAME_TOOL}
         )
         self._collector.end_span(
             span_id=run_id,
@@ -450,7 +474,14 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             event_attrs=event_attrs,
             ex=error,  # type: ignore
         )
-        self._collector._llm_error_count.add(1, event_attrs)
+        self._collector._llm_error_count.add(
+            1,
+            {
+                _LLM_SOURCE_LABEL: self.llm_source,
+                _SPAN_NAME_LABEL: _SPAN_NAME_TOOL,
+                **event_attrs,
+            },
+        )
 
     def on_agent_action(
         self,
@@ -465,7 +496,8 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         logger.debug(f"on_agent_action. { run_id =} { parent_run_id =} { kwargs = }")
 
         span_attrs = {
-            "user_id": _get_user_id(metadata),
+            _LLM_SOURCE_LABEL: self.llm_source,
+            _USER_ID_LABEL: _get_user_id(metadata),
         }
 
         event_attrs = {
@@ -506,7 +538,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             event_attrs["output"] = _parse_output(finish.return_values)
 
         self._collector.end_latency(
-            run_id, _SPAN_NAME_AGENT, attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_AGENT}
+            run_id, _SPAN_NAME_AGENT, attributes={_SPAN_NAME_LABEL: _SPAN_NAME_AGENT}
         )
         self._collector.end_span(
             span_id=run_id,
@@ -532,7 +564,8 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         )
 
         span_attrs = {
-            "user_id": _get_user_id(metadata),
+            _LLM_SOURCE_LABEL: self.llm_source,
+            _USER_ID_LABEL: _get_user_id(metadata),
         }
         event_attrs = {
             _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
@@ -567,7 +600,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         self._collector.end_latency(
             run_id,
             _SPAN_NAME_RETRIEVER,
-            attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_RETRIEVER},
+            attributes={_SPAN_NAME_LABEL: _SPAN_NAME_RETRIEVER},
         )
         self._collector.end_span(
             span_id=run_id,
@@ -576,6 +609,14 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             event_name="retriever_error",
             event_attrs=event_attrs,
             ex=error,  # type: ignore
+        )
+        self._collector._llm_error_count.add(
+            1,
+            {
+                _LLM_SOURCE_LABEL: self.llm_source,
+                _SPAN_NAME_LABEL: _SPAN_NAME_RETRIEVER,
+                **event_attrs,
+            },
         )
 
     def on_retriever_end(
@@ -597,7 +638,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         self._collector.end_latency(
             run_id,
             _SPAN_NAME_RETRIEVER,
-            attributes={_SPAN_TYPE_LABEL: _SPAN_NAME_RETRIEVER},
+            attributes={_SPAN_NAME_LABEL: _SPAN_NAME_RETRIEVER},
         )
         self._collector.end_span(
             span_id=run_id,

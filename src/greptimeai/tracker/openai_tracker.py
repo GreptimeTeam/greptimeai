@@ -7,7 +7,18 @@ from openai import OpenAI
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 
-from greptimeai import _ERROR_TYPE_LABEL, logger
+from greptimeai import (
+    _COMPLETION_COST_LABEL,
+    _COMPLETION_TOKENS_LABEL,
+    _ERROR_TYPE_LABEL,
+    _LLM_SOURCE_LABEL,
+    _MODEL_LABEL,
+    _SPAN_NAME_LABEL,
+    _USER_ID_LABEL,
+    _PROMPT_COST_LABEl,
+    _PROMPT_TOKENS_LABEl,
+    logger,
+)
 from greptimeai.utils.openai.parser import (
     _parse_chat_completion_message_params,
     _parse_choices,
@@ -45,9 +56,11 @@ class OpenaiTracker(BaseTracker):
         host: str = "",
         database: str = "",
         token: str = "",
+        verbose: bool = True,
     ):
         super().__init__(host, database, token)
         self.llm_source = "openai"
+        self._verbose = verbose
 
     def setup(self, client: Optional[OpenAI] = None):
         self._patch_chat_completion(client)
@@ -59,8 +72,8 @@ class OpenaiTracker(BaseTracker):
             obj,
             "create",
             span_name,
-            self._pre_chat_completion,
-            self._post_chat_completion,
+            self._pre_chat_completion_extractor,
+            self._post_chat_completion_extractor,
         )
 
     def _patch(
@@ -68,11 +81,24 @@ class OpenaiTracker(BaseTracker):
         obj: object,
         method_name: str,
         span_name: str,
-        _pre_action: Callable,
-        _post_action: Callable,
+        pre_extractor: Callable,
+        post_extractor: Callable,
     ):
+        """
+        wrap the method name of this obj with trace and metrics collection logic.
+
+        if this obj does not contain this method name, patch will do nothing.
+        if this method has already been patched, then it won't be patched multiple times.
+
+        Args:
+            obj: OpenAI client, or module level client
+            method_name: the method name of the object
+            span_name: identify different span name
+            _pre_extractor: extract span attributes and event attributes from args, kwargs
+            _post_extractor: extract span attributes and event attributes from response
+        """
         if not hasattr(obj, method_name):
-            logger.warning(f"{repr(obj)} has no '{method_name}' attribute.")
+            logger.warning(f"'{method_name}' attribute not found from the object.")
             return
 
         func = getattr(obj, method_name)
@@ -85,9 +111,9 @@ class OpenaiTracker(BaseTracker):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             ex, resp = None, None
-            span_attrs, event_attrs = _pre_action(args, **kwargs)
+            req_span_attrs, req_event_attrs = pre_extractor(args, **kwargs)
             span_id = self._collector.start_span(
-                None, None, span_name, "start", span_attrs, event_attrs
+                None, None, span_name, "start", req_span_attrs, req_event_attrs
             )
             start = time.time()
             try:
@@ -97,17 +123,19 @@ class OpenaiTracker(BaseTracker):
                 self._collector._llm_error_count.add(
                     1,
                     {
-                        "type": f"{self.llm_source}_{span_name}",
+                        _LLM_SOURCE_LABEL: self.llm_source,
+                        _SPAN_NAME_LABEL: span_name,
                         _ERROR_TYPE_LABEL: ex.__class__.__name__,
                     },
                 )
             finally:
                 latency = 1000 * (time.time() - start)
                 self._collector.record_latency(latency)
-                span_attrs, event_attrs = _post_action(resp)  # type: ignore
+                resp_span_attrs, resp_event_attrs = post_extractor(resp)  # type: ignore
                 self._collector.end_span(
-                    span_id, span_name, span_attrs, "end", event_attrs, ex  # type: ignore
+                    span_id, span_name, resp_span_attrs, "end", resp_event_attrs, ex  # type: ignore
                 )
+                self._collect_metrics(span_name, resp_span_attrs)
             if ex:
                 raise ex
             return resp
@@ -115,7 +143,7 @@ class OpenaiTracker(BaseTracker):
         setattr(wrapper, _GREPTIMEAI_WRAPPED, True)
         setattr(obj, method_name, wrapper)
 
-    def _pre_chat_completion(
+    def _pre_chat_completion_extractor(
         self,
         args,
         *,
@@ -125,12 +153,12 @@ class OpenaiTracker(BaseTracker):
         **kwargs,
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         span_attrs = {
-            "model": model,
-            "user_id": user,
+            _MODEL_LABEL: model,
+            _USER_ID_LABEL: user,
         }
 
         event_attrs = {
-            "model": model,
+            _MODEL_LABEL: model,
             "messages": _parse_chat_completion_message_params(messages),
             **kwargs,
         }
@@ -139,7 +167,7 @@ class OpenaiTracker(BaseTracker):
 
         return (span_attrs, event_attrs)
 
-    def _post_chat_completion(
+    def _post_chat_completion_extractor(
         self,
         resp: ChatCompletion,
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
@@ -154,10 +182,10 @@ class OpenaiTracker(BaseTracker):
                 model, completion_tokens, True
             )
 
-            usage["prompt_tokens"] = prompt_tokens
-            usage["prompt_cost"] = prompt_cost
-            usage["completion_tokens"] = completion_tokens
-            usage["completion_cost"] = completion_cost
+            usage[_PROMPT_TOKENS_LABEl] = prompt_tokens
+            usage[_PROMPT_COST_LABEl] = prompt_cost
+            usage[_COMPLETION_TOKENS_LABEL] = completion_tokens
+            usage[_COMPLETION_COST_LABEL] = completion_cost
 
             self._collector.collect_metrics(
                 model_name=model,
@@ -168,7 +196,7 @@ class OpenaiTracker(BaseTracker):
             )
 
         span_attrs = {
-            "model": model,
+            _MODEL_LABEL: model,
             **usage,
         }
 
@@ -182,3 +210,21 @@ class OpenaiTracker(BaseTracker):
         }
 
         return (span_attrs, event_attrs)
+
+    def _collect_metrics(self, span_name: str, attributes: Dict[str, Any]):
+        prompt_tokens = attributes.get(_PROMPT_TOKENS_LABEl, 0)
+        prompt_cost = attributes.get(_PROMPT_COST_LABEl, 0)
+        completion_tokens = attributes.get(_COMPLETION_TOKENS_LABEL, 0)
+        completion_cost = attributes.get(_COMPLETION_COST_LABEL, 0)
+        if not (prompt_tokens or prompt_cost or completion_tokens or completion_cost):
+            logger.warning(f"no need to collect empty metrics for openai {span_name}")
+            return
+
+        model = attributes.get(_MODEL_LABEL, "")
+        self._collector.collect_metrics(
+            model_name=model,
+            prompt_tokens=prompt_tokens,
+            prompt_cost=prompt_cost,
+            completion_tokens=completion_tokens,
+            completion_cost=completion_cost,
+        )
