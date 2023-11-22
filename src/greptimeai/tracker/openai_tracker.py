@@ -6,6 +6,7 @@ import openai
 from openai import OpenAI
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
+from opentelemetry.util.types import Attributes
 
 from greptimeai import (
     _COMPLETION_COST_LABEL,
@@ -90,6 +91,10 @@ class OpenaiTracker(BaseTracker):
         if this obj does not contain this method name, patch will do nothing.
         if this method has already been patched, then it won't be patched multiple times.
 
+        NOTE:
+        pre_extractor and post_extractor should return two tuple of (span_attrs, event_attrs),
+        and _MODEL_LABEL is required in span_attrs.
+
         Args:
             obj: OpenAI client, or module level client
             method_name: the method name of the object
@@ -120,6 +125,7 @@ class OpenaiTracker(BaseTracker):
                 span_attrs=req_span_attrs,
                 event_attrs=req_event_attrs,
             )
+            common_attrs = {_SPAN_NAME_LABEL: span_name}
             start = time.time()
             try:
                 resp = func(*args, **kwargs)
@@ -128,15 +134,21 @@ class OpenaiTracker(BaseTracker):
                 self._collector._llm_error_count.add(
                     1,
                     {
-                        _SPAN_NAME_LABEL: span_name,
+                        _MODEL_LABEL: req_span_attrs.get(_MODEL_LABEL, ""),
                         _ERROR_TYPE_LABEL: ex.__class__.__name__,
+                        **common_attrs,
                     },
                 )
                 raise ex
             finally:
                 latency = 1000 * (time.time() - start)
-                self._collector.record_latency(latency)
                 resp_span_attrs, resp_event_attrs = post_extractor(resp)
+                attrs = {
+                    _MODEL_LABEL: resp_span_attrs.get(_MODEL_LABEL, ""),
+                    **common_attrs,
+                }
+                self._collector.record_latency(latency, attributes=attrs)
+
                 self._collector.end_span(
                     span_id=span_id,  # type: ignore
                     span_name=span_name,
@@ -145,7 +157,8 @@ class OpenaiTracker(BaseTracker):
                     event_attrs=resp_event_attrs,
                     ex=ex,
                 )
-                self._collect_metrics(span_name, resp_span_attrs)
+
+                self._collect_metrics(attrs=attrs, span_attrs=resp_span_attrs)
             return resp
 
         setattr(wrapper, _GREPTIMEAI_WRAPPED, True)
@@ -203,20 +216,25 @@ class OpenaiTracker(BaseTracker):
 
         return (span_attrs, event_attrs)
 
-    def _collect_metrics(self, span_name: str, attributes: Dict[str, Any]):
-        prompt_tokens = attributes.get(_PROMPT_TOKENS_LABEl, 0)
-        prompt_cost = attributes.get(_PROMPT_COST_LABEl, 0)
-        completion_tokens = attributes.get(_COMPLETION_TOKENS_LABEL, 0)
-        completion_cost = attributes.get(_COMPLETION_COST_LABEL, 0)
+    def _collect_metrics(self, attrs: Optional[Attributes], span_attrs: Dict[str, Any]):
+        """
+        Args:
+
+            attrs: for OTLP collection
+            span_attrs: attributes to get useful metrics
+        """
+        prompt_tokens = span_attrs.get(_PROMPT_TOKENS_LABEl, 0)
+        prompt_cost = span_attrs.get(_PROMPT_COST_LABEl, 0)
+        completion_tokens = span_attrs.get(_COMPLETION_TOKENS_LABEL, 0)
+        completion_cost = span_attrs.get(_COMPLETION_COST_LABEL, 0)
         if not (prompt_tokens or prompt_cost or completion_tokens or completion_cost):
-            logger.warning(f"no need to collect empty metrics for openai {span_name}")
+            logger.warning(f"no need to collect empty metrics for openai {attrs}")
             return
 
-        model = attributes.get(_MODEL_LABEL, "")
         self._collector.collect_metrics(
-            model_name=model,
             prompt_tokens=prompt_tokens,
             prompt_cost=prompt_cost,
             completion_tokens=completion_tokens,
             completion_cost=completion_cost,
+            attrs=attrs,
         )
