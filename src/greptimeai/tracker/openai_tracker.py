@@ -182,6 +182,7 @@ class OpenaiTracker(BaseTracker):
         args,
         *,
         messages: Optional[List[ChatCompletionMessageParam]] = None,
+        prompt: Optional[str] = None,
         model: str,
         user: Optional[str] = None,
         **kwargs,
@@ -195,8 +196,11 @@ class OpenaiTracker(BaseTracker):
             _MODEL_LABEL: model,
             **kwargs,
         }
-        if self._verbose and messages:
-            event_attrs["messages"] = parse_chat_completion_message_params(messages)
+        if self._verbose:
+            if messages:
+                event_attrs["messages"] = parse_chat_completion_message_params(messages)
+            if prompt:
+                event_attrs["prompt"] = prompt
 
         if args and len(args) > 0:
             event_attrs["args"] = args
