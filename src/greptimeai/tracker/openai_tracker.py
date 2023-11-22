@@ -3,6 +3,10 @@ import time
 from typing import Any, Dict, Optional
 
 from openai import OpenAI
+from openai._base_client import HttpxBinaryResponseContent
+from openai._types import Headers
+from openai.types.chat.chat_completion import ChatCompletion
+from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from opentelemetry.util.types import Attributes
 
 from greptimeai import (
@@ -31,6 +35,13 @@ from greptimeai.extractor.openai_extractor.file_extractor import (
     FileRetrieveExtractor,
 )
 from greptimeai.tracker import _GREPTIMEAI_WRAPPED, BaseTracker
+from greptimeai.utils.openai.token import (
+    get_openai_audio_cost_for_tts,
+    get_openai_token_cost_for_model,
+    num_characters_for_audio,
+)
+
+from . import _GREPTIMEAI_WRAPPED, BaseTracker
 
 
 def setup(
@@ -79,6 +90,25 @@ class OpenaiTracker(BaseTracker):
         self._patch(FileContentExtractor(client))
 
     def _patch(self, extractor: BaseExtractor):
+
+    def _patch_audio_speech(self, client: Optional[OpenAI] = None):
+        obj = client.audio.speech if client else openai.audio.speech
+        self._patch(
+            obj,
+            "create",
+            "audio.speech.create",
+            self._pre_audio_speech_extractor,
+            self._post_audio_speech_extractor,
+        )
+
+    def _patch(
+        self,
+        obj: object,
+        method_name: str,
+        span_name: str,
+        pre_extractor: Callable,
+        post_extractor: Callable,
+    ):
         """
         Args:
             extractor: extractor helps to extract useful information from request and response
@@ -168,3 +198,45 @@ class OpenaiTracker(BaseTracker):
             completion_cost=completion_cost,
             attrs=attrs,
         )
+
+    def _pre_audio_speech_extractor(
+        self,
+        args,
+        *,
+        input: str,
+        model: str,
+        extra_headers: Optional[Headers] = None,
+        **kwargs,
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        num_chars = num_characters_for_audio(input)
+        span_attrs = {
+            _MODEL_LABEL: model,
+            _PROMPT_TOKENS_LABEl: num_chars,
+            _PROMPT_COST_LABEl: get_openai_audio_cost_for_tts(model, num_chars),
+        }
+
+        if extra_headers and extra_headers.get("x-user-id"):
+            span_attrs[_USER_ID_LABEL] = extra_headers.get("x-user-id")  # type: ignore
+
+        event_attrs = {
+            _MODEL_LABEL: model,
+            **kwargs,
+        }
+        if self._verbose:
+            event_attrs["input"] = input
+
+        if args and len(args) > 0:
+            event_attrs["args"] = args
+
+        return (span_attrs, event_attrs)
+
+    def _post_audio_speech_extractor(
+        self,
+        resp: HttpxBinaryResponseContent,
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        try:
+            event_attrs = resp.json()
+        except Exception as e:
+            raise e
+
+        return ({}, event_attrs)
