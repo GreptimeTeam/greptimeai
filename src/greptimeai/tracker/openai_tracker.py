@@ -6,6 +6,7 @@ import openai
 from openai import OpenAI
 from openai.types import Completion
 from openai.types.chat.chat_completion import ChatCompletion
+from openai.types import CreateEmbeddingResponse
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from opentelemetry.util.types import Attributes
 
@@ -24,7 +25,10 @@ from greptimeai.utils.openai.parser import (
     parse_chat_completion_message_params,
     parse_choices,
 )
-from greptimeai.utils.openai.token import get_openai_token_cost_for_model
+from greptimeai.utils.openai.token import (
+    get_openai_token_cost_for_model,
+    get_openai_token_cost_for_embedding_model,
+)
 
 from . import _GREPTIMEAI_WRAPPED, BaseTracker
 
@@ -67,6 +71,7 @@ class OpenaiTracker(BaseTracker):
     def setup(self, client: Optional[OpenAI] = None):
         self._patch_chat_completion(client)
         self._patch_completion(client)
+        self._patch_embedding(client)
 
     def _patch_chat_completion(self, client: Optional[OpenAI] = None):
         span_name = "chat.completions.create"
@@ -88,6 +93,17 @@ class OpenaiTracker(BaseTracker):
             span_name,
             self._pre_chat_completion_extractor,
             self._post_chat_completion_extractor,
+        )
+
+    def _patch_embedding(self, client: Optional[OpenAI] = None):
+        span_name = "embeddings.create"
+        obj = client.embeddings if client else openai.embeddings
+        self._patch(
+            obj,
+            "create",
+            span_name,
+            self._pre_embedding_extractor,
+            self._post_embedding_extractor,
         )
 
     def _patch(
@@ -230,6 +246,53 @@ class OpenaiTracker(BaseTracker):
         event_attrs = resp.model_dump()
         event_attrs["usage"] = usage
         event_attrs["choices"] = parse_choices(resp.choices, self._verbose)
+
+        return (span_attrs, event_attrs)
+
+    def _pre_embedding_extractor(
+        self,
+        args,
+        *,
+        model: str,
+        user: Optional[str] = None,
+        **kwargs,
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        span_attrs = {
+            _MODEL_LABEL: model,
+            _USER_ID_LABEL: user,
+        }
+
+        event_attrs = {
+            _MODEL_LABEL: model,
+            **kwargs,
+        }
+
+        if args and len(args) > 0:
+            event_attrs["args"] = args
+
+        return (span_attrs, event_attrs)
+
+    def _post_embedding_extractor(
+        self,
+        resp: CreateEmbeddingResponse,
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        usage = {}
+        if resp.usage:
+            usage[_PROMPT_TOKENS_LABEl] = resp.usage.prompt_tokens
+            usage[_PROMPT_COST_LABEl] = get_openai_token_cost_for_embedding_model(
+                resp.model, resp.usage.prompt_tokens
+            )
+
+            usage[_COMPLETION_TOKENS_LABEL] = 0
+            usage[_COMPLETION_COST_LABEL] = 0
+
+        span_attrs = {
+            _MODEL_LABEL: resp.model,
+            **usage,
+        }
+
+        event_attrs = resp.model_dump()
+        event_attrs["usage"] = usage
 
         return (span_attrs, event_attrs)
 
