@@ -10,7 +10,7 @@ from greptimeai import logger
 def parse_choices(
     choices: List[Union[Choice, CompletionChoice]], verbose: bool = True
 ) -> List[Dict[str, Any]]:
-    def _parse_choice(choice: Choice) -> Dict[str, Any]:
+    def _parse_choice(choice: Union[Choice, CompletionChoice]) -> Dict[str, Any]:
         res = choice.model_dump()
         if not verbose:
             res.pop("message", None)
