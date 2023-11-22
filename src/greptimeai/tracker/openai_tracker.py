@@ -1,6 +1,6 @@
 import functools
 import time
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import openai
 from openai import OpenAI
@@ -23,7 +23,6 @@ from greptimeai import (
 from greptimeai.utils.openai.parser import (
     parse_chat_completion_message_params,
     parse_choices,
-    parse_completion_choices,
 )
 from greptimeai.utils.openai.token import get_openai_token_cost_for_model
 
@@ -87,8 +86,8 @@ class OpenaiTracker(BaseTracker):
             obj,
             "create",
             span_name,
-            self._pre_completion_extractor,
-            self._post_completion_extractor,
+            self._pre_chat_completion_extractor,
+            self._post_chat_completion_extractor,
         )
 
     def _patch(
@@ -182,7 +181,7 @@ class OpenaiTracker(BaseTracker):
         self,
         args,
         *,
-        messages: List[ChatCompletionMessageParam],
+        messages: Optional[List[ChatCompletionMessageParam]] = None,
         model: str,
         user: Optional[str] = None,
         **kwargs,
@@ -196,7 +195,7 @@ class OpenaiTracker(BaseTracker):
             _MODEL_LABEL: model,
             **kwargs,
         }
-        if self._verbose:
+        if self._verbose and messages:
             event_attrs["messages"] = parse_chat_completion_message_params(messages)
 
         if args and len(args) > 0:
@@ -206,7 +205,7 @@ class OpenaiTracker(BaseTracker):
 
     def _post_chat_completion_extractor(
         self,
-        resp: ChatCompletion,
+        resp: Union[ChatCompletion, Completion],
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         usage = {}
         if resp.usage:
@@ -227,55 +226,6 @@ class OpenaiTracker(BaseTracker):
         event_attrs = resp.model_dump()
         event_attrs["usage"] = usage
         event_attrs["choices"] = parse_choices(resp.choices, self._verbose)
-
-        return (span_attrs, event_attrs)
-
-    def _pre_completion_extractor(
-        self,
-        args,
-        *,
-        model: str,
-        user: Optional[str] = None,
-        **kwargs,
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        span_attrs = {
-            _MODEL_LABEL: model,
-            _USER_ID_LABEL: user,
-        }
-
-        event_attrs = {
-            _MODEL_LABEL: model,
-            **kwargs,
-        }
-
-        if args and len(args) > 0:
-            event_attrs["args"] = args
-
-        return (span_attrs, event_attrs)
-
-    def _post_completion_extractor(
-        self,
-        resp: Completion,
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        usage = {}
-        if resp.usage:
-            usage[_PROMPT_TOKENS_LABEl] = resp.usage.prompt_tokens
-            usage[_PROMPT_COST_LABEl] = get_openai_token_cost_for_model(
-                resp.model, resp.usage.prompt_tokens, False
-            )
-            usage[_COMPLETION_TOKENS_LABEL] = resp.usage.completion_tokens
-            usage[_COMPLETION_COST_LABEL] = get_openai_token_cost_for_model(
-                resp.model, resp.usage.completion_tokens, True
-            )
-
-        span_attrs = {
-            _MODEL_LABEL: resp.model,
-            **usage,
-        }
-
-        event_attrs = resp.model_dump()
-        event_attrs["usage"] = usage
-        event_attrs["choices"] = parse_completion_choices(resp.choices, self._verbose)
 
         return (span_attrs, event_attrs)
 
