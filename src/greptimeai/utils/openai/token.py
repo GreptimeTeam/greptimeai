@@ -82,6 +82,10 @@ MODEL_COST_PER_1K_TOKENS = {
     "babbage-finetuned-legacy": 0.0024,
     "curie-finetuned-legacy": 0.012,
     "davinci-finetuned-legacy": 0.12,
+    # embedding model
+    # refer: https://invertedstone.com/calculators/embedding-pricing-calculator/
+    # leave embedding model *-001 cost to 0,
+    "text-embedding-ada-002": 0.0004,
 }
 
 
@@ -108,6 +112,8 @@ def standardize_model_name(
         model_name = model_name.split(":")[0] + "-finetuned-legacy"
     if "ft:" in model_name:
         model_name = model_name.split(":")[1] + "-finetuned"
+    if model_name == "text-embedding-ada-002-v2":
+        model_name = "text-embedding-ada-002"
     if is_completion and (
         model_name.startswith("gpt-4")
         or model_name.startswith("gpt-3.5")
@@ -190,26 +196,3 @@ def num_tokens_from_messages(messages: str, model="gpt-3.5-turbo-0613") -> int:
             f"num_tokens_from_messages() is not implemented for model {model}, use gpt-3.5-turbo-0613 instead"
         )
         return num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613")
-
-
-def get_openai_token_cost_for_embedding_model(
-    model_name: str, num_tokens: int
-) -> float:
-    """
-    refer: https://invertedstone.com/calculators/embedding-pricing-calculator/
-           https://platform.openai.com/docs/guides/embeddings/what-are-embeddings
-    """
-
-    model_cost_per_1k_tokens = 0.0004  # text-embedding-ada-002
-    if "001" in model_name:
-        if "ada" in model_name:
-            model_cost_per_1k_tokens = 0.004  # *-davinci-*-001
-        elif "babbage" in model_name:
-            model_cost_per_1k_tokens = 0.005  # *-babbage-*-001
-        elif "curie" in model_name:
-            model_cost_per_1k_tokens = 0.02  # *-curie-*-001
-        elif "davinci" in model_name:
-            model_cost_per_1k_tokens = 0.2  # *-davinci-*-001
-
-    cost = model_cost_per_1k_tokens * (num_tokens / 1000)
-    return round(cost, 6)

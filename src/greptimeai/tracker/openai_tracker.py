@@ -27,7 +27,6 @@ from greptimeai.utils.openai.parser import (
 )
 from greptimeai.utils.openai.token import (
     get_openai_token_cost_for_model,
-    get_openai_token_cost_for_embedding_model,
 )
 
 from . import _GREPTIMEAI_WRAPPED, BaseTracker
@@ -279,8 +278,8 @@ class OpenaiTracker(BaseTracker):
         usage = {}
         if resp.usage:
             usage[_PROMPT_TOKENS_LABEl] = resp.usage.prompt_tokens
-            usage[_PROMPT_COST_LABEl] = get_openai_token_cost_for_embedding_model(
-                resp.model, resp.usage.prompt_tokens
+            usage[_PROMPT_COST_LABEl] = get_openai_token_cost_for_model(
+                resp.model, resp.usage.prompt_tokens, False
             )
 
             usage[_COMPLETION_TOKENS_LABEL] = 0
