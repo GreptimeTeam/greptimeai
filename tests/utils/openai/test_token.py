@@ -1,5 +1,6 @@
 from greptimeai.utils.openai.token import (
     get_openai_token_cost_for_model,
+    get_openai_token_cost_for_embedding_model,
     num_tokens_from_messages,
 )
 
@@ -63,3 +64,45 @@ def test_cal_openai_token_cost_for_model():
     ]
     for cost, args in cases:
         assert cost == get_openai_token_cost_for_model(*args)
+
+
+def test_cal_openai_token_cost_for_embedding_model():
+    cases = [
+        (
+            0.04,
+            [
+                "text-embedding-ada-002",
+                100000,
+            ],
+        ),
+        (
+            0.4,
+            [
+                "text-similarity-ada-001",
+                100000,
+            ],
+        ),
+        (
+            0.5,
+            [
+                "text-similarity-babbage-001",
+                100000,
+            ],
+        ),
+        (
+            2,
+            [
+                "text-similarity-curie-001",
+                100000,
+            ],
+        ),
+        (
+            20,
+            [
+                "text-similarity-davinci-001",
+                100000,
+            ],
+        ),
+    ]
+    for cost, args in cases:
+        assert cost == get_openai_token_cost_for_embedding_model(*args)
