@@ -83,7 +83,7 @@ def _is_valid_otel_attributes_value_type(val: Any) -> bool:
     return isinstance(val, (bool, str, int, float, bytes))
 
 
-def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Attributes:
     """
     prepare attributes value to any of ['bool', 'str', 'bytes', 'int', 'float']
     or a sequence of these types.
@@ -276,7 +276,7 @@ class _Observation:
     def _reset(self):
         self._value = {}
 
-    def _dict_to_tuple(self, attrs: Dict) -> Tuple:
+    def _attrs_to_tuple(self, attrs: Optional[Attributes] = None) -> Tuple:
         """
         sort keys first
         """
@@ -286,7 +286,7 @@ class _Observation:
         lst = [(key, attrs[key]) for key in sorted(attrs.keys())]
         return tuple(lst)
 
-    def put(self, val: float, attrs: Dict):
+    def put(self, val: float, attrs: Optional[Attributes] = None):
         """
         if attrs is None or empty, nothing will happen
         """
@@ -294,7 +294,7 @@ class _Observation:
             logging.info(f"None key for { attrs }")
             return
 
-        tuple_key = self._dict_to_tuple(attrs)
+        tuple_key = self._attrs_to_tuple(attrs)
         self._value.setdefault(tuple_key, 0)
         self._value[tuple_key] += val
 
@@ -436,10 +436,14 @@ class Collector:
         parent_id: Union[UUID, str, None],
         span_name: str,
         event_name: str,
-        span_attrs: Dict[str, Any] = {},  # model may exist in span attrs
+        span_attrs: Dict[str, Any] = {},  # model SHOULD exist in span attrs
         event_attrs: Dict[str, Any] = {},
     ) -> Union[UUID, str, None]:
         """
+        NOTE: end_span MUST BE called with the the same span_id and span_name to revoke the key in trace table.
+
+        if span_id is None when calling start_span, then use the returned span_id for end_span.
+
         Args:
 
             span_id: span id. If None, this id will be automatically generated.
@@ -450,14 +454,14 @@ class Collector:
             id: can retrieve context via this id. If None, no span has been started.
         """
         logger.debug(f"start span for {span_name} with {span_id=} or {parent_id=}")
-        span_attrs = _sanitate_attributes(span_attrs)
-        event_attrs = _sanitate_attributes(event_attrs)
+        span_attributes = _sanitate_attributes(span_attrs)
+        event_attributes = _sanitate_attributes(event_attrs)
 
         def _do_start_span(ctx: Optional[Context] = None):
             span = self._tracer.start_span(
-                span_name, context=ctx, attributes=span_attrs
+                span_name, context=ctx, attributes=span_attributes
             )
-            span.add_event(event_name, attributes=event_attrs)
+            span.add_event(event_name, attributes=event_attributes)
 
             trace_context = _TraceContext(
                 name=span_name, model=span_attrs.get("model", ""), span=span
@@ -495,10 +499,10 @@ class Collector:
         this is mainly focused on LangChain.
         """
         logger.debug(f"add event for {event_name} with {span_id=}")
-        event_attrs = _sanitate_attributes(event_attrs)
+        attrs = _sanitate_attributes(event_attrs)
         context = self._trace_tables.get_trace_context(span_id)
         if context:
-            context.span.add_event(event_name, attributes=event_attrs)
+            context.span.add_event(event_name, attributes=attrs)
         else:
             logging.error(f"{span_id} span not found for {event_name}")
 
@@ -511,24 +515,21 @@ class Collector:
         event_attrs: Dict[str, Any] = {},
         ex: Optional[Exception] = None,
     ):
-        """
-        this is mainly focused on LangChain.
-        """
         logger.debug(f"end span for {span_name} with {span_id=}")
 
-        span_attrs = _sanitate_attributes(span_attrs)
-        event_attrs = _sanitate_attributes(event_attrs)
+        span_attributes = _sanitate_attributes(span_attrs)
+        event_attributes = _sanitate_attributes(event_attrs)
 
         context = self._trace_tables.pop_trace_context(span_id, span_name)
-        if context:
+        if context and context.span:
             span = context.span
             if ex:
                 span.record_exception(ex)
-            if span_attrs:
-                span.set_attributes(attributes=span_attrs)
+            if span_attributes:
+                span.set_attributes(attributes=span_attributes)  # type: ignore
             code = StatusCode.ERROR if ex else StatusCode.OK
             span.set_status(Status(code))
-            span.add_event(event_name, attributes=event_attrs)
+            span.add_event(event_name, attributes=event_attributes)
             span.end()
         else:
             logging.error(
@@ -537,16 +538,12 @@ class Collector:
 
     def collect_metrics(
         self,
-        model_name: str,
         prompt_tokens: int,
         prompt_cost: float,
         completion_tokens: int,
         completion_cost: float,
+        attrs: Optional[Attributes] = None,
     ):
-        attrs = {
-            "model": model_name,
-        }
-
         if prompt_tokens:
             self._prompt_tokens_count.add(prompt_tokens, attrs)
 
@@ -560,6 +557,12 @@ class Collector:
             self._completion_cost.put(completion_cost, attrs)
 
     def start_latency(self, span_id: Union[UUID, str], span_name: Optional[str]):
+        """
+        if latency can not be calculated, call start_latency with span_id and span_name,
+        then call end_latency with the same span_id and span_name.
+
+        NOTE: end_latency MUST BE called to revoke the key in duration table.
+        """
         self._duration_tables.set(span_id, span_name)
 
     def end_latency(
@@ -575,6 +578,8 @@ class Collector:
         self, latency: Union[None, int, float], attributes: Optional[Attributes] = None
     ):
         """
+        directly record latency in millisecond
+
         Args:
 
             latency: millisecond unit

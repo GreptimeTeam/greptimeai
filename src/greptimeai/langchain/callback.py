@@ -292,11 +292,11 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
                 )
 
         self._collector.collect_metrics(
-            model_name=model_name,
             prompt_tokens=prompt_tokens,
             prompt_cost=prompt_cost,
             completion_tokens=completion_tokens,
             completion_cost=completion_cost,
+            attrs={_MODEL_LABEL: model_name, _SPAN_NAME_LABEL: _SPAN_NAME_LLM},
         )
 
         attrs: Dict[str, Any] = {}
