@@ -1,9 +1,10 @@
 import functools
 import time
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import openai
 from openai import OpenAI
+from openai.types import Completion
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from opentelemetry.util.types import Attributes
@@ -65,10 +66,22 @@ class OpenaiTracker(BaseTracker):
 
     def setup(self, client: Optional[OpenAI] = None):
         self._patch_chat_completion(client)
+        self._patch_completion(client)
 
     def _patch_chat_completion(self, client: Optional[OpenAI] = None):
         span_name = "chat.completions.create"
         obj = client.chat.completions if client else openai.chat.completions
+        self._patch(
+            obj,
+            "create",
+            span_name,
+            self._pre_chat_completion_extractor,
+            self._post_chat_completion_extractor,
+        )
+
+    def _patch_completion(self, client: Optional[OpenAI] = None):
+        span_name = "completions.create"
+        obj = client.completions if client else openai.completions
         self._patch(
             obj,
             "create",
@@ -99,8 +112,8 @@ class OpenaiTracker(BaseTracker):
             obj: OpenAI client, or module level client
             method_name: the method name of the object
             span_name: identify different span name
-            _pre_extractor: extract span attributes and event attributes from args, kwargs
-            _post_extractor: extract span attributes and event attributes from response
+            pre_extractor: extract span attributes and event attributes from args, kwargs
+            post_extractor: extract span attributes and event attributes from response
         """
         if not hasattr(obj, method_name):
             logger.warning(f"'{method_name}' attribute not found from the object.")
@@ -168,7 +181,8 @@ class OpenaiTracker(BaseTracker):
         self,
         args,
         *,
-        messages: List[ChatCompletionMessageParam],
+        messages: Optional[List[ChatCompletionMessageParam]] = None,
+        prompt: Optional[str] = None,
         model: str,
         user: Optional[str] = None,
         **kwargs,
@@ -183,7 +197,10 @@ class OpenaiTracker(BaseTracker):
             **kwargs,
         }
         if self._verbose:
-            event_attrs["messages"] = parse_chat_completion_message_params(messages)
+            if messages:
+                event_attrs["messages"] = parse_chat_completion_message_params(messages)
+            if prompt:
+                event_attrs["prompt"] = prompt
 
         if args and len(args) > 0:
             event_attrs["args"] = args
@@ -192,7 +209,7 @@ class OpenaiTracker(BaseTracker):
 
     def _post_chat_completion_extractor(
         self,
-        resp: ChatCompletion,
+        resp: Union[ChatCompletion, Completion],
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         usage = {}
         if resp.usage:
