@@ -5,6 +5,7 @@ from greptimeai import (
     _USER_ID_LABEL,
 )
 
+
 def pre_extractor(
     req_call_func: Callable,
     verbose: bool,
@@ -62,4 +63,3 @@ def post_extractor(
         return (span_attrs, event_attrs)
 
     return _post_extractor
-

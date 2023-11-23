@@ -1,8 +1,15 @@
-from typing import Optional, Callable, List, Tuple, Any, Dict
+from typing import Optional, Callable, Tuple, Any, Dict
 
 import openai
 from openai import OpenAI
+from openai.types import Completion
 
+from greptimeai import (
+    _COMPLETION_COST_LABEL,
+    _COMPLETION_TOKENS_LABEL,
+    _PROMPT_COST_LABEl,
+    _PROMPT_TOKENS_LABEl,
+)
 from greptimeai.tracker.openai_tracker.public import (
     pre_extractor,
     post_extractor,
@@ -11,19 +18,9 @@ from greptimeai.utils.openai.parser import (
     parse_chat_completion_message_params,
     parse_choices,
 )
-from greptimeai import (
-    _COMPLETION_COST_LABEL,
-    _COMPLETION_TOKENS_LABEL,
-    _MODEL_LABEL,
-    _USER_ID_LABEL,
-    _PROMPT_COST_LABEl,
-    _PROMPT_TOKENS_LABEl,
-)
 from greptimeai.utils.openai.token import (
     get_openai_token_cost_for_model,
 )
-
-from openai.types import Completion
 
 
 class CompletionExtractor:
