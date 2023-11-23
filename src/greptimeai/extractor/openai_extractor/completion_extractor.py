@@ -5,11 +5,11 @@ from openai import OpenAI
 from openai.types import Completion
 
 from greptimeai.extractor import Extraction
-from greptimeai.extractor.openai_extractor import Extractor
+from greptimeai.extractor.openai_extractor import OpenaiExtractor
 from greptimeai.utils.openai.parser import parse_choices
 
 
-class CompletionExtractor(Extractor):
+class CompletionExtractor(OpenaiExtractor):
     def __init__(
         self,
         client: Optional[OpenAI] = None,
@@ -32,11 +32,11 @@ class CompletionExtractor(Extractor):
         return extraction
 
     def post_extract(self, resp: Completion) -> Extraction:
-        dict = resp.model_dump()
-        extraction = super().post_extract(dict)
-
-        if "choices" in dict:
-            choices = parse_choices(dict["choices"], self.verbose)
+        extraction = super().post_extract(resp)
+        if "choices" in extraction.event_attributes:
+            choices = parse_choices(
+                extraction.event_attributes["choices"], self.verbose
+            )
             extraction.update_event_attributes({"choices": choices})
 
         return extraction

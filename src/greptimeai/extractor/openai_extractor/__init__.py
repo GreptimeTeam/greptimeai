@@ -7,6 +7,7 @@ from greptimeai import (
     _USER_ID_LABEL,
     _PROMPT_COST_LABEl,
     _PROMPT_TOKENS_LABEl,
+    logger,
 )
 from greptimeai.extractor import BaseExtractor, Extraction
 from greptimeai.utils.openai.token import get_openai_token_cost_for_model
@@ -14,7 +15,7 @@ from greptimeai.utils.openai.token import get_openai_token_cost_for_model
 _X_USER_ID = "x-user-id"
 
 
-class Extractor(BaseExtractor):
+class OpenaiExtractor(BaseExtractor):
     def __init__(self, obj: object, method_name: str, span_name: str):
         self.obj = obj
         self.span_name = span_name
@@ -68,7 +69,7 @@ class Extractor(BaseExtractor):
 
         return Extraction(span_attributes=span_attrs, event_attributes=event_attrs)
 
-    def post_extract(self, resp: Dict[str, Any]) -> Extraction:
+    def post_extract(self, resp: Any) -> Extraction:
         """
         extract for span attributes:
                 _MODEL_LABEL
@@ -81,21 +82,26 @@ class Extractor(BaseExtractor):
 
         Args:
 
-            resp: response from openai api, which is the result of calling model_dump()
+            resp: response from openai api, which MUST inherit the BaseModel class
         """
-        usage = resp.get("usage", {})
-        model = resp.get("model")
+        try:
+            dump = resp.model_dump()
+        except Exception as e:
+            logger.error(f"Failed to call model_dump for {resp}: {e}")
+            dump = {}
+
+        usage = dump.get("usage", {})
+        model = dump.get("model")
         if usage and model:
-            usage = Extractor.extract_usage(model, usage)
+            usage = OpenaiExtractor.extract_usage(model, usage)
 
         span_attrs = {
             _MODEL_LABEL: model,
             **usage,
         }
 
-        event_attrs = resp.copy()
-        event_attrs["usage"] = usage
-        return Extraction(span_attributes=span_attrs, event_attributes=event_attrs)
+        dump["usage"] = usage
+        return Extraction(span_attributes=span_attrs, event_attributes=dump)
 
     def get_func_name(self) -> str:
         return self.method_name
