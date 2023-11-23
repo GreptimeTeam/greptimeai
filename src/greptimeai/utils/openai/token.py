@@ -1,3 +1,5 @@
+from typing import Optional
+
 from greptimeai import logger
 
 # from https://github.com/langchain-ai/langchain/blob/master/libs/langchain/langchain/callbacks/openai_info.py
@@ -126,7 +128,7 @@ def standardize_model_name(
 
 
 def get_openai_token_cost_for_model(
-    model_name: str, num_tokens: int, is_completion: bool = False
+    model_name: Optional[str], num_tokens: int, is_completion: bool = False
 ) -> float:
     """
     Get the cost in USD for a given model and number of tokens.

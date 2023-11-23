@@ -1,6 +1,6 @@
 import functools
 import time
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 from openai import OpenAI
 from opentelemetry.util.types import Attributes
@@ -15,17 +15,15 @@ from greptimeai import (
     _PROMPT_TOKENS_LABEl,
     logger,
 )
-from greptimeai.tracker import _GREPTIMEAI_WRAPPED, BaseTracker
-from greptimeai.tracker.openai_tracker.chat_completion import ChatCompletionExtractor
-from greptimeai.tracker.openai_tracker.completion import CompletionExtractor
-from greptimeai.tracker.openai_tracker.embedding import EmbeddingExtractor
-
-__all__ = ["Extractor"]
-Extractor = Union[
+from greptimeai.extractor import BaseExtractor
+from greptimeai.extractor.openai_extractor.chat_completion_extractor import (
     ChatCompletionExtractor,
+)
+from greptimeai.extractor.openai_extractor.completion_extractor import (
     CompletionExtractor,
-    EmbeddingExtractor,
-]
+)
+from greptimeai.extractor.openai_extractor.embedding_extractor import EmbeddingExtractor
+from greptimeai.tracker import _GREPTIMEAI_WRAPPED, BaseTracker
 
 
 def setup(
@@ -64,94 +62,83 @@ class OpenaiTracker(BaseTracker):
         self._verbose = verbose
 
     def setup(self, client: Optional[OpenAI] = None):
-        self._patch(ChatCompletionExtractor(self._verbose, client))
-        self._patch(CompletionExtractor(self._verbose, client))
-        self._patch(EmbeddingExtractor(self._verbose, client))
+        self._patch(ChatCompletionExtractor(client, self._verbose))
+        self._patch(CompletionExtractor(client, self._verbose))
+        self._patch(EmbeddingExtractor(client, self._verbose))
 
-    def _patch(
-        self,
-        extractor: Extractor,
-    ):
+    def _patch(self, extractor: BaseExtractor):
         """
-        wrap the method name of this obj with trace and metrics collection logic.
-
-        if this obj does not contain this method name, patch will do nothing.
-        if this method has already been patched, then it won't be patched multiple times.
-
-        NOTE:
-        pre_extractor and post_extractor should return two tuple of (span_attrs, event_attrs),
-        and _MODEL_LABEL is required in span_attrs.
-
         Args:
-            obj: OpenAI client, or module level client
-            method_name: the method name of the object
-            span_name: identify different span name
-            pre_extractor: extract span attributes and event attributes from args, kwargs
-            post_extractor: extract span attributes and event attributes from response
+            extractor: extractor helps to extract useful information from request and response
         """
-        if not hasattr(extractor.obj, extractor.method_name):
-            logger.warning(
-                f"'{extractor.method_name}' attribute not found from the object."
-            )
+        func = extractor.get_func()
+        if not func:
+            logger.warning(f"function '{extractor.get_func_name()}' not found.")
             return
 
-        func = getattr(extractor.obj, extractor.method_name)
-
         if hasattr(func, _GREPTIMEAI_WRAPPED):
-            logger.warning(f"no need to patch {extractor.method_name} multiple times.")
+            logger.warning(
+                f"no need to patch '{extractor.get_func_name()}' multiple times."
+            )
             return
 
         # TODO(yuanbohan): to support: stream, async
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            ex, resp = None, None
-            req_span_attrs, req_event_attrs = extractor.pre_extractor(args, **kwargs)
+            ex, resp, dump = None, None, {}
+            req_extraction = extractor.pre_extract(*args, **kwargs)
             span_id = self._collector.start_span(
                 span_id=None,
                 parent_id=None,
-                span_name=extractor.span_name,
+                span_name=extractor.get_span_name(),
                 event_name="start",
-                span_attrs=req_span_attrs,
-                event_attrs=req_event_attrs,
+                span_attrs=req_extraction.span_attributes,
+                event_attrs=req_extraction.event_attributes,
             )
-            common_attrs = {_SPAN_NAME_LABEL: extractor.span_name}
+            common_attrs = {_SPAN_NAME_LABEL: extractor.get_span_name()}
             start = time.time()
             try:
                 resp = func(*args, **kwargs)
+                dump: Dict[str, Any] = resp.model_dump()
             except Exception as e:
                 ex = e
                 self._collector._llm_error_count.add(
                     1,
                     {
-                        _MODEL_LABEL: req_span_attrs.get(_MODEL_LABEL, ""),
+                        _MODEL_LABEL: req_extraction.span_attributes.get(
+                            _MODEL_LABEL, ""
+                        ),
                         _ERROR_TYPE_LABEL: ex.__class__.__name__,
                         **common_attrs,
                     },
                 )
+                dump = {}
                 raise ex
             finally:
                 latency = 1000 * (time.time() - start)
-                resp_span_attrs, resp_event_attrs = extractor.post_extractor(resp)
+                resp_extraction = extractor.post_extract(dump)
                 attrs = {
-                    _MODEL_LABEL: resp_span_attrs.get(_MODEL_LABEL, ""),
+                    _MODEL_LABEL: resp_extraction.span_attributes.get(_MODEL_LABEL, ""),
                     **common_attrs,
                 }
                 self._collector.record_latency(latency, attributes=attrs)
 
                 self._collector.end_span(
                     span_id=span_id,  # type: ignore
-                    span_name=extractor.span_name,
+                    span_name=extractor.get_span_name(),
                     event_name="end",
-                    span_attrs=resp_span_attrs,
-                    event_attrs=resp_event_attrs,
+                    span_attrs=resp_extraction.span_attributes,
+                    event_attrs=resp_extraction.event_attributes,
                     ex=ex,
                 )
 
-                self._collect_metrics(attrs=attrs, span_attrs=resp_span_attrs)
+                self._collect_metrics(
+                    attrs=attrs, span_attrs=resp_extraction.span_attributes
+                )
             return resp
 
         setattr(wrapper, _GREPTIMEAI_WRAPPED, True)
-        setattr(extractor.obj, extractor.method_name, wrapper)
+        extractor.set_func(wrapper)
 
     def _collect_metrics(self, attrs: Optional[Attributes], span_attrs: Dict[str, Any]):
         """

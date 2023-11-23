@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Sequence, Union
 
 from openai.types import CompletionChoice
 from openai.types.chat.chat_completion import Choice
@@ -8,18 +8,21 @@ from greptimeai import logger
 
 
 def parse_choices(
-    choices: List[Union[Choice, CompletionChoice]], verbose: bool = True
+    choices: Sequence[Union[Choice, CompletionChoice]], verbose: bool = True
 ) -> List[Dict[str, Any]]:
     def _parse_choice(choice: Union[Choice, CompletionChoice]) -> Dict[str, Any]:
         res = choice.model_dump()
         if not verbose:
-            res.pop("message", None)
+            if "message" in res:
+                res.update({"message": "..."})
+            if "text" in res:
+                res.update({"text": "..."})
         return res
 
     return list([_parse_choice(choice) for choice in choices])
 
 
-def parse_chat_completion_message_params(
+def parse_message_params(
     messages: List[ChatCompletionMessageParam],
 ) -> List[Dict[str, Any]]:
     def _parse_chat_completion_message_param(
