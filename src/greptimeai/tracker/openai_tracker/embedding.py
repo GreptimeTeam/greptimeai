@@ -30,7 +30,7 @@ class EmbeddingExtractor:
     ):
         self.verbose = verbose
         self.span_name = "embeddings.create"
-        self.obj = client.chat.completions if client else openai.chat.completions
+        self.obj = client.embeddings if client else openai.embeddings
         self.method_name = "create"
         self.pre_extractor = pre_extractor(self.req_call_func, self.verbose)
         self.post_extractor = post_extractor(self.res_call_func)

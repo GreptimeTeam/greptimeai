@@ -34,7 +34,7 @@ class CompletionExtractor:
     ):
         self.verbose = verbose
         self.span_name = "completions.create"
-        self.obj = client.chat.completions if client else openai.chat.completions
+        self.obj = client.completions if client else openai.completions
         self.method_name = "create"
         self.pre_extractor = pre_extractor(self.req_call_func, self.verbose)
         self.post_extractor = post_extractor(self.res_call_func)
