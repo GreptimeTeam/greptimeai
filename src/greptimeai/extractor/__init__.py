@@ -32,6 +32,10 @@ class BaseExtractor(ABC):
         pass
 
     @abstractmethod
+    def get_func_name(self) -> str:
+        pass
+
+    @abstractmethod
     def get_func(self) -> Optional[Callable]:
         pass
 

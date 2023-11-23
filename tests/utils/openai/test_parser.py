@@ -14,10 +14,7 @@ from openai.types.chat.chat_completion_message_tool_call_param import (
     Function as FunctionParam,
 )
 
-from greptimeai.utils.openai.parser import (
-    parse_chat_completion_message_params,
-    parse_choices,
-)
+from greptimeai.utils.openai.parser import parse_choices, parse_message_params
 
 
 def test_parse_choices():
@@ -55,7 +52,9 @@ def test_parse_choices():
     ]
     assert expect == parse_choices([choice])
 
-    expect_verbose_false = [{"index": 0, "finish_reason": "tool_calls"}]
+    expect_verbose_false = [
+        {"index": 0, "finish_reason": "tool_calls", "message": "..."}
+    ]
     assert expect_verbose_false == parse_choices([choice], False)
 
 
@@ -80,4 +79,4 @@ def test_parse_chat_completion_message_params():
             ],
         }
     ]
-    assert expect == parse_chat_completion_message_params([param])
+    assert expect == parse_message_params([param])

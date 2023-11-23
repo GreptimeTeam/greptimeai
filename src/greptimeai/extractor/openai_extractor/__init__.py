@@ -97,6 +97,9 @@ class Extractor(BaseExtractor):
         event_attrs["usage"] = usage
         return Extraction(span_attributes=span_attrs, event_attributes=event_attrs)
 
+    def get_func_name(self) -> str:
+        return self.method_name
+
     def get_span_name(self) -> str:
         return self.span_name
 
