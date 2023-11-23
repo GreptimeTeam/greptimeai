@@ -60,6 +60,14 @@ def test_cal_openai_token_cost_for_model():
                 True,
             ],
         ),
+        (
+            0.04,
+            [
+                "text-embedding-ada-002",
+                100000,
+                False,
+            ],
+        ),
     ]
     for cost, args in cases:
         assert cost == get_openai_token_cost_for_model(*args)
