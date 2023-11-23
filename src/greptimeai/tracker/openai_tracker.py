@@ -1,5 +1,6 @@
 import functools
 import time
+from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union
 
 from openai import OpenAI
@@ -15,17 +16,15 @@ from greptimeai import (
     _PROMPT_TOKENS_LABEl,
     logger,
 )
-from greptimeai.tracker import _GREPTIMEAI_WRAPPED, BaseTracker
-from greptimeai.tracker.openai_tracker.chat_completion import ChatCompletionExtractor
-from greptimeai.tracker.openai_tracker.completion import CompletionExtractor
-from greptimeai.tracker.openai_tracker.embedding import EmbeddingExtractor
-
-__all__ = ["Extractor"]
-Extractor = Union[
+from greptimeai.extractor import BaseExtractor
+from greptimeai.extractor.openai_extractor.chat_completion_extractor import (
     ChatCompletionExtractor,
+)
+from greptimeai.extractor.openai_extractor.completion_extractor import (
     CompletionExtractor,
-    EmbeddingExtractor,
-]
+)
+from greptimeai.extractor.openai_extractor.embedding_extractor import EmbeddingExtractor
+from greptimeai.tracker import _GREPTIMEAI_WRAPPED, BaseTracker
 
 
 def setup(
@@ -64,14 +63,11 @@ class OpenaiTracker(BaseTracker):
         self._verbose = verbose
 
     def setup(self, client: Optional[OpenAI] = None):
-        self._patch(ChatCompletionExtractor(self._verbose, client))
-        self._patch(CompletionExtractor(self._verbose, client))
-        self._patch(EmbeddingExtractor(self._verbose, client))
+        self._patch(ChatCompletionExtractor(client, self._verbose))
+        self._patch(CompletionExtractor(client, self._verbose))
+        self._patch(EmbeddingExtractor(client, self._verbose))
 
-    def _patch(
-        self,
-        extractor: Extractor,
-    ):
+    def _patch(self, extractor: BaseExtractor):
         """
         wrap the method name of this obj with trace and metrics collection logic.
 
@@ -89,13 +85,10 @@ class OpenaiTracker(BaseTracker):
             pre_extractor: extract span attributes and event attributes from args, kwargs
             post_extractor: extract span attributes and event attributes from response
         """
-        if not hasattr(extractor.obj, extractor.method_name):
-            logger.warning(
-                f"'{extractor.method_name}' attribute not found from the object."
-            )
+        func = extractor.get_func()
+        if not func:
+            logger.warning(f"function not found.")
             return
-
-        func = getattr(extractor.obj, extractor.method_name)
 
         if hasattr(func, _GREPTIMEAI_WRAPPED):
             logger.warning(f"no need to patch {extractor.method_name} multiple times.")
@@ -175,3 +168,98 @@ class OpenaiTracker(BaseTracker):
             completion_cost=completion_cost,
             attrs=attrs,
         )
+
+
+class Extractor(ABC):
+    def __init__(self, obj: object, method_name: str, span_name: str):
+        self.obj = obj
+        self.span_name = span_name
+        self.method_name = method_name
+
+    @staticmethod
+    def extract_usage(
+        model: Optional[str], usage: Optional[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        res = {}
+
+        if not usage or not model:
+            return res
+
+        prompt_tokens = usage.get("prompt_tokens", 0)
+        res[_PROMPT_TOKENS_LABEl] = prompt_tokens
+        res[_PROMPT_COST_LABEl] = get_openai_token_cost_for_model(
+            model, prompt_tokens, False
+        )
+
+        completion_tokens = usage.get("completion_tokens", 0)
+        res[_COMPLETION_TOKENS_LABEL] = completion_tokens
+        res[_COMPLETION_COST_LABEL] = get_openai_token_cost_for_model(
+            model, completion_tokens, True
+        )
+        return res
+
+    @abstractmethod
+    def pre_extract(self, *args, **kwargs) -> Extraction:
+        """
+        extract _MODEL_LABEL, _USER_ID_LABEL for span attributes
+        merge kwargs and args into event attributes
+        Args:
+
+            kwargs:
+                extra_headers in kwargs: _X_USER_ID is a custom header that is used to identify the user,
+                which has higher priority than the 'user' in the kwargs
+        """
+        user_id = kwargs.get("user", None)
+        extra_headers = kwargs.get("extra_headers", None)
+        if extra_headers and _X_USER_ID in extra_headers:
+            user_id = extra_headers[_X_USER_ID]
+
+        span_attrs = {
+            _MODEL_LABEL: kwargs.get("model", None),
+            _USER_ID_LABEL: user_id,
+        }
+
+        event_attrs = {**kwargs}
+        if len(args) > 0:
+            event_attrs["args"] = args
+
+        return Extraction(span_attributes=span_attrs, event_attributes=event_attrs)
+
+    @abstractmethod
+    def post_extract(self, resp: Dict[str, Any]) -> Extraction:
+        """
+        extract for span attributes:
+                _MODEL_LABEL
+                _COMPLETION_COST_LABEL
+                _COMPLETION_TOKENS_LABEL
+                _PROMPT_COST_LABEl
+                _PROMPT_TOKENS_LABEl
+
+        merge usage into resp as event attributes
+
+        Args:
+
+            resp: response from openai api, which is the result of calling model_dump()
+        """
+        usage = resp.get("usage", {})
+        model = resp.get("model")
+        if usage and model:
+            usage = Extractor.extract_usage(model, usage)
+
+        span_attrs = {
+            _MODEL_LABEL: model,
+            **usage,
+        }
+
+        event_attrs = resp.copy()
+        event_attrs["usage"] = usage
+        return Extraction(span_attributes=span_attrs, event_attributes=event_attrs)
+
+    def get_span_name(self) -> str:
+        return self.span_name
+
+    def get_func(self) -> Optional[Callable]:
+        return getattr(self.obj, self.method_name, None)
+
+    def set_func(self, func: Callable):
+        setattr(self.obj, self.method_name, func)

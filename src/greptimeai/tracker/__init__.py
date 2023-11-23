@@ -1,6 +1,6 @@
 from greptimeai.collection import Collector
 
-_GREPTIMEAI_WRAPPED = "__GREPTIMEAI_WRAPPED__"
+_GREPTIMEAI_WRAPPED = "__greptimeai_wrapped__"
 
 
 class BaseTracker:
