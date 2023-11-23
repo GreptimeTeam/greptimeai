@@ -23,6 +23,13 @@ from greptimeai.extractor.openai_extractor.completion_extractor import (
     CompletionExtractor,
 )
 from greptimeai.extractor.openai_extractor.embedding_extractor import EmbeddingExtractor
+from greptimeai.extractor.openai_extractor.file_extractor import (
+    FileListExtractor,
+    FileCreateExtractor,
+    FileDeleteExtractor,
+    FileRetrieveExtractor,
+    FileContentExtractor,
+)
 from greptimeai.tracker import _GREPTIMEAI_WRAPPED, BaseTracker
 
 
@@ -65,6 +72,11 @@ class OpenaiTracker(BaseTracker):
         self._patch(ChatCompletionExtractor(client, self._verbose))
         self._patch(CompletionExtractor(client, self._verbose))
         self._patch(EmbeddingExtractor(client, self._verbose))
+        self._patch(FileListExtractor(client, self._verbose))
+        self._patch(FileCreateExtractor(client, self._verbose))
+        self._patch(FileDeleteExtractor(client, self._verbose))
+        self._patch(FileRetrieveExtractor(client, self._verbose))
+        self._patch(FileContentExtractor(client, self._verbose))
 
     def _patch(self, extractor: BaseExtractor):
         """
@@ -85,7 +97,7 @@ class OpenaiTracker(BaseTracker):
         # TODO(yuanbohan): to support: stream, async
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            ex, resp, dump = None, None, {}
+            ex, resp = None, None
             req_extraction = extractor.pre_extract(*args, **kwargs)
             span_id = self._collector.start_span(
                 span_id=None,
@@ -99,7 +111,6 @@ class OpenaiTracker(BaseTracker):
             start = time.time()
             try:
                 resp = func(*args, **kwargs)
-                dump: Dict[str, Any] = resp.model_dump()
             except Exception as e:
                 ex = e
                 self._collector._llm_error_count.add(
@@ -112,11 +123,10 @@ class OpenaiTracker(BaseTracker):
                         **common_attrs,
                     },
                 )
-                dump = {}
                 raise ex
             finally:
                 latency = 1000 * (time.time() - start)
-                resp_extraction = extractor.post_extract(dump)
+                resp_extraction = extractor.post_extract(resp)
                 attrs = {
                     _MODEL_LABEL: resp_extraction.span_attributes.get(_MODEL_LABEL, ""),
                     **common_attrs,
