@@ -24,11 +24,11 @@ from greptimeai.extractor.openai_extractor.completion_extractor import (
 )
 from greptimeai.extractor.openai_extractor.embedding_extractor import EmbeddingExtractor
 from greptimeai.extractor.openai_extractor.file_extractor import (
-    FileListExtractor,
+    FileContentExtractor,
     FileCreateExtractor,
     FileDeleteExtractor,
+    FileListExtractor,
     FileRetrieveExtractor,
-    FileContentExtractor,
 )
 from greptimeai.tracker import _GREPTIMEAI_WRAPPED, BaseTracker
 
@@ -72,11 +72,11 @@ class OpenaiTracker(BaseTracker):
         self._patch(ChatCompletionExtractor(client, self._verbose))
         self._patch(CompletionExtractor(client, self._verbose))
         self._patch(EmbeddingExtractor(client, self._verbose))
-        self._patch(FileListExtractor(client, self._verbose))
-        self._patch(FileCreateExtractor(client, self._verbose))
-        self._patch(FileDeleteExtractor(client, self._verbose))
-        self._patch(FileRetrieveExtractor(client, self._verbose))
-        self._patch(FileContentExtractor(client, self._verbose))
+        self._patch(FileListExtractor(client))
+        self._patch(FileCreateExtractor(client))
+        self._patch(FileDeleteExtractor(client))
+        self._patch(FileRetrieveExtractor(client))
+        self._patch(FileContentExtractor(client))
 
     def _patch(self, extractor: BaseExtractor):
         """
@@ -97,7 +97,6 @@ class OpenaiTracker(BaseTracker):
         # TODO(yuanbohan): to support: stream, async
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            ex, resp = None, None
             req_extraction = extractor.pre_extract(*args, **kwargs)
             span_id = self._collector.start_span(
                 span_id=None,
@@ -161,9 +160,6 @@ class OpenaiTracker(BaseTracker):
         prompt_cost = span_attrs.get(_PROMPT_COST_LABEl, 0)
         completion_tokens = span_attrs.get(_COMPLETION_TOKENS_LABEL, 0)
         completion_cost = span_attrs.get(_COMPLETION_COST_LABEL, 0)
-        if not (prompt_tokens or prompt_cost or completion_tokens or completion_cost):
-            logger.warning(f"no need to collect empty metrics for openai {attrs}")
-            return
 
         self._collector.collect_metrics(
             prompt_tokens=prompt_tokens,

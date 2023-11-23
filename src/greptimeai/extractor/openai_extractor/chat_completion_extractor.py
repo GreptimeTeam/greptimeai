@@ -5,11 +5,11 @@ from openai import OpenAI
 from openai.types.chat.chat_completion import ChatCompletion
 
 from greptimeai.extractor import Extraction
-from greptimeai.extractor.openai_extractor import Extractor
+from greptimeai.extractor.openai_extractor import OpenaiExtractor
 from greptimeai.utils.openai.parser import parse_choices, parse_message_params
 
 
-class ChatCompletionExtractor(Extractor):
+class ChatCompletionExtractor(OpenaiExtractor):
     def __init__(
         self,
         client: Optional[OpenAI] = None,
@@ -36,11 +36,11 @@ class ChatCompletionExtractor(Extractor):
         return extraction
 
     def post_extract(self, resp: ChatCompletion) -> Extraction:
-        dict = resp.model_dump()
-        extraction = super().post_extract(dict)
-
-        if "choices" in dict:
-            choices = parse_choices(dict["choices"], self.verbose)
+        extraction = super().post_extract(resp)
+        if "choices" in extraction.event_attributes:
+            choices = parse_choices(
+                extraction.event_attributes["choices"], self.verbose
+            )
             extraction.update_event_attributes({"choices": choices})
 
         return extraction

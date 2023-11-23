@@ -24,7 +24,7 @@ class BaseExtractor(ABC):
         pass
 
     @abstractmethod
-    def post_extract(self, resp: Dict[str, Any]) -> Extraction:
+    def post_extract(self, resp: Any) -> Extraction:
         pass
 
     @abstractmethod

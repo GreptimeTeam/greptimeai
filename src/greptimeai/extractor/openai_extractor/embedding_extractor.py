@@ -4,10 +4,10 @@ import openai
 from openai import OpenAI
 
 from greptimeai.extractor import Extraction
-from greptimeai.extractor.openai_extractor import Extractor
+from greptimeai.extractor.openai_extractor import OpenaiExtractor
 
 
-class EmbeddingExtractor(Extractor):
+class EmbeddingExtractor(OpenaiExtractor):
     def __init__(
         self,
         client: Optional[OpenAI] = None,
@@ -23,8 +23,7 @@ class EmbeddingExtractor(Extractor):
     def pre_extract(self, *args, **kwargs) -> Extraction:
         extraction = super().pre_extract(*args, **kwargs)
 
-        input = kwargs.get("input", None)
-        if input and not self.verbose:
+        if "input" in extraction.event_attributes and not self.verbose:
             extraction.update_event_attributes({"input": "..."})
 
         return extraction
