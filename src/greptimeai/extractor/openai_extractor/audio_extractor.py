@@ -2,6 +2,7 @@ from typing import Optional
 
 import openai
 from openai import OpenAI
+from typing_extensions import override
 
 from greptimeai import _MODEL_LABEL, _PROMPT_COST_LABEl, _PROMPT_TOKENS_LABEl
 from greptimeai.extractor import Extraction
@@ -20,6 +21,7 @@ class SpeechExtractor(OpenaiExtractor):
 
         super().__init__(obj=obj, method_name=method_name, span_name=span_name)
 
+    @override
     def pre_extract(self, *args, **kwargs) -> Extraction:
         extraction = super().pre_extract(*args, **kwargs)
 

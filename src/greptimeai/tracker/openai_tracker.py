@@ -3,32 +3,19 @@ import time
 from typing import Optional
 
 from openai import OpenAI
+from typing_extensions import override
 
 from greptimeai import _MODEL_LABEL, _SPAN_NAME_LABEL
 from greptimeai.extractor import BaseExtractor
-from greptimeai.extractor.openai_extractor.audio_extractor import (
-    SpeechExtractor,
-    TranscriptionExtractor,
-    TranslationExtractor,
-)
-from greptimeai.extractor.openai_extractor.chat_completion_extractor import (
-    ChatCompletionExtractor,
-)
-from greptimeai.extractor.openai_extractor.completion_extractor import (
-    CompletionExtractor,
-)
-from greptimeai.extractor.openai_extractor.embedding_extractor import EmbeddingExtractor
-from greptimeai.extractor.openai_extractor.file_extractor import (
-    FileContentExtractor,
-    FileCreateExtractor,
-    FileDeleteExtractor,
-    FileListExtractor,
-    FileRetrieveExtractor,
-)
-from greptimeai.extractor.openai_extractor.image_extractor import (
-    ImageEditExtractor,
-    ImageGenerateExtractor,
-    ImageVariationExtractor,
+from greptimeai.extractor.openai_extractor import (
+    audio_extractor,
+    chat_completion_extractor,
+    completion_extractor,
+    embedding_extractor,
+    file_extractor,
+    image_extractor,
+    model_extractor,
+    moderation_extractor,
 )
 from greptimeai.tracker import _GREPTIMEAI_WRAPPED, BaseTracker
 
@@ -68,22 +55,27 @@ class OpenaiTracker(BaseTracker):
         )
         self._verbose = verbose
 
+    @override
     def setup(self, client: Optional[OpenAI] = None):
         extractors = [
-            ChatCompletionExtractor(client, self._verbose),
-            CompletionExtractor(client, self._verbose),
-            EmbeddingExtractor(client, self._verbose),
-            FileListExtractor(client),
-            FileCreateExtractor(client),
-            FileDeleteExtractor(client),
-            FileRetrieveExtractor(client),
-            FileContentExtractor(client),
-            SpeechExtractor(client),
-            TranscriptionExtractor(client),
-            TranslationExtractor(client),
-            ImageEditExtractor(client),
-            ImageGenerateExtractor(client),
-            ImageVariationExtractor(client),
+            chat_completion_extractor.ChatCompletionExtractor(client, self._verbose),
+            completion_extractor.CompletionExtractor(client, self._verbose),
+            embedding_extractor.EmbeddingExtractor(client, self._verbose),
+            file_extractor.FileListExtractor(client),
+            file_extractor.FileCreateExtractor(client),
+            file_extractor.FileDeleteExtractor(client),
+            file_extractor.FileRetrieveExtractor(client),
+            file_extractor.FileContentExtractor(client),
+            audio_extractor.SpeechExtractor(client),
+            audio_extractor.TranscriptionExtractor(client),
+            audio_extractor.TranslationExtractor(client),
+            image_extractor.ImageEditExtractor(client),
+            image_extractor.ImageGenerateExtractor(client),
+            image_extractor.ImageVariationExtractor(client),
+            model_extractor.ModelListExtractor(client),
+            model_extractor.ModelRetrieveExtractor(client),
+            model_extractor.ModelDeleteExtractor(client),
+            moderation_extractor.ModerationExtractor(client),
         ]
 
         for extractor in extractors:
