@@ -143,8 +143,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
             ex=error,  # type: ignore
         )
-        self._collector._llm_error_count.add(
-            1,
+        self._collector.collect_error_count(
             {
                 _SPAN_NAME_LABEL: _SPAN_NAME_CHAIN,
                 **event_attrs,
@@ -351,8 +350,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
             ex=error,  # type: ignore
         )
-        self._collector._llm_error_count.add(
-            1,
+        self._collector.collect_error_count(
             {
                 _SPAN_NAME_LABEL: _SPAN_NAME_LLM,
                 **event_attrs,
@@ -468,8 +466,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
             ex=error,  # type: ignore
         )
-        self._collector._llm_error_count.add(
-            1,
+        self._collector.collect_error_count(
             {
                 _SPAN_NAME_LABEL: _SPAN_NAME_TOOL,
                 **event_attrs,
@@ -601,8 +598,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
             ex=error,  # type: ignore
         )
-        self._collector._llm_error_count.add(
-            1,
+        self._collector.collect_error_count(
             {
                 _SPAN_NAME_LABEL: _SPAN_NAME_RETRIEVER,
                 **event_attrs,
