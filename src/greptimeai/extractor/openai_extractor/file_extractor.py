@@ -6,6 +6,7 @@ from openai import OpenAI
 from greptimeai.extractor.openai_extractor import OpenaiExtractor
 
 
+# TODO(yuanbohan): verbose for sensitive fields
 class FileListExtractor(OpenaiExtractor):
     def __init__(self, client: Optional[OpenAI] = None):
         obj = client.files if client else openai.files

@@ -22,8 +22,6 @@ class EmbeddingExtractor(OpenaiExtractor):
 
     def pre_extract(self, *args, **kwargs) -> Extraction:
         extraction = super().pre_extract(*args, **kwargs)
-
-        if "input" in extraction.event_attributes and not self.verbose:
-            extraction.update_event_attributes({"input": "..."})
+        extraction.hide_field_in_event_attributes("input", self.verbose)
 
         return extraction

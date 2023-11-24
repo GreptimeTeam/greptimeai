@@ -24,23 +24,23 @@ class ChatCompletionExtractor(OpenaiExtractor):
 
     def pre_extract(self, *args, **kwargs) -> Extraction:
         extraction = super().pre_extract(*args, **kwargs)
+        extraction.hide_field_in_event_attributes("messages", self.verbose)
 
         messages = kwargs.get("messages", None)
-        if messages:
-            if self.verbose:
-                messages = parse_message_params(messages)
-                extraction.update_event_attributes({"messages": messages})
-            else:
-                extraction.update_event_attributes({"messages": "..."})
+        if messages and self.verbose:
+            extraction.update_event_attributes(
+                {"messages": parse_message_params(messages)}
+            )
 
         return extraction
 
     def post_extract(self, resp: ChatCompletion) -> Extraction:
         extraction = super().post_extract(resp)
-        if "choices" in extraction.event_attributes:
-            choices = parse_choices(
-                extraction.event_attributes["choices"], self.verbose
+
+        choices = extraction.event_attributes.get("choices", None)
+        if choices:
+            extraction.update_event_attributes(
+                {"choices": parse_choices(choices, self.verbose)}
             )
-            extraction.update_event_attributes({"choices": choices})
 
         return extraction

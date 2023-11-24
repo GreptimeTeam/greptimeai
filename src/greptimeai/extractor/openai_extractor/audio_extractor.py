@@ -27,6 +27,7 @@ class SpeechExtractor(OpenaiExtractor):
 
     def pre_extract(self, *args, **kwargs) -> Extraction:
         extraction = super().pre_extract(*args, **kwargs)
+        extraction.hide_field_in_event_attributes("input", self.verbose)
 
         input = extraction.event_attributes.get("input", None)
         if input:
@@ -38,10 +39,48 @@ class SpeechExtractor(OpenaiExtractor):
                 cost = get_openai_audio_cost_for_tts(model, num_chars)
 
                 extraction.update_span_attributes(
-                    {_MODEL_LABEL: model, _PROMPT_COST_LABEl: cost}
+                    {
+                        _MODEL_LABEL: model,
+                        _PROMPT_COST_LABEl: cost,
+                    }
                 )
 
-            if not self.verbose:
-                extraction.update_event_attributes({"input": "..."})
+        return extraction
 
+
+class TranscriptionExtractor(OpenaiExtractor):
+    def __init__(
+        self,
+        client: Optional[OpenAI] = None,
+        verbose: bool = True,
+    ):
+        obj = client.audio.transcriptions if client else openai.audio.transcriptions
+        method_name = "create"
+        span_name = "audio.transcriptions.create"
+
+        super().__init__(obj=obj, method_name=method_name, span_name=span_name)
+        self.verbose = verbose
+
+    def pre_extract(self, *args, **kwargs) -> Extraction:
+        extraction = super().pre_extract(*args, **kwargs)
+        extraction.hide_field_in_event_attributes("prompt", self.verbose)
+        return extraction
+
+
+class TranslationExtractor(OpenaiExtractor):
+    def __init__(
+        self,
+        client: Optional[OpenAI] = None,
+        verbose: bool = True,
+    ):
+        obj = client.audio.translations if client else openai.audio.translations
+        method_name = "create"
+        span_name = "audio.translations.create"
+
+        super().__init__(obj=obj, method_name=method_name, span_name=span_name)
+        self.verbose = verbose
+
+    def pre_extract(self, *args, **kwargs) -> Extraction:
+        extraction = super().pre_extract(*args, **kwargs)
+        extraction.hide_field_in_event_attributes("prompt", self.verbose)
         return extraction
