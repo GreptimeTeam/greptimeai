@@ -13,6 +13,7 @@ from greptimeai.extractor.openai_extractor import (
     completion_extractor,
     embedding_extractor,
     file_extractor,
+    fine_tuning_extractor,
     image_extractor,
     model_extractor,
     moderation_extractor,
@@ -27,16 +28,16 @@ def setup(
     client: Optional[OpenAI] = None,
 ):
     """
-    patch openai main functions automatically.
+    patch openai functions automatically.
+
     host, database and token is to setup the place to store the data, and the authority.
     They MUST BE set explicitly by passing parameters or system environment variables.
+
     Args:
         host: if None or empty string, GREPTIMEAI_HOST environment variable will be used.
         database: if None or empty string, GREPTIMEAI_DATABASE environment variable will be used.
         token: if None or empty string, GREPTIMEAI_TOKEN environment variable will be used.
         client: if None, then openai module-level client will be patched.
-                Important: We highly recommend instantiating client instances
-                instead of relying on the global client.
     """
     tracker = OpenaiTracker(host, database, token)
     tracker.setup(client)
@@ -76,6 +77,11 @@ class OpenaiTracker(BaseTracker):
             model_extractor.ModelRetrieveExtractor(client),
             model_extractor.ModelDeleteExtractor(client),
             moderation_extractor.ModerationExtractor(client),
+            fine_tuning_extractor.FineTuningListEventsExtractor(client),
+            fine_tuning_extractor.FineTuningCreateExtractor(client),
+            fine_tuning_extractor.FineTuningCancelExtractor(client),
+            fine_tuning_extractor.FineTuningRetrieveExtractor(client),
+            fine_tuning_extractor.FineTuningListExtractor(client),
         ]
 
         for extractor in extractors:
