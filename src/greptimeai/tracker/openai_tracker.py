@@ -16,6 +16,11 @@ from greptimeai import (
     logger,
 )
 from greptimeai.extractor import BaseExtractor
+from greptimeai.extractor.openai_extractor.audio_extractor import (
+    SpeechExtractor,
+    TranscriptionExtractor,
+    TranslationExtractor,
+)
 from greptimeai.extractor.openai_extractor.chat_completion_extractor import (
     ChatCompletionExtractor,
 )
@@ -77,6 +82,9 @@ class OpenaiTracker(BaseTracker):
         self._patch(FileDeleteExtractor(client))
         self._patch(FileRetrieveExtractor(client))
         self._patch(FileContentExtractor(client))
+        self._patch(SpeechExtractor(client, self._verbose))
+        self._patch(TranscriptionExtractor(client, self._verbose))
+        self._patch(TranslationExtractor(client, self._verbose))
 
     def _patch(self, extractor: BaseExtractor):
         """
@@ -94,7 +102,13 @@ class OpenaiTracker(BaseTracker):
             )
             return
 
-        # TODO(yuanbohan): to support: stream, async
+        # TODO(yuanbohan): to support:
+        #
+        #   - stream
+        #   - async
+        #   - with raw response
+        #   - error, timeout, retry
+        #   - trace headers of request and response
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             req_extraction = extractor.pre_extract(*args, **kwargs)
@@ -108,6 +122,7 @@ class OpenaiTracker(BaseTracker):
             )
             common_attrs = {_SPAN_NAME_LABEL: extractor.get_span_name()}
             start = time.time()
+            ex = None
             try:
                 resp = func(*args, **kwargs)
             except Exception as e:

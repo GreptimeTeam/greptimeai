@@ -17,6 +17,10 @@ class Extraction:
     def update_event_attributes(self, attrs: Dict[str, Any]):
         self.event_attributes.update(attrs)
 
+    def hide_field_in_event_attributes(self, field: str, verbose: bool = True):
+        if not verbose and field in self.event_attributes:
+            self.event_attributes[field] = "..."
+
 
 class BaseExtractor(ABC):
     @abstractmethod

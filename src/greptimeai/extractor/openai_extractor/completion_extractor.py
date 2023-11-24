@@ -24,19 +24,16 @@ class CompletionExtractor(OpenaiExtractor):
 
     def pre_extract(self, *args, **kwargs) -> Extraction:
         extraction = super().pre_extract(*args, **kwargs)
-
-        prompt = kwargs.get("prompt", None)
-        if prompt and not self.verbose:
-            extraction.update_event_attributes({"prompt": "..."})
-
+        extraction.hide_field_in_event_attributes("prompt", self.verbose)
         return extraction
 
     def post_extract(self, resp: Completion) -> Extraction:
         extraction = super().post_extract(resp)
-        if "choices" in extraction.event_attributes:
-            choices = parse_choices(
-                extraction.event_attributes["choices"], self.verbose
+
+        choices = extraction.event_attributes.get("choices", None)
+        if choices:
+            extraction.update_event_attributes(
+                {"choices": parse_choices(choices, self.verbose)}
             )
-            extraction.update_event_attributes({"choices": choices})
 
         return extraction

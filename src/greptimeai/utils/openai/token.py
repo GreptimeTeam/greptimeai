@@ -3,7 +3,7 @@ from typing import Optional
 from greptimeai import logger
 
 # from https://github.com/langchain-ai/langchain/blob/master/libs/langchain/langchain/callbacks/openai_info.py
-# 2023-11-20
+# 2023-11-22
 MODEL_COST_PER_1K_TOKENS = {
     # GPT-4 input
     "gpt-4": 0.03,
@@ -163,38 +163,57 @@ def num_tokens_from_messages(messages: str, model="gpt-3.5-turbo-0613") -> int:
     """
     Return the number of tokens used the messages.
 
-    NOTE:
-
-    - this function won't assure the exact the same result of OpenAI
-    - this function is only been called by streaming scenario so far
+    NOTE: this function won't assure exact the same result of OpenAI
 
     Refer: https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
-
-    TODO(yuanbohan): update more models to match OpenAI update in DevDay 2023.11.6
     """
     import tiktoken
 
     try:
         encoding = tiktoken.encoding_for_model(model)
-    except KeyError:
+    except Exception:
         logger.warning("model not found. Using cl100k_base encoding.")
         encoding = tiktoken.get_encoding("cl100k_base")
 
-    if model in {
-        "gpt-3.5-turbo-0613",
-        "gpt-3.5-turbo-16k-0613",
-        "gpt-4-0314",
-        "gpt-4-32k-0314",
-        "gpt-4-0613",
-        "gpt-4-32k-0613",
-    }:
-        return len(encoding.encode(messages))
-    elif "gpt-3.5-turbo" in model:
-        return num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613")
-    elif "gpt-4" in model:
-        return num_tokens_from_messages(messages, model="gpt-4-0613")
-    else:
-        logger.warning(
-            f"num_tokens_from_messages() is not implemented for model {model}, use gpt-3.5-turbo-0613 instead"
-        )
-        return num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613")
+    return len(encoding.encode(messages))
+
+
+AUDIO_MODEL_COST_PER_1K_CHARS = {
+    "tts-1": 0.015,
+    "tts-1-hd": 0.03,
+}
+
+
+def num_characters_for_audio(input: str) -> int:
+    """
+    The maximum length is 4096 characters.
+
+    Refer: https://platform.openai.com/docs/api-reference/audio/createSpeech
+    """
+    if not input:
+        logger.warning("failed to get audio cost for input is none")
+        return 0
+
+    return min(len(input), 4096)
+
+
+def get_openai_audio_cost_for_tts(model_name: str, num_chars: int) -> float:
+    """
+    NOTE: this function won't assure exact the same result of OpenAI
+
+    Refer: https://platform.openai.com/docs/api-reference/audio/createSpeech
+    """
+    if model_name not in AUDIO_MODEL_COST_PER_1K_CHARS:
+        logger.warning(f"failed to get ttl cost for '{model_name}' is unsupported")
+        return 0
+
+    cost = AUDIO_MODEL_COST_PER_1K_CHARS[model_name] * (num_chars / 1000)
+    return round(cost, 6)
+
+
+def get_openai_audio_cost_for_whisper(seconds: int) -> float:
+    """
+    cost: 0.006 per minute, rounded to the nearest second
+    """
+    cost = 0.006 * (seconds / 60)
+    return round(cost, 6)
