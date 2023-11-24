@@ -7,46 +7,44 @@ from greptimeai.extractor.openai_extractor import OpenaiExtractor
 
 
 # TODO(yuanbohan): verbose for sensitive fields
-class FileListExtractor(OpenaiExtractor):
-    def __init__(self, client: Optional[OpenAI] = None):
+class _FileExtractor(OpenaiExtractor):
+    def __init__(self, client: Optional[OpenAI], method_name: str):
         obj = client.files if client else openai.files
-        method_name = "list"
-        span_name = "files.list"
+        span_name = f"files.{method_name}"
 
         super().__init__(obj=obj, method_name=method_name, span_name=span_name)
 
 
-class FileCreateExtractor(OpenaiExtractor):
+class FileListExtractor(_FileExtractor):
     def __init__(self, client: Optional[OpenAI] = None):
-        obj = client.files if client else openai.files
-        method_name = "create"
-        span_name = "files.create"
-
-        super().__init__(obj=obj, method_name=method_name, span_name=span_name)
+        super().__init__(client=client, method_name="list")
 
 
-class FileDeleteExtractor(OpenaiExtractor):
+class FileCreateExtractor(_FileExtractor):
     def __init__(self, client: Optional[OpenAI] = None):
-        obj = client.files if client else openai.files
-        method_name = "delete"
-        span_name = "files.delete"
-
-        super().__init__(obj=obj, method_name=method_name, span_name=span_name)
+        super().__init__(client=client, method_name="create")
 
 
-class FileRetrieveExtractor(OpenaiExtractor):
+class FileDeleteExtractor(_FileExtractor):
     def __init__(self, client: Optional[OpenAI] = None):
-        obj = client.files if client else openai.files
-        method_name = "retrieve"
-        span_name = "files.retrieve"
-
-        super().__init__(obj=obj, method_name=method_name, span_name=span_name)
+        super().__init__(client=client, method_name="delete")
 
 
-class FileContentExtractor(OpenaiExtractor):
+class FileRetrieveExtractor(_FileExtractor):
     def __init__(self, client: Optional[OpenAI] = None):
-        obj = client.files if client else openai.files
-        method_name = "content"
-        span_name = "files.content"
+        super().__init__(client=client, method_name="retrieve")
 
-        super().__init__(obj=obj, method_name=method_name, span_name=span_name)
+
+class FileRetrieveContentExtractor(_FileExtractor):
+    """
+    `.retrieve_content()` is deprecated, but it should be tracked as well.
+    The `.content()` method should be used instead
+    """
+
+    def __init__(self, client: Optional[OpenAI] = None):
+        super().__init__(client=client, method_name="retrieve_content")
+
+
+class FileContentExtractor(_FileExtractor):
+    def __init__(self, client: Optional[OpenAI] = None):
+        super().__init__(client=client, method_name="content")

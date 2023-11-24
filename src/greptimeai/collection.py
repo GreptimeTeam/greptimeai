@@ -591,6 +591,9 @@ class Collector:
                 f"latency won't be recorded for None value. attribute is: { attributes }"
             )
 
+    def collect_error_count(self, attributes: Dict[str, Any]):
+        self._llm_error_count.add(1, attributes)
+
     def get_model_in_context(self, span_id: Union[UUID, str]) -> Optional[str]:
         context = self._trace_tables.get_trace_context(span_id)
 

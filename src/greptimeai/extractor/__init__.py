@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, Optional
 
+from greptimeai import logger
+from greptimeai.tracker import _GREPTIMEAI_WRAPPED
+
 
 class Extraction:
     def __init__(
@@ -42,6 +45,19 @@ class BaseExtractor(ABC):
     @abstractmethod
     def get_func(self) -> Optional[Callable]:
         pass
+
+    def get_unwrapped_func(self) -> Optional[Callable]:
+        func = self.get_func()
+        if not func:
+            logger.warning(f"function '{self.get_func_name()}' not found.")
+            return None
+
+        if hasattr(func, _GREPTIMEAI_WRAPPED):
+            logger.warning(
+                f"the function '{self.get_func_name()}' has already been patched."
+            )
+            return None
+        return func
 
     @abstractmethod
     def set_func(self, func: Callable):
