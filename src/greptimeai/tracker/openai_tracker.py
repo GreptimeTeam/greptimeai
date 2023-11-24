@@ -1,20 +1,10 @@
 import functools
 import time
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from openai import OpenAI
-from opentelemetry.util.types import Attributes
 
-from greptimeai import (
-    _COMPLETION_COST_LABEL,
-    _COMPLETION_TOKENS_LABEL,
-    _ERROR_TYPE_LABEL,
-    _MODEL_LABEL,
-    _SPAN_NAME_LABEL,
-    _PROMPT_COST_LABEl,
-    _PROMPT_TOKENS_LABEl,
-    logger,
-)
+from greptimeai import _MODEL_LABEL, _SPAN_NAME_LABEL
 from greptimeai.extractor import BaseExtractor
 from greptimeai.extractor.openai_extractor.audio_extractor import (
     SpeechExtractor,
@@ -34,6 +24,11 @@ from greptimeai.extractor.openai_extractor.file_extractor import (
     FileDeleteExtractor,
     FileListExtractor,
     FileRetrieveExtractor,
+)
+from greptimeai.extractor.openai_extractor.image_extractor import (
+    ImageEditExtractor,
+    ImageGenerateExtractor,
+    ImageVariationExtractor,
 )
 from greptimeai.tracker import _GREPTIMEAI_WRAPPED, BaseTracker
 
@@ -74,70 +69,55 @@ class OpenaiTracker(BaseTracker):
         self._verbose = verbose
 
     def setup(self, client: Optional[OpenAI] = None):
-        self._patch(ChatCompletionExtractor(client, self._verbose))
-        self._patch(CompletionExtractor(client, self._verbose))
-        self._patch(EmbeddingExtractor(client, self._verbose))
-        self._patch(FileListExtractor(client))
-        self._patch(FileCreateExtractor(client))
-        self._patch(FileDeleteExtractor(client))
-        self._patch(FileRetrieveExtractor(client))
-        self._patch(FileContentExtractor(client))
-        self._patch(SpeechExtractor(client, self._verbose))
-        self._patch(TranscriptionExtractor(client, self._verbose))
-        self._patch(TranslationExtractor(client, self._verbose))
+        extractors = [
+            ChatCompletionExtractor(client, self._verbose),
+            CompletionExtractor(client, self._verbose),
+            EmbeddingExtractor(client, self._verbose),
+            FileListExtractor(client),
+            FileCreateExtractor(client),
+            FileDeleteExtractor(client),
+            FileRetrieveExtractor(client),
+            FileContentExtractor(client),
+            SpeechExtractor(client),
+            TranscriptionExtractor(client),
+            TranslationExtractor(client),
+            ImageEditExtractor(client),
+            ImageGenerateExtractor(client),
+            ImageVariationExtractor(client),
+        ]
+
+        for extractor in extractors:
+            self._patch(extractor)
 
     def _patch(self, extractor: BaseExtractor):
         """
+        TODO(yuanbohan): to support:
+          - stream
+          - async
+          - with_raw_response
+          - error, timeout, retry
+          - trace headers of request and response
+
         Args:
             extractor: extractor helps to extract useful information from request and response
         """
-        func = extractor.get_func()
+        func = extractor.get_unwrapped_func()
         if not func:
-            logger.warning(f"function '{extractor.get_func_name()}' not found.")
             return
 
-        if hasattr(func, _GREPTIMEAI_WRAPPED):
-            logger.warning(
-                f"no need to patch '{extractor.get_func_name()}' multiple times."
-            )
-            return
-
-        # TODO(yuanbohan): to support:
-        #
-        #   - stream
-        #   - async
-        #   - with raw response
-        #   - error, timeout, retry
-        #   - trace headers of request and response
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             req_extraction = extractor.pre_extract(*args, **kwargs)
-            span_id = self._collector.start_span(
-                span_id=None,
-                parent_id=None,
-                span_name=extractor.get_span_name(),
-                event_name="start",
-                span_attrs=req_extraction.span_attributes,
-                event_attrs=req_extraction.event_attributes,
-            )
+            span_id = self.start_span(extractor.get_span_name(), req_extraction)
             common_attrs = {_SPAN_NAME_LABEL: extractor.get_span_name()}
             start = time.time()
             ex = None
             try:
                 resp = func(*args, **kwargs)
             except Exception as e:
+                self.collect_error_count(req_extraction, e, common_attrs)
                 ex = e
-                self._collector._llm_error_count.add(
-                    1,
-                    {
-                        _MODEL_LABEL: req_extraction.span_attributes.get(
-                            _MODEL_LABEL, ""
-                        ),
-                        _ERROR_TYPE_LABEL: ex.__class__.__name__,
-                        **common_attrs,
-                    },
-                )
-                raise ex
+                raise e
             finally:
                 latency = 1000 * (time.time() - start)
                 resp_extraction = extractor.post_extract(resp)
@@ -146,40 +126,9 @@ class OpenaiTracker(BaseTracker):
                     **common_attrs,
                 }
                 self._collector.record_latency(latency, attributes=attrs)
-
-                self._collector.end_span(
-                    span_id=span_id,  # type: ignore
-                    span_name=extractor.get_span_name(),
-                    event_name="end",
-                    span_attrs=resp_extraction.span_attributes,
-                    event_attrs=resp_extraction.event_attributes,
-                    ex=ex,
-                )
-
-                self._collect_metrics(
-                    attrs=attrs, span_attrs=resp_extraction.span_attributes
-                )
+                self.end_span(span_id, extractor.get_span_name(), resp_extraction, ex)  # type: ignore
+                self.collect_metrics(extraction=resp_extraction, attrs=attrs)
             return resp
 
         setattr(wrapper, _GREPTIMEAI_WRAPPED, True)
         extractor.set_func(wrapper)
-
-    def _collect_metrics(self, attrs: Optional[Attributes], span_attrs: Dict[str, Any]):
-        """
-        Args:
-
-            attrs: for OTLP collection
-            span_attrs: attributes to get useful metrics
-        """
-        prompt_tokens = span_attrs.get(_PROMPT_TOKENS_LABEl, 0)
-        prompt_cost = span_attrs.get(_PROMPT_COST_LABEl, 0)
-        completion_tokens = span_attrs.get(_COMPLETION_TOKENS_LABEL, 0)
-        completion_cost = span_attrs.get(_COMPLETION_COST_LABEL, 0)
-
-        self._collector.collect_metrics(
-            prompt_tokens=prompt_tokens,
-            prompt_cost=prompt_cost,
-            completion_tokens=completion_tokens,
-            completion_cost=completion_cost,
-            attrs=attrs,
-        )
