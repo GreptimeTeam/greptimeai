@@ -3,6 +3,7 @@ from typing import Optional
 import openai
 from openai import OpenAI
 from openai.types.chat.chat_completion import ChatCompletion
+from typing_extensions import override
 
 from greptimeai.extractor import Extraction
 from greptimeai.extractor.openai_extractor import OpenaiExtractor
@@ -22,6 +23,7 @@ class ChatCompletionExtractor(OpenaiExtractor):
         super().__init__(obj=obj, method_name=method_name, span_name=span_name)
         self.verbose = verbose
 
+    @override
     def pre_extract(self, *args, **kwargs) -> Extraction:
         extraction = super().pre_extract(*args, **kwargs)
         extraction.hide_field_in_event_attributes("messages", self.verbose)
@@ -34,6 +36,7 @@ class ChatCompletionExtractor(OpenaiExtractor):
 
         return extraction
 
+    @override
     def post_extract(self, resp: ChatCompletion) -> Extraction:
         extraction = super().post_extract(resp)
 

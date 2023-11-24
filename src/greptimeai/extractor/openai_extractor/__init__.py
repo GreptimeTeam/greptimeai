@@ -1,5 +1,7 @@
 from typing import Any, Callable, Dict, Optional
 
+from typing_extensions import override
+
 from greptimeai import (
     _COMPLETION_COST_LABEL,
     _COMPLETION_TOKENS_LABEL,
@@ -54,6 +56,7 @@ class OpenaiExtractor(BaseExtractor):
             )
         return res
 
+    @override
     def pre_extract(self, *args, **kwargs) -> Extraction:
         """
         extract _MODEL_LABEL, _USER_ID_LABEL for span attributes
@@ -78,6 +81,7 @@ class OpenaiExtractor(BaseExtractor):
 
         return Extraction(span_attributes=span_attrs, event_attributes=event_attrs)
 
+    @override
     def post_extract(self, resp: Any) -> Extraction:
         """
         extract for span attributes:
@@ -116,14 +120,18 @@ class OpenaiExtractor(BaseExtractor):
 
         return Extraction(span_attributes=span_attrs, event_attributes=dump)
 
+    @override
     def get_func_name(self) -> str:
         return self.method_name
 
+    @override
     def get_span_name(self) -> str:
         return self.span_name
 
+    @override
     def get_func(self) -> Optional[Callable]:
         return getattr(self.obj, self.method_name, None)
 
+    @override
     def set_func(self, func: Callable):
         setattr(self.obj, self.method_name, func)
