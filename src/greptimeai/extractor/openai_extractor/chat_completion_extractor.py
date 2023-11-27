@@ -23,7 +23,7 @@ class ChatCompletionExtractor(OpenaiExtractor):
         method_name = "create"
         span_name = "chat.completions.create"
         if isinstance(client, AsyncOpenAI):
-            span_name = "chat.completions.create[async]"
+            span_name = "chat.completions.acreate"
 
         super().__init__(obj=obj, method_name=method_name, span_name=span_name)
 
