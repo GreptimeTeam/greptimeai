@@ -32,9 +32,10 @@ class CompletionExtractor(OpenaiExtractor):
     @override
     def post_extract(self, resp: Completion) -> Extraction:
         extraction = super().post_extract(resp)
-        if resp.choices:
+        choices = extraction.event_attributes.get("choices", None)
+        if choices:
             extraction.update_event_attributes(
-                {"choices": parse_choices(resp.choices, self.verbose)}
+                {"choices": parse_choices(choices, self.verbose)}
             )
 
         return extraction

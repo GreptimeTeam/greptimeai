@@ -17,7 +17,7 @@ class ChatCompletionExtractor(OpenaiExtractor):
         verbose: bool = True,
     ):
         self.verbose = verbose
-        self.client = client
+        self._is_async = isinstance(client, AsyncOpenAI)
 
         obj = client.chat.completions if client else openai.chat.completions
         method_name = "create"
@@ -43,13 +43,14 @@ class ChatCompletionExtractor(OpenaiExtractor):
     @override
     def post_extract(self, resp: ChatCompletion) -> Extraction:
         extraction = super().post_extract(resp)
-        if resp.choices:
+        choices = extraction.event_attributes.get("choices", None)
+        if choices:
             extraction.update_event_attributes(
-                {"choices": parse_choices(resp.choices, self.verbose)}
+                {"choices": parse_choices(choices, self.verbose)}
             )
 
         return extraction
 
     @override
     def is_async(self) -> bool:
-        return isinstance(self.client, AsyncOpenAI)
+        return self._is_async
