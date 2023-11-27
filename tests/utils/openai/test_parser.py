@@ -31,7 +31,7 @@ def test_parse_choices():
         tool_calls=[tool_call],
     )
     choice = Choice(finish_reason="tool_calls", index=0, message=message)
-    choice=choice.model_dump()
+    choice = choice.model_dump()
 
     expect = [
         {
@@ -81,6 +81,3 @@ def test_parse_chat_completion_message_params():
         }
     ]
     assert expect == parse_message_params([param])
-
-
-test_parse_choices()

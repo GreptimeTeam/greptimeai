@@ -8,7 +8,6 @@ from greptimeai import (
     _COMPLETION_COST_LABEL,
     _COMPLETION_TOKENS_LABEL,
     _ERROR_TYPE_LABEL,
-    _MODEL_LABEL,
     _PROMPT_COST_LABEl,
     _PROMPT_TOKENS_LABEl,
 )
@@ -66,14 +65,11 @@ class BaseTracker(ABC):
             ex=ex,
         )
 
-    def collect_error_count(
-        self, extraction: Extraction, ex: Exception, attrs: Dict[str, Any]
-    ):
+    def collect_error_count(self, ex: Exception, attrs: Dict[str, Any]):
         """
         Collects error count for a given extraction and exception.
 
         Args:
-            extraction (Extraction): The extraction object.
             ex (Exception): The exception object.
             attrs (Dict[str, Any]): Additional attributes.
 
@@ -81,7 +77,6 @@ class BaseTracker(ABC):
             None
         """
         attributes = {
-            _MODEL_LABEL: extraction.span_attributes.get(_MODEL_LABEL, ""),
             _ERROR_TYPE_LABEL: ex.__class__.__name__,
             **attrs,
         }

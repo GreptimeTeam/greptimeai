@@ -26,13 +26,7 @@ class OpenaiExtractor(BaseExtractor):
         self._is_async = is_async
 
         if self._is_async:
-            idx = self.method_name.rindex(".")
-            if idx > 0 and idx + 1 < len(self.method_name) - 1:
-                self.method_name = (
-                    self.method_name[: idx + 1] + "async_" + self.method_name[idx + 1 :]
-                )
-            else:
-                self.method_name = f"async_{self.method_name}"
+            self.method_name = f"async_openai.{self.method_name}"
 
     @staticmethod
     def get_user_id(**kwargs) -> Optional[str]:
