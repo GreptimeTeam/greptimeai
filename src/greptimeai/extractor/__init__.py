@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, Optional
 
-from greptimeai import logger
-from greptimeai import tracker
+from greptimeai import logger, tracker
 
 
 class Extraction:
@@ -61,8 +60,4 @@ class BaseExtractor(ABC):
 
     @abstractmethod
     def set_func(self, func: Callable):
-        pass
-
-    @abstractmethod
-    def is_async(self) -> bool:
         pass

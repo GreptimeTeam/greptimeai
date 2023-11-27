@@ -19,10 +19,20 @@ _X_USER_ID = "x-user-id"
 
 
 class OpenaiExtractor(BaseExtractor):
-    def __init__(self, obj: object, method_name: str, span_name: str):
+    def __init__(self, obj: object, method_name: str, span_name: str, is_async: bool):
         self.obj = obj
         self.span_name = span_name
         self.method_name = method_name
+        self._is_async = is_async
+
+        if self._is_async:
+            idx = self.method_name.rindex(".")
+            if idx > 0 and idx + 1 < len(self.method_name) - 1:
+                self.method_name = (
+                    self.method_name[: idx + 1] + "async_" + self.method_name[idx + 1 :]
+                )
+            else:
+                self.method_name = f"async_{self.method_name}"
 
     @staticmethod
     def get_user_id(**kwargs) -> Optional[str]:
@@ -136,6 +146,6 @@ class OpenaiExtractor(BaseExtractor):
     def set_func(self, func: Callable):
         setattr(self.obj, self.method_name, func)
 
-    @override
+    @property
     def is_async(self) -> bool:
-        pass
+        return self._is_async
