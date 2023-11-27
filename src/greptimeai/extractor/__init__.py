@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, Optional
 
 from greptimeai import logger
-import greptimeai.tracker as tracker
+from greptimeai import tracker
 
 
 class Extraction:
