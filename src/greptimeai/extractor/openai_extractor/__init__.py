@@ -135,3 +135,7 @@ class OpenaiExtractor(BaseExtractor):
     @override
     def set_func(self, func: Callable):
         setattr(self.obj, self.method_name, func)
+
+    @override
+    def is_async(self) -> bool:
+        pass

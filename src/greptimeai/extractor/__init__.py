@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, Optional
 
 from greptimeai import logger
-from greptimeai.tracker import _GREPTIMEAI_WRAPPED
+import greptimeai.tracker as tracker
 
 
 class Extraction:
@@ -52,7 +52,7 @@ class BaseExtractor(ABC):
             logger.warning(f"function '{self.get_func_name()}' not found.")
             return None
 
-        if hasattr(func, _GREPTIMEAI_WRAPPED):
+        if hasattr(func, tracker._GREPTIMEAI_WRAPPED):
             logger.warning(
                 f"the function '{self.get_func_name()}' has already been patched."
             )
@@ -61,4 +61,8 @@ class BaseExtractor(ABC):
 
     @abstractmethod
     def set_func(self, func: Callable):
+        pass
+
+    @abstractmethod
+    def is_async(self) -> bool:
         pass
