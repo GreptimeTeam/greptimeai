@@ -1,6 +1,6 @@
 import functools
 import time
-from typing import Optional
+from typing import Optional, Union
 
 from openai import OpenAI, AsyncOpenAI
 from typing_extensions import override
@@ -25,8 +25,7 @@ def setup(
     host: str = "",
     database: str = "",
     token: str = "",
-    client: Optional[OpenAI] = None,
-    async_client: Optional[AsyncOpenAI] = None,
+    client: Optional[Union[OpenAI, AsyncOpenAI]] = None,
 ):
     """
     patch openai functions automatically.
@@ -39,10 +38,9 @@ def setup(
         database: if None or empty string, GREPTIMEAI_DATABASE environment variable will be used.
         token: if None or empty string, GREPTIMEAI_TOKEN environment variable will be used.
         client: if None, then openai module-level client will be patched.
-        async_client: if None, then openai module-level client will be patched.
     """
     tracker = OpenaiTracker(host, database, token)
-    tracker.setup(client, async_client)
+    tracker.setup(client)
 
 
 class OpenaiTracker(BaseTracker):
@@ -61,10 +59,15 @@ class OpenaiTracker(BaseTracker):
     @override
     def setup(
         self,
-        client: Optional[OpenAI] = None,
-        async_client: Optional[AsyncOpenAI] = None,
+        client: Optional[Union[OpenAI, AsyncOpenAI]] = None,
     ):
-        sync_extractors = [
+        if isinstance(client, AsyncOpenAI):
+            self._patch(
+                chat_completion_extractor.ChatCompletionExtractor(client, self._verbose)
+            )
+            return
+
+        extractors = [
             chat_completion_extractor.ChatCompletionExtractor(client, self._verbose),
             completion_extractor.CompletionExtractor(client, self._verbose),
             embedding_extractor.EmbeddingExtractor(client, self._verbose),
@@ -90,15 +93,7 @@ class OpenaiTracker(BaseTracker):
             fine_tuning_extractor.FineTuningListExtractor(client),
         ]
 
-        async_extractors = [
-            chat_completion_extractor.ChatCompletionExtractor(
-                async_client, self._verbose
-            ),
-        ]
-
-        for extractor in sync_extractors:
-            self._patch(extractor)
-        for extractor in async_extractors:
+        for extractor in extractors:
             self._patch(extractor)
 
     def _patch(self, extractor: BaseExtractor):
@@ -117,7 +112,8 @@ class OpenaiTracker(BaseTracker):
         if not func:
             return
 
-        if extractor.is_async():
+        if hasattr(extractor, "is_async") and extractor.is_async():
+
             @functools.wraps(func)
             async def wrapper(*args, **kwargs):
                 req_extraction = extractor.pre_extract(*args, **kwargs)
