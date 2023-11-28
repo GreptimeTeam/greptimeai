@@ -36,9 +36,9 @@ def test_extract_token():
 
 @mock.patch.dict(os.environ, {"mock_env_variable": "mock_value"}, clear=True)
 def test_check_with_env():
-    assert _check_with_env("var_name", None, "not_exist_env", False) is None
-    assert _check_with_env("val_name", "", "not_exist_env", False) is None
-    assert _check_with_env("val_name", "   ", "not_exist_env", False) is None
+    assert _check_with_env("var_name", None, "not_exist_env", False) == ""
+    assert _check_with_env("val_name", "", "not_exist_env", False) == ""
+    assert _check_with_env("val_name", "   ", "not_exist_env", False) == ""
 
     assert _check_with_env("var_name", None, "mock_env_variable") == "mock_value"
     assert _check_with_env("var_name", "", "mock_env_variable") == "mock_value"

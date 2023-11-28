@@ -28,46 +28,12 @@ def test_num_tokens():
 
 def test_cal_openai_token_cost_for_model():
     cases = [
-        (
-            0.15,
-            [
-                "gpt-3.5-turbo-0613",
-                100000,
-                False,
-            ],
-        ),
-        (
-            0.2,
-            [
-                "gpt-3.5-turbo-0613",
-                100000,
-                True,
-            ],
-        ),
-        (
-            0,
-            [
-                "unknown",
-                10,
-                False,
-            ],
-        ),
-        (
-            0,
-            [
-                "unknown",
-                10,
-                True,
-            ],
-        ),
-        (
-            0.04,
-            [
-                "text-embedding-ada-002",
-                100000,
-                False,
-            ],
-        ),
+        (0.15, ("gpt-3.5-turbo-0613", 100000, False)),
+        (0.2, ("gpt-3.5-turbo-0613", 100000, True)),
+        (0, ("unknown", 10, False)),
+        (0, ("unknown", 10, True)),
+        (0.04, ("text-embedding-ada-002", 100000, False)),
     ]
     for cost, args in cases:
-        assert cost == get_openai_token_cost_for_model(*args)
+        model, num, is_completion = args
+        assert cost == get_openai_token_cost_for_model(model, num, is_completion)

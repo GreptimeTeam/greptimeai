@@ -31,7 +31,7 @@ def test_parse_choices():
         tool_calls=[tool_call],
     )
     choice = Choice(finish_reason="tool_calls", index=0, message=message)
-    choice = choice.model_dump()
+    dict = choice.model_dump()
 
     expect = [
         {
@@ -51,12 +51,12 @@ def test_parse_choices():
             },
         }
     ]
-    assert expect == parse_choices([choice])
+    assert expect == parse_choices([dict])
 
     expect_verbose_false = [
         {"index": 0, "finish_reason": "tool_calls", "message": "..."}
     ]
-    assert expect_verbose_false == parse_choices([choice], False)
+    assert expect_verbose_false == parse_choices([dict], False)
 
 
 def test_parse_chat_completion_message_params():

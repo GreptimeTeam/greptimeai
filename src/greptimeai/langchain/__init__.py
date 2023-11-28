@@ -1,4 +1,4 @@
-from typing import Any, Dict, Iterable, Optional, Sequence, Union
+from typing import Any, Dict, Iterable, Optional, Sequence, TypeVar, Union
 
 from langchain.schema import ChatGeneration, Generation
 from langchain.schema.document import Document

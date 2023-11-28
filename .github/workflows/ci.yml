@@ -39,14 +39,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install .
 
+      - name: Install Dev dependencies
+        run: |
+          pip install langchain openai pytest ruff mypy
+
       # TODO(yuanbohan): code coverage with pytest-cov
       - name: Test with pytest
         run: |
-          pip install pytest langchain tiktoken openai
           pytest tests/ -v
 
       - name: Lint & Format with Ruff
         run: |
-          pip install ruff
           ruff check --output-format=github .
           ruff format .
+
+      - name: Static Type Checking with mypy
+        run: |
+          mypy $(git ls-files '*.py')

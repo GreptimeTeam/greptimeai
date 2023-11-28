@@ -3,7 +3,7 @@ import json
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, MutableMapping, Optional, Tuple, Union
 from uuid import UUID
 
 from opentelemetry import metrics, trace
@@ -18,7 +18,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Span, Status, StatusCode, Tracer, set_span_in_context
 from opentelemetry.trace.span import format_span_id
-from opentelemetry.util.types import Attributes
+from opentelemetry.util.types import Attributes, AttributeValue
 
 from . import logger
 from .scope import _NAME, _VERSION
@@ -62,18 +62,18 @@ def _extract_token(token: Optional[str]) -> Tuple[str, str]:
 
 def _check_with_env(
     name: str, value: Optional[str], env_name: str, required: bool = True
-) -> Optional[str]:
+) -> str:
     if value and value.strip() != "":
         return value
 
-    value = os.getenv(env_name)
-    if value:
-        return value
+    value = os.getenv(env_name, "")
 
-    if required:
+    if required and not value:
         raise ValueError(
             f"{name} MUST BE provided either by passing arguments or setup environment variable {env_name}"
         )
+
+    return value
 
 
 def _is_valid_otel_attributes_value_type(val: Any) -> bool:
@@ -91,7 +91,7 @@ def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Attributes:
     Other types will be sanitated to json string, and
     append this key in `_JSON_KEYS_IN_OTLP_ATTRIBUTES`
     """
-    result = {}
+    result: MutableMapping[str, AttributeValue] = {}
     if not attrs:
         return result
 
@@ -357,7 +357,7 @@ class Collector:
         username, password = _extract_token(self.token)
         auth = f"{username}:{password}"
         b64_auth = base64.b64encode(auth.encode()).decode("ascii")
-        greptime_headers = {
+        greptime_headers: Dict[str, str] = {
             "Authorization": f"Basic {b64_auth}",
             "x-greptime-db-name": self.database,
         }

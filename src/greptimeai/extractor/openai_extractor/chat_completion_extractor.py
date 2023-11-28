@@ -16,8 +16,6 @@ class ChatCompletionExtractor(OpenaiExtractor):
         client: Union[OpenAI, AsyncOpenAI, None] = None,
         verbose: bool = True,
     ):
-        self.verbose = verbose
-
         obj = client.chat.completions if client else openai.chat.completions
         method_name = "create"
         span_name = "chat.completions.create"
@@ -26,8 +24,10 @@ class ChatCompletionExtractor(OpenaiExtractor):
             obj=obj,
             method_name=method_name,
             span_name=span_name,
-            is_async=isinstance(client, AsyncOpenAI),
+            client=client,
         )
+
+        self.verbose = verbose
 
     @override
     def pre_extract(self, *args, **kwargs) -> Extraction:

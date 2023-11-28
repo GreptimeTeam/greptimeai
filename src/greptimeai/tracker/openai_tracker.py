@@ -26,7 +26,7 @@ def setup(
     host: str = "",
     database: str = "",
     token: str = "",
-    client: Optional[Union[OpenAI, AsyncOpenAI]] = None,
+    client: Union[OpenAI, AsyncOpenAI, None] = None,
 ):
     """
     patch openai functions automatically.

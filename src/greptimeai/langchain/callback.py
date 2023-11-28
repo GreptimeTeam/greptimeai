@@ -12,6 +12,7 @@ from langchain.schema.output import (
     LLMResult,
 )
 from tenacity import RetryCallState
+from typing_extensions import override
 
 from greptimeai import (
     _CLASS_TYPE_LABEL,
@@ -65,6 +66,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
         )
         self._verbose = verbose
 
+    @override
     def on_chain_start(
         self,
         serialized: Dict[str, Any],
@@ -101,6 +103,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
+    @override
     def on_chain_end(
         self,
         outputs: Dict[str, Any],
@@ -122,9 +125,10 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
+    @override
     def on_chain_error(
         self,
-        error: Union[Exception, KeyboardInterrupt],
+        error: BaseException,
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
@@ -150,6 +154,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             },
         )
 
+    @override
     def on_llm_start(
         self,
         serialized: Dict[str, Any],
@@ -166,7 +171,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             f"on_llm_start. { run_id =} { parent_run_id =} { kwargs = } { serialized = }"
         )
 
-        span_attrs: dict[str, Any] = {
+        span_attrs: Dict[str, Any] = {
             _USER_ID_LABEL: _get_user_id(metadata),
         }
 
@@ -199,6 +204,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
+    @override
     def on_chat_model_start(
         self,
         serialized: Dict[str, Any],
@@ -216,7 +222,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
         )
 
         str_messages = get_buffer_string(messages[0])
-        span_attrs: dict[str, Any] = {
+        span_attrs: Dict[str, Any] = {
             _USER_ID_LABEL: _get_user_id(metadata),
         }
 
@@ -248,6 +254,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
+    @override
     def on_llm_end(
         self,
         response: LLMResult,
@@ -273,7 +280,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
         token_usage = output.get("token_usage", {})
 
         # NOTE: only cost of OpenAI model will be calculated and collected so far
-        prompt_tokens, prompt_cost, completion_cost, completion_tokens = 0, 0, 0, 0
+        prompt_tokens, prompt_cost, completion_tokens, completion_cost = 0, 0.0, 0, 0.0
         if model_name.strip() != "":
             if len(token_usage) > 0:
                 prompt_tokens = token_usage.get("prompt_tokens", 0)
@@ -326,9 +333,10 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
+    @override
     def on_llm_error(
         self,
-        error: Union[Exception, KeyboardInterrupt],
+        error: BaseException,
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
@@ -357,6 +365,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             },
         )
 
+    @override
     def on_llm_new_token(
         self,
         token: str,
@@ -381,6 +390,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             span_id=run_id, event_name="streaming", event_attrs=event_attrs
         )
 
+    @override
     def on_tool_start(
         self,
         serialized: Dict[str, Any],
@@ -418,6 +428,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
+    @override
     def on_tool_end(
         self,
         output: str,
@@ -442,9 +453,10 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
+    @override
     def on_tool_error(
         self,
-        error: Union[Exception, KeyboardInterrupt],
+        error: BaseException,
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
@@ -473,6 +485,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             },
         )
 
+    @override
     def on_agent_action(
         self,
         action: AgentAction,
@@ -510,6 +523,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
+    @override
     def on_agent_finish(
         self,
         finish: AgentFinish,
@@ -537,6 +551,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
+    @override
     def on_retriever_start(
         self,
         serialized: Dict[str, Any],
@@ -573,9 +588,10 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
+    @override
     def on_retriever_error(
         self,
-        error: Union[Exception, KeyboardInterrupt],
+        error: BaseException,
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
@@ -605,6 +621,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             },
         )
 
+    @override
     def on_retriever_end(
         self,
         documents: Sequence[Document],
@@ -634,6 +651,7 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
+    @override
     def on_retry(
         self,
         retry_state: RetryCallState,
