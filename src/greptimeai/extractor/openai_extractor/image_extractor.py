@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Union
 
 import openai
 from openai import AsyncOpenAI, OpenAI
