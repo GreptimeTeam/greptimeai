@@ -1,5 +1,6 @@
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Union
 
+from openai import AsyncOpenAI, OpenAI
 from typing_extensions import override
 
 from greptimeai import (
@@ -19,11 +20,17 @@ _X_USER_ID = "x-user-id"
 
 
 class OpenaiExtractor(BaseExtractor):
-    def __init__(self, obj: object, method_name: str, span_name: str, is_async: bool):
+    def __init__(
+        self,
+        obj: object,
+        method_name: str,
+        span_name: str,
+        client: Union[OpenAI, AsyncOpenAI, None] = None,
+    ):
         self.obj = obj
         self.span_name = span_name
         self.method_name = method_name
-        self._is_async = is_async
+        self._is_async = isinstance(client, AsyncOpenAI)
 
         if self._is_async:
             self.method_name = f"async_openai.{self.method_name}"
@@ -38,14 +45,14 @@ class OpenaiExtractor(BaseExtractor):
 
     @staticmethod
     def extract_usage(
-        model: Optional[str], usage: Optional[Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        res = {}
+        model: Optional[str], usage: Optional[Dict[str, int]]
+    ) -> Dict[str, Union[float, int]]:
+        res: Dict[str, Union[float, int]] = {}
 
         if not usage or not model:
             return res
 
-        prompt_tokens = usage.get("prompt_tokens", 0)
+        prompt_tokens: int = usage.get("prompt_tokens", 0)
         if prompt_tokens > 0:
             res[_PROMPT_TOKENS_LABEl] = prompt_tokens
             res[_PROMPT_COST_LABEl] = get_openai_token_cost_for_model(

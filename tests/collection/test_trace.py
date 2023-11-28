@@ -16,9 +16,6 @@ class TestTrace:
         tables = _TraceTable()
         model_name = "gpt-3.5-turbo"
         span_name, run_id = "chain", uuid.uuid1()
-        origin_span = {
-            "trace_id": "random_trace_id"
-        }  # this dict is to mock span object
         origin_span = self.tracer.start_span("origin_span")
 
         origin_context = _TraceContext(span_name, model_name, origin_span)

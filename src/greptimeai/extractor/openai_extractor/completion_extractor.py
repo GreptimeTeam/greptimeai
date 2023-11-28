@@ -1,7 +1,7 @@
-from typing import Optional
+from typing import Union
 
 import openai
-from openai import OpenAI
+from openai import AsyncOpenAI, OpenAI
 from openai.types import Completion
 from typing_extensions import override
 
@@ -13,14 +13,19 @@ from greptimeai.utils.openai.parser import parse_choices
 class CompletionExtractor(OpenaiExtractor):
     def __init__(
         self,
-        client: Optional[OpenAI] = None,
+        client: Union[OpenAI, AsyncOpenAI, None] = None,
         verbose: bool = True,
     ):
         obj = client.completions if client else openai.completions
         method_name = "create"
         span_name = "completions.create"
 
-        super().__init__(obj=obj, method_name=method_name, span_name=span_name)
+        super().__init__(
+            obj=obj,
+            method_name=method_name,
+            span_name=span_name,
+            client=client,
+        )
         self.verbose = verbose
 
     @override
