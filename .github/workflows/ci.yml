@@ -55,4 +55,4 @@ jobs:
 
       - name: Static Type Checking with mypy
         run: |
-          mypy $(git ls-files '*.py')
+          mypy $(git ls-files '*.py') --check-untyped-defs

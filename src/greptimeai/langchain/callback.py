@@ -12,7 +12,6 @@ from langchain.schema.output import (
     LLMResult,
 )
 from tenacity import RetryCallState
-from typing_extensions import override
 
 from greptimeai import (
     _CLASS_TYPE_LABEL,
@@ -49,7 +48,7 @@ from . import (
 )
 
 
-class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
+class GreptimeCallbackHandler(BaseCallbackHandler, BaseTracker):
     """
     Greptime LangChain callback handler to collect metrics and traces.
     """
@@ -66,7 +65,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
         )
         self._verbose = verbose
 
-    @override
     def on_chain_start(
         self,
         serialized: Dict[str, Any],
@@ -103,7 +101,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
-    @override
     def on_chain_end(
         self,
         outputs: Dict[str, Any],
@@ -125,7 +122,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
-    @override
     def on_chain_error(
         self,
         error: BaseException,
@@ -154,7 +150,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             },
         )
 
-    @override
     def on_llm_start(
         self,
         serialized: Dict[str, Any],
@@ -204,7 +199,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
-    @override
     def on_chat_model_start(
         self,
         serialized: Dict[str, Any],
@@ -254,7 +248,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
-    @override
     def on_llm_end(
         self,
         response: LLMResult,
@@ -333,7 +326,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
-    @override
     def on_llm_error(
         self,
         error: BaseException,
@@ -365,7 +357,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             },
         )
 
-    @override
     def on_llm_new_token(
         self,
         token: str,
@@ -390,7 +381,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             span_id=run_id, event_name="streaming", event_attrs=event_attrs
         )
 
-    @override
     def on_tool_start(
         self,
         serialized: Dict[str, Any],
@@ -428,7 +418,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
-    @override
     def on_tool_end(
         self,
         output: str,
@@ -453,7 +442,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
-    @override
     def on_tool_error(
         self,
         error: BaseException,
@@ -485,7 +473,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             },
         )
 
-    @override
     def on_agent_action(
         self,
         action: AgentAction,
@@ -523,7 +510,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
-    @override
     def on_agent_finish(
         self,
         finish: AgentFinish,
@@ -551,7 +537,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
-    @override
     def on_retriever_start(
         self,
         serialized: Dict[str, Any],
@@ -588,7 +573,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
-    @override
     def on_retriever_error(
         self,
         error: BaseException,
@@ -621,7 +605,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             },
         )
 
-    @override
     def on_retriever_end(
         self,
         documents: Sequence[Document],
@@ -651,7 +634,6 @@ class GreptimeCallbackHandler(BaseTracker, BaseCallbackHandler):
             event_attrs=event_attrs,
         )
 
-    @override
     def on_retry(
         self,
         retry_state: RetryCallState,

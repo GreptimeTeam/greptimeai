@@ -19,6 +19,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Span, Status, StatusCode, Tracer, set_span_in_context
 from opentelemetry.trace.span import format_span_id
 from opentelemetry.util.types import Attributes, AttributeValue
+from typing_extensions import override
 
 from . import logger
 from .scope import _NAME, _VERSION
@@ -143,6 +144,7 @@ class _TraceContext:
         """
         return set_span_in_context(self.span, Context({}))
 
+    @override
     def __repr__(self) -> str:
         span_context = self.span.get_span_context()
         return (
