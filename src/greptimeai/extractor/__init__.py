@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, Optional
 
-from greptimeai import logger
-from greptimeai import tracker
+from greptimeai import _MODEL_LABEL, logger, tracker
 
 
 class Extraction:
@@ -23,6 +22,11 @@ class Extraction:
     def hide_field_in_event_attributes(self, field: str, verbose: bool = True):
         if not verbose and field in self.event_attributes:
             self.event_attributes[field] = "..."
+
+    def get_model_name(self) -> Optional[str]:
+        return self.span_attributes.get(
+            _MODEL_LABEL, None
+        ) or self.event_attributes.get(_MODEL_LABEL, None)
 
 
 class BaseExtractor(ABC):
@@ -61,8 +65,4 @@ class BaseExtractor(ABC):
 
     @abstractmethod
     def set_func(self, func: Callable):
-        pass
-
-    @abstractmethod
-    def is_async(self) -> bool:
         pass

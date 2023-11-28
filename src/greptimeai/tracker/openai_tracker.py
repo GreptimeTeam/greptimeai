@@ -1,13 +1,14 @@
 import functools
 import time
-from typing import Optional, Union
+from typing import Optional, Tuple, Union
 
-from openai import OpenAI, AsyncOpenAI
+from openai import AsyncOpenAI, OpenAI
+from pydantic import BaseModel
 from typing_extensions import override
 
 from greptimeai import _MODEL_LABEL, _SPAN_NAME_LABEL
-from greptimeai.extractor import BaseExtractor
 from greptimeai.extractor.openai_extractor import (
+    OpenaiExtractor,
     audio_extractor,
     chat_completion_extractor,
     completion_extractor,
@@ -18,7 +19,7 @@ from greptimeai.extractor.openai_extractor import (
     model_extractor,
     moderation_extractor,
 )
-from greptimeai.tracker import _GREPTIMEAI_WRAPPED, BaseTracker
+from greptimeai.tracker import _GREPTIMEAI_WRAPPED, BaseTracker, Extraction
 
 
 def setup(
@@ -59,14 +60,8 @@ class OpenaiTracker(BaseTracker):
     @override
     def setup(
         self,
-        client: Optional[Union[OpenAI, AsyncOpenAI]] = None,
+        client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
-        if isinstance(client, AsyncOpenAI):
-            self._patch(
-                chat_completion_extractor.ChatCompletionExtractor(client, self._verbose)
-            )
-            return
-
         extractors = [
             chat_completion_extractor.ChatCompletionExtractor(client, self._verbose),
             completion_extractor.CompletionExtractor(client, self._verbose),
@@ -96,7 +91,35 @@ class OpenaiTracker(BaseTracker):
         for extractor in extractors:
             self._patch(extractor)
 
-    def _patch(self, extractor: BaseExtractor):
+    def _pre_patch(
+        self, extractor: OpenaiExtractor, *args, **kwargs
+    ) -> Tuple[Extraction, str]:
+        extraction = extractor.pre_extract(*args, **kwargs)
+        span_id: str = self.start_span(extractor.get_span_name(), extraction)  # type: ignore
+        return (extraction, span_id)
+
+    def _post_patch(
+        self,
+        span_id: str,
+        start: float,
+        extractor: OpenaiExtractor,
+        resp: BaseModel,
+        ex: Optional[Exception] = None,
+    ):
+        latency = 1000 * (time.time() - start)
+        extraction = extractor.post_extract(resp)
+        attrs = {
+            _SPAN_NAME_LABEL: extractor.get_span_name(),
+        }
+        model = extraction.get_model_name()
+        if model:
+            attrs[_MODEL_LABEL] = model
+
+        self._collector.record_latency(latency, attributes=attrs)
+        self.end_span(span_id, extractor.get_span_name(), extraction, ex)
+        self.collect_metrics(extraction=extraction, attrs=attrs)
+
+    def _patch(self, extractor: OpenaiExtractor):
         """
         TODO(yuanbohan): to support:
           - stream
@@ -112,63 +135,49 @@ class OpenaiTracker(BaseTracker):
         if not func:
             return
 
-        if hasattr(extractor, "is_async") and extractor.is_async():
+        if extractor.is_async:
 
             @functools.wraps(func)
-            async def wrapper(*args, **kwargs):
-                req_extraction = extractor.pre_extract(*args, **kwargs)
-                span_id = self.start_span(extractor.get_span_name(), req_extraction)
-                common_attrs = {_SPAN_NAME_LABEL: extractor.get_span_name()}
+            async def async_wrapper(*args, **kwargs):
+                extraction, span_id = self._pre_patch(extractor, *args, **kwargs)
                 start = time.time()
-                ex = None
+                resp, ex = None, None
                 try:
                     resp = await func(*args, **kwargs)
                 except Exception as e:
-                    self.collect_error_count(req_extraction, e, common_attrs)
+                    attrs = {
+                        _SPAN_NAME_LABEL: extractor.get_span_name(),
+                        _MODEL_LABEL: extraction.get_model_name(),
+                    }
+                    self.collect_error_count(e, attrs)
                     ex = e
                     raise e
                 finally:
-                    latency = 1000 * (time.time() - start)
-                    resp_extraction = extractor.post_extract(resp)
+                    self._post_patch(span_id, start, extractor, resp, ex)  # type: ignore
+                return resp
+
+            setattr(async_wrapper, _GREPTIMEAI_WRAPPED, True)
+            extractor.set_func(async_wrapper)
+        else:
+
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
+                extraction, span_id = self._pre_patch(extractor, *args, **kwargs)
+                start = time.time()
+                resp, ex = None, None
+                try:
+                    resp = func(*args, **kwargs)
+                except Exception as e:
                     attrs = {
-                        _MODEL_LABEL: resp_extraction.span_attributes.get(
-                            _MODEL_LABEL, ""
-                        ),
-                        **common_attrs,
+                        _SPAN_NAME_LABEL: extractor.get_span_name(),
+                        _MODEL_LABEL: extraction.get_model_name(),
                     }
-                    self._collector.record_latency(latency, attributes=attrs)
-                    self.end_span(span_id, extractor.get_span_name(), resp_extraction, ex)  # type: ignore
-                    self.collect_metrics(extraction=resp_extraction, attrs=attrs)
+                    self.collect_error_count(e, attrs)
+                    ex = e
+                    raise e
+                finally:
+                    self._post_patch(span_id, start, extractor, resp, ex)  # type: ignore
                 return resp
 
             setattr(wrapper, _GREPTIMEAI_WRAPPED, True)
             extractor.set_func(wrapper)
-            return
-
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            req_extraction = extractor.pre_extract(*args, **kwargs)
-            span_id = self.start_span(extractor.get_span_name(), req_extraction)
-            common_attrs = {_SPAN_NAME_LABEL: extractor.get_span_name()}
-            start = time.time()
-            ex = None
-            try:
-                resp = func(*args, **kwargs)
-            except Exception as e:
-                self.collect_error_count(req_extraction, e, common_attrs)
-                ex = e
-                raise e
-            finally:
-                latency = 1000 * (time.time() - start)
-                resp_extraction = extractor.post_extract(resp)
-                attrs = {
-                    _MODEL_LABEL: resp_extraction.span_attributes.get(_MODEL_LABEL, ""),
-                    **common_attrs,
-                }
-                self._collector.record_latency(latency, attributes=attrs)
-                self.end_span(span_id, extractor.get_span_name(), resp_extraction, ex)  # type: ignore
-                self.collect_metrics(extraction=resp_extraction, attrs=attrs)
-            return resp
-
-        setattr(wrapper, _GREPTIMEAI_WRAPPED, True)
-        extractor.set_func(wrapper)

@@ -1,7 +1,7 @@
-from typing import Optional, Union
+from typing import Union
 
 import openai
-from openai import OpenAI, AsyncOpenAI
+from openai import AsyncOpenAI, OpenAI
 from openai.types.chat.chat_completion import ChatCompletion
 from typing_extensions import override
 
@@ -13,19 +13,21 @@ from greptimeai.utils.openai.parser import parse_choices, parse_message_params
 class ChatCompletionExtractor(OpenaiExtractor):
     def __init__(
         self,
-        client: Optional[Union[OpenAI, AsyncOpenAI]] = None,
+        client: Union[OpenAI, AsyncOpenAI, None] = None,
         verbose: bool = True,
     ):
         self.verbose = verbose
-        self._is_async = isinstance(client, AsyncOpenAI)
 
         obj = client.chat.completions if client else openai.chat.completions
         method_name = "create"
         span_name = "chat.completions.create"
-        if isinstance(client, AsyncOpenAI):
-            span_name = "chat.completions.acreate"
 
-        super().__init__(obj=obj, method_name=method_name, span_name=span_name)
+        super().__init__(
+            obj=obj,
+            method_name=method_name,
+            span_name=span_name,
+            is_async=isinstance(client, AsyncOpenAI),
+        )
 
     @override
     def pre_extract(self, *args, **kwargs) -> Extraction:
@@ -50,7 +52,3 @@ class ChatCompletionExtractor(OpenaiExtractor):
             )
 
         return extraction
-
-    @override
-    def is_async(self) -> bool:
-        return self._is_async
