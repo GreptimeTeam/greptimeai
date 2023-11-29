@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Sequence
+
+from tracker import Trackee
 
 from greptimeai import _MODEL_LABEL
 
@@ -19,10 +21,6 @@ class Extraction:
     def update_event_attributes(self, attrs: Dict[str, Any]):
         self.event_attributes.update(attrs)
 
-    def hide_field_in_event_attributes(self, field: str, verbose: bool = True):
-        if not verbose and field in self.event_attributes:
-            self.event_attributes[field] = "..."
-
     def get_model_name(self) -> Optional[str]:
         return self.span_attributes.get(
             _MODEL_LABEL, None
@@ -39,17 +37,5 @@ class BaseExtractor(ABC):
         pass
 
     @abstractmethod
-    def get_span_name(self) -> str:
-        pass
-
-    @abstractmethod
-    def get_func_name(self) -> str:
-        pass
-
-    @abstractmethod
-    def get_func(self) -> Optional[Callable]:
-        pass
-
-    @abstractmethod
-    def set_func(self, func: Callable):
+    def get_trackees(self) -> Sequence[Trackee]:
         pass

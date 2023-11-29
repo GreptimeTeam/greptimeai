@@ -1,7 +1,8 @@
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, Sequence, Union
 
 from openai import AsyncOpenAI, OpenAI
 from openai._response import APIResponse
+from tracker import Trackee
 from typing_extensions import override
 
 from greptimeai import (
@@ -12,7 +13,6 @@ from greptimeai import (
     _PROMPT_COST_LABEl,
     _PROMPT_TOKENS_LABEl,
     logger,
-    tracker,
 )
 from greptimeai.extractor import BaseExtractor, Extraction
 from greptimeai.utils.openai.parser import parse_raw_response
@@ -25,18 +25,19 @@ _X_USER_ID = "x-user-id"
 class OpenaiExtractor(BaseExtractor):
     def __init__(
         self,
-        obj: object,
-        method_name: str,
-        span_name: str,
+        trackees: Sequence[Trackee],
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
-        self.obj = obj
-        self.method_name = method_name
         self._is_async = isinstance(client, AsyncOpenAI)
 
-        self.span_name = f"client.{span_name}" if client else f"openai.{span_name}"
-        if self._is_async:
-            self.span_name = f"async_{self.span_name}"
+        for trackee in trackees:
+            prefix = "client" if client else "openai"
+            trackee.span_name = f"{prefix}.{trackee.span_name}"
+
+            if self._is_async:
+                trackee.span_name = f"async_{trackee.span_name}"
+
+        self.trackees = trackees
 
     @staticmethod
     def get_user_id(**kwargs) -> Optional[str]:
@@ -137,35 +138,8 @@ class OpenaiExtractor(BaseExtractor):
         return Extraction(span_attributes=span_attrs, event_attributes=dict)
 
     @override
-    def get_func_name(self) -> str:
-        return self.method_name
-
-    @override
-    def get_span_name(self) -> str:
-        return self.span_name
-
-    def get_unwrapped_func(self) -> Optional[Callable]:
-        func = self.get_func()
-        if not func:
-            logger.warning(f"function '{self.get_func_name()}' not found.")
-            return None
-
-        if hasattr(func, tracker._GREPTIMEAI_WRAPPED):
-            logger.warning(
-                f"the function '{self.get_func_name()}' has already been patched."
-            )
-            return None
-        return func
-
-    @override
-    def get_func(self) -> Optional[Callable]:
-        return getattr(self.obj, self.method_name, None)
-
-    @override
-    def set_func(self, func: Callable):
-        setattr(func, tracker._GREPTIMEAI_WRAPPED, True)
-        setattr(self.obj, self.method_name, func)
-        logger.debug(f"greptimeai has patched '{self.span_name}'")
+    def get_trackees(self) -> Sequence[Trackee]:
+        return self.trackees
 
     @property
     def is_async(self) -> bool:

@@ -2,53 +2,47 @@ from typing import Union
 
 import openai
 from openai import AsyncOpenAI, OpenAI
-from openai.types.chat.chat_completion import ChatCompletion
-from typing_extensions import override
+from tracker import Trackee
 
-from greptimeai.extractor import Extraction
 from greptimeai.extractor.openai_extractor import OpenaiExtractor
-from greptimeai.utils.openai.parser import parse_choices, parse_message_params
 
 
 class ChatCompletionExtractor(OpenaiExtractor):
-    def __init__(
-        self,
-        client: Union[OpenAI, AsyncOpenAI, None] = None,
-        verbose: bool = True,
-    ):
-        obj = client.chat.completions if client else openai.chat.completions
-        method_name = "create"
-        span_name = "chat.completions.create"
-
-        super().__init__(
-            obj=obj,
-            method_name=method_name,
-            span_name=span_name,
-            client=client,
+    def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
+        chat_completion_create = Trackee(
+            obj=client.chat.completions if client else openai.chat.completions,
+            method_name="create",
+            span_name="chat.completions.create",
         )
 
-        self.verbose = verbose
+        chat_raw_completion_create = Trackee(
+            obj=client.chat.with_raw_response.completions
+            if client
+            else openai.chat.with_raw_response.completions,
+            method_name="create",
+            span_name="chat.with_raw_response.completions.create",
+        )
 
-    @override
-    def pre_extract(self, *args, **kwargs) -> Extraction:
-        extraction = super().pre_extract(*args, **kwargs)
-        extraction.hide_field_in_event_attributes("messages", self.verbose)
+        chat_completion_raw_create = Trackee(
+            obj=client.chat.completions.with_raw_response
+            if client
+            else openai.chat.completions.with_raw_response,
+            method_name="create",
+            span_name="chat.completions.with_raw_response.create",
+        )
 
-        messages = kwargs.get("messages", None)
-        if messages and self.verbose:
-            extraction.update_event_attributes(
-                {"messages": parse_message_params(messages)}
+        trackees = [
+            chat_completion_create,
+            chat_raw_completion_create,
+            chat_completion_raw_create,
+        ]
+
+        if client:
+            raw_chat_completion_create = Trackee(
+                obj=client.with_raw_response.chat.completions,
+                method_name="create",
+                span_name="with_raw_response.chat.completions.create",
             )
+            trackees.append(raw_chat_completion_create)
 
-        return extraction
-
-    @override
-    def post_extract(self, resp: ChatCompletion) -> Extraction:
-        extraction = super().post_extract(resp)
-        choices = extraction.event_attributes.get("choices", None)
-        if choices:
-            extraction.update_event_attributes(
-                {"choices": parse_choices(choices, self.verbose)}
-            )
-
-        return extraction
+        super().__init__(client=client, trackees=trackees)

@@ -1,6 +1,6 @@
 import functools
 import time
-from typing import Optional, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 from openai import AsyncOpenAI, OpenAI
 from pydantic import BaseModel
@@ -19,7 +19,7 @@ from greptimeai.extractor.openai_extractor import (
     model_extractor,
     moderation_extractor,
 )
-from greptimeai.tracker import BaseTracker, Extraction
+from greptimeai.tracker import BaseTracker, Extraction, Trackee
 
 
 def setup(
@@ -50,22 +50,20 @@ class OpenaiTracker(BaseTracker):
         host: str = "",
         database: str = "",
         token: str = "",
-        verbose: bool = True,
     ):
         super().__init__(
             service_name="openai", host=host, database=database, token=token
         )
-        self._verbose = verbose
 
     @override
     def setup(
         self,
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
-        extractors = [
-            chat_completion_extractor.ChatCompletionExtractor(client, self._verbose),
-            completion_extractor.CompletionExtractor(client, self._verbose),
-            embedding_extractor.EmbeddingExtractor(client, self._verbose),
+        extractors: List[OpenaiExtractor] = [
+            chat_completion_extractor.ChatCompletionExtractor(client),
+            completion_extractor.CompletionExtractor(client),
+            embedding_extractor.EmbeddingExtractor(client),
             file_extractor.FileListExtractor(client),
             file_extractor.FileCreateExtractor(client),
             file_extractor.FileDeleteExtractor(client),
@@ -81,106 +79,94 @@ class OpenaiTracker(BaseTracker):
             model_extractor.ModelRetrieveExtractor(client),
             model_extractor.ModelDeleteExtractor(client),
             moderation_extractor.ModerationExtractor(client),
-            fine_tuning_extractor.FineTuningListEventsExtractor(client),
-            fine_tuning_extractor.FineTuningCreateExtractor(client),
-            fine_tuning_extractor.FineTuningCancelExtractor(client),
-            fine_tuning_extractor.FineTuningRetrieveExtractor(client),
-            fine_tuning_extractor.FineTuningListExtractor(client),
+            # fine_tuning_extractor.FineTuningListEventsExtractor(client),
+            # fine_tuning_extractor.FineTuningCreateExtractor(client),
+            # fine_tuning_extractor.FineTuningCancelExtractor(client),
+            # fine_tuning_extractor.FineTuningRetrieveExtractor(client),
+            # fine_tuning_extractor.FineTuningListExtractor(client),
         ]
 
         for extractor in extractors:
-            self._patch(extractor)
+            for trackee in extractor.trackees:
+                func = trackee.get_unwrapped_func()
+                if func:
+                    if extractor.is_async:
+                        self._patch_async(func, extractor, trackee)
+                    else:
+                        self._patch(func, extractor, trackee)
 
-        info = "greptimeai is ready to track openai metrics and traces."
-        if not self._verbose:
-            info += "Input and Output won't be collected for verbose is False."
-        logger.info(info)
+        logger.info("greptimeai is ready to track openai metrics and traces.")
 
     def _pre_patch(
-        self, extractor: OpenaiExtractor, *args, **kwargs
-    ) -> Tuple[Extraction, str]:
+        self, extractor: OpenaiExtractor, span_name: str, *args, **kwargs
+    ) -> Tuple[Extraction, str, float]:
         extraction = extractor.pre_extract(*args, **kwargs)
-        span_id: str = self.start_span(extractor.get_span_name(), extraction)  # type: ignore
-        return (extraction, span_id)
+        span_id: str = self.start_span(span_name, extraction)  # type: ignore
+        start = time.time()
+        return (extraction, span_id, start)
 
     def _post_patch(
         self,
         span_id: str,
         start: float,
         extractor: OpenaiExtractor,
+        span_name: str,
         resp: BaseModel,
         ex: Optional[Exception] = None,
     ):
         latency = 1000 * (time.time() - start)
         extraction = extractor.post_extract(resp)
         attrs = {
-            _SPAN_NAME_LABEL: extractor.get_span_name(),
+            _SPAN_NAME_LABEL: span_name
         }
         model = extraction.get_model_name()
         if model:
             attrs[_MODEL_LABEL] = model
 
         self._collector.record_latency(latency, attributes=attrs)
-        self.end_span(span_id, extractor.get_span_name(), extraction, ex)
+        self.end_span(span_id, span_name, extraction, ex)
         self.collect_metrics(extraction=extraction, attrs=attrs)
 
-    def _patch(self, extractor: OpenaiExtractor):
+    def _patch(self, func: Callable, extractor: OpenaiExtractor, trackee: Trackee):
         """
         TODO(yuanbohan): to support:
-          - stream
-          - async
-          - with_raw_response
-          - error, timeout, retry
-          - trace headers of request and response
+          - [ ] stream
+          - [x] async
+          - [ ] with_raw_response
+          - [ ] error, timeout, retry
+          - [ ] trace headers of request and response
 
         Args:
             extractor: extractor helps to extract useful information from request and response
         """
-        func = extractor.get_unwrapped_func()
-        if not func:
-            return
 
-        if extractor.is_async:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            extraction, span_id, start = self._pre_patch(extractor, trackee.get_span_name(), *args, **kwargs)
+            resp, ex = None, None
+            try:
+                resp = func(*args, **kwargs)
+            except Exception as e:
+                self.collect_error_count(extraction, trackee, e)
+                ex = e
+                raise e
+            finally:
+                self._post_patch(span_id=span_id, start=start, extractor=extractor, trackee=trackee resp=resp, ex=ex,)  # type: ignore
+            return resp
+        trackee.set_func_with_wrapped_attr(wrapper)
 
-            @functools.wraps(func)
-            async def async_wrapper(*args, **kwargs):
-                extraction, span_id = self._pre_patch(extractor, *args, **kwargs)
-                start = time.time()
-                resp, ex = None, None
-                try:
-                    resp = await func(*args, **kwargs)
-                except Exception as e:
-                    attrs = {
-                        _SPAN_NAME_LABEL: extractor.get_span_name(),
-                        _MODEL_LABEL: extraction.get_model_name(),
-                    }
-                    self.collect_error_count(e, attrs)
-                    ex = e
-                    raise e
-                finally:
-                    self._post_patch(span_id, start, extractor, resp, ex)  # type: ignore
-                return resp
-
-            extractor.set_func(async_wrapper)
-        else:
-
-            @functools.wraps(func)
-            def wrapper(*args, **kwargs):
-                extraction, span_id = self._pre_patch(extractor, *args, **kwargs)
-                start = time.time()
-                resp, ex = None, None
-                try:
-                    resp = func(*args, **kwargs)
-                except Exception as e:
-                    attrs = {
-                        _SPAN_NAME_LABEL: extractor.get_span_name(),
-                        _MODEL_LABEL: extraction.get_model_name(),
-                    }
-                    self.collect_error_count(e, attrs)
-                    ex = e
-                    raise e
-                finally:
-                    self._post_patch(span_id, start, extractor, resp, ex)  # type: ignore
-                return resp
-
-            extractor.set_func(wrapper)
+    def _patch_async(self, func: Callable, extractor: OpenaiExtractor, trackee: Trackee):
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            extraction, span_id, start = self._pre_patch(extractor, trackee.get_span_name(), *args, **kwargs)
+            resp, ex = None, None
+            try:
+                resp = await func(*args, **kwargs)
+            except Exception as e:
+                self.collect_error_count(extraction, trackee, e)
+                ex = e
+                raise e
+            finally:
+                self._post_patch(span_id=span_id, start=start, extractor=extractor, trackee=trackee resp=resp, ex=ex)  # type: ignore
+            return resp
+        trackee.set_func_with_wrapped_attr(wrapper)

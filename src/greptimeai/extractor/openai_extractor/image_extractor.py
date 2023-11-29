@@ -2,21 +2,41 @@ from typing import Union
 
 import openai
 from openai import AsyncOpenAI, OpenAI
+from tracker import Trackee
 
 from greptimeai.extractor.openai_extractor import OpenaiExtractor
 
 
 class _ImageExtractor(OpenaiExtractor):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None], method_name: str):
-        obj = client.images if client else openai.images
-        span_name = f"images.{method_name}"
-
-        super().__init__(
-            obj=obj,
+        images = Trackee(
+            obj=client.images if client else openai.images,
             method_name=method_name,
-            span_name=span_name,
-            client=client,
+            span_name=f"images.{method_name}",
         )
+
+        images_raw = Trackee(
+            obj=client.images.with_raw_response
+            if client
+            else openai.images.with_raw_response,
+            method_name=method_name,
+            span_name=f"images.with_raw_response.{method_name}",
+        )
+
+        trackees = [
+            images,
+            images_raw,
+        ]
+
+        if client:
+            raw_images = Trackee(
+                obj=client.with_raw_response.images,
+                method_name=method_name,
+                span_name=f"with_raw_response.images.{method_name}",
+            )
+            trackees.append(raw_images)
+
+        super().__init__(client=client, trackees=trackees)
 
 
 class ImageGenerateExtractor(_ImageExtractor):

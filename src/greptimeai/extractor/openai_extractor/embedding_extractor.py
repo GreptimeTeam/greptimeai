@@ -2,33 +2,38 @@ from typing import Union
 
 import openai
 from openai import AsyncOpenAI, OpenAI
-from typing_extensions import override
+from tracker import Trackee
 
-from greptimeai.extractor import Extraction
 from greptimeai.extractor.openai_extractor import OpenaiExtractor
 
 
 class EmbeddingExtractor(OpenaiExtractor):
-    def __init__(
-        self,
-        client: Union[OpenAI, AsyncOpenAI, None] = None,
-        verbose: bool = True,
-    ):
-        obj = client.embeddings if client else openai.embeddings
-        method_name = "create"
-        span_name = "embeddings.create"
-
-        super().__init__(
-            obj=obj,
-            method_name=method_name,
-            span_name=span_name,
-            client=client,
+    def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
+        embeddings_create = Trackee(
+            obj=client.embeddings if client else openai.embeddings,
+            method_name="create",
+            span_name="embeddings.create",
         )
-        self.verbose = verbose
 
-    @override
-    def pre_extract(self, *args, **kwargs) -> Extraction:
-        extraction = super().pre_extract(*args, **kwargs)
-        extraction.hide_field_in_event_attributes("input", self.verbose)
+        embeddings_raw_create = Trackee(
+            obj=client.embeddings.with_raw_response
+            if client
+            else openai.embeddings.with_raw_response,
+            method_name="create",
+            span_name="embeddings.with_raw_response.create",
+        )
 
-        return extraction
+        trackees = [
+            embeddings_create,
+            embeddings_raw_create,
+        ]
+
+        if client:
+            raw_embeddings_create = Trackee(
+                obj=client.with_raw_response.embeddings,
+                method_name="create",
+                span_name="with_raw_response.embeddings.create",
+            )
+            trackees.append(raw_embeddings_create)
+
+        super().__init__(client=client, trackees=trackees)

@@ -2,45 +2,38 @@ from typing import Union
 
 import openai
 from openai import AsyncOpenAI, OpenAI
-from openai.types import Completion
-from typing_extensions import override
+from tracker import Trackee
 
-from greptimeai.extractor import Extraction
 from greptimeai.extractor.openai_extractor import OpenaiExtractor
-from greptimeai.utils.openai.parser import parse_choices
 
 
 class CompletionExtractor(OpenaiExtractor):
-    def __init__(
-        self,
-        client: Union[OpenAI, AsyncOpenAI, None] = None,
-        verbose: bool = True,
-    ):
-        obj = client.completions if client else openai.completions
-        method_name = "create"
-        span_name = "completions.create"
-
-        super().__init__(
-            obj=obj,
-            method_name=method_name,
-            span_name=span_name,
-            client=client,
+    def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
+        completion_create = Trackee(
+            obj=client.completions if client else openai.completions,
+            method_name="create",
+            span_name="completions.create",
         )
-        self.verbose = verbose
 
-    @override
-    def pre_extract(self, *args, **kwargs) -> Extraction:
-        extraction = super().pre_extract(*args, **kwargs)
-        extraction.hide_field_in_event_attributes("prompt", self.verbose)
-        return extraction
+        completion_raw_create = Trackee(
+            obj=client.completions.with_raw_response
+            if client
+            else openai.completions.with_raw_response,
+            method_name="create",
+            span_name="completions.with_raw_response.create",
+        )
 
-    @override
-    def post_extract(self, resp: Completion) -> Extraction:
-        extraction = super().post_extract(resp)
-        choices = extraction.event_attributes.get("choices", None)
-        if choices:
-            extraction.update_event_attributes(
-                {"choices": parse_choices(choices, self.verbose)}
+        trackees = [
+            completion_create,
+            completion_raw_create,
+        ]
+
+        if client:
+            raw_completion_create = Trackee(
+                obj=client.with_raw_response.completions,
+                method_name="create",
+                span_name="with_raw_response.completions.create",
             )
+            trackees.append(raw_completion_create)
 
-        return extraction
+        super().__init__(client=client, trackees=trackees)

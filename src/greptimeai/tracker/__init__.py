@@ -1,20 +1,58 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 from uuid import UUID
 
+from extractor.openai_extractor import OpenaiExtractor
 from opentelemetry.util.types import Attributes
 
 from greptimeai import (
     _COMPLETION_COST_LABEL,
     _COMPLETION_TOKENS_LABEL,
     _ERROR_TYPE_LABEL,
+    _MODEL_LABEL,
+    _SPAN_NAME_LABEL,
     _PROMPT_COST_LABEl,
     _PROMPT_TOKENS_LABEl,
+    logger,
 )
 from greptimeai.collection import Collector
 from greptimeai.extractor import Extraction
 
 _GREPTIMEAI_WRAPPED = "__GREPTIMEAI_WRAPPED__"
+
+
+class Trackee:
+    def __init__(self, obj: Any, method_name: str, span_name: str):
+        self.obj = obj
+        self.method_name = method_name
+        self.span_name = span_name
+
+    def __repr__(self):
+        return self.span_name
+
+    def get_func_name(self) -> str:
+        return self.method_name
+
+    def get_span_name(self) -> str:
+        return self.span_name
+
+    def get_unwrapped_func(self) -> Optional[Callable]:
+        func = getattr(self.obj, self.method_name, None)
+        if not func:
+            logger.warning(f"function '{self.get_func_name()}' not found.")
+            return None
+
+        if hasattr(func, _GREPTIMEAI_WRAPPED):
+            logger.warning(
+                f"the function '{self.get_func_name()}' has already been patched."
+            )
+            return None
+        return func
+
+    def set_func_with_wrapped_attr(self, func: Callable):
+        setattr(func, _GREPTIMEAI_WRAPPED, True)
+        setattr(self.obj, self.method_name, func)
+        logger.debug(f"greptimeai has patched '{self.span_name}'")
 
 
 class BaseTracker(ABC):
@@ -65,20 +103,13 @@ class BaseTracker(ABC):
             ex=ex,
         )
 
-    def collect_error_count(self, ex: Exception, attrs: Dict[str, Any]):
-        """
-        Collects error count for a given extraction and exception.
-
-        Args:
-            ex (Exception): The exception object.
-            attrs (Dict[str, Any]): Additional attributes.
-
-        Returns:
-            None
-        """
+    def collect_error_count(
+        self, extraction: Extraction, trackee: Trackee, ex: Exception
+    ):
         attributes = {
             _ERROR_TYPE_LABEL: ex.__class__.__name__,
-            **attrs,
+            _SPAN_NAME_LABEL: trackee.get_span_name(),
+            _MODEL_LABEL: extraction.get_model_name(),
         }
         self._collector.collect_error_count(attributes=attributes)
 
