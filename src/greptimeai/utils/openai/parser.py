@@ -1,5 +1,6 @@
 from typing import Any, Dict, List
 
+from openai._response import APIResponse
 from openai.types.chat.chat_completion_message_param import (
     ChatCompletionMessageParam as Param,
 )
@@ -31,3 +32,26 @@ def parse_message_params(messages: List[Param]) -> List[Dict[str, Any]]:
             return {}
 
     return list([_parse_message_param(message) for message in messages])
+
+
+def parse_raw_response(resp: APIResponse) -> Dict[str, Any]:
+    dict = {
+        "headers": resp.headers,
+        "status_code": resp.status_code,
+        "url": resp.url,
+        "method": resp.method,
+        "cookies": resp.http_response.cookies,
+    }
+
+    try:
+        dict["parsed"] = resp.parse()
+    except Exception as e:
+        logger.error(f"Failed to parse response, {e}")
+        dict["parsed"] = {}
+
+    try:
+        dict["text"] = resp.text
+    except Exception as e:
+        logger.error(f"Failed to get response text, {e}")
+
+    return dict

@@ -1,6 +1,7 @@
 from typing import Any, Callable, Dict, Optional, Union
 
 from openai import AsyncOpenAI, OpenAI
+from openai._response import APIResponse
 from typing_extensions import override
 
 from greptimeai import (
@@ -11,8 +12,10 @@ from greptimeai import (
     _PROMPT_COST_LABEl,
     _PROMPT_TOKENS_LABEl,
     logger,
+    tracker,
 )
 from greptimeai.extractor import BaseExtractor, Extraction
+from greptimeai.utils.openai.parser import parse_raw_response
 from greptimeai.utils.openai.token import get_openai_token_cost_for_model
 
 _X_USER_ID = "x-user-id"
@@ -28,12 +31,12 @@ class OpenaiExtractor(BaseExtractor):
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         self.obj = obj
-        self.span_name = span_name
         self.method_name = method_name
         self._is_async = isinstance(client, AsyncOpenAI)
 
+        self.span_name = f"client.{span_name}" if client else f"openai.{span_name}"
         if self._is_async:
-            self.span_name = f"async_openai.{self.span_name}"
+            self.span_name = f"async_{self.span_name}"
 
     @staticmethod
     def get_user_id(**kwargs) -> Optional[str]:
@@ -96,40 +99,42 @@ class OpenaiExtractor(BaseExtractor):
     def post_extract(self, resp: Any) -> Extraction:
         """
         extract for span attributes:
-                _MODEL_LABEL
-                _COMPLETION_COST_LABEL
-                _COMPLETION_TOKENS_LABEL
-                _PROMPT_COST_LABEl
-                _PROMPT_TOKENS_LABEl
+          - _MODEL_LABEL
+          - _COMPLETION_COST_LABEL
+          - _COMPLETION_TOKENS_LABEL
+          - _PROMPT_COST_LABEl
+          - _PROMPT_TOKENS_LABEl
 
         merge usage into resp as event attributes
 
         Args:
 
-            resp: response from openai api, which MUST inherit the BaseModel class so far.add()
-
-
-        TODO: support response which DOSE NOT inherit the BaseModel class
+            resp: inherit from the BaseModel class, or instance of APIResponse class
         """
         try:
-            dump = resp.model_dump()
+            dict: Dict[str, Any] = {}
+            if isinstance(resp, APIResponse):
+                dict = parse_raw_response(resp)
+                logger.debug(f"after parse_raw_response: {dict=}")
+            else:
+                dict = resp.model_dump()
         except Exception as e:
-            logger.error(f"Failed to call model_dump for {resp}: {e}")
-            dump = {}
+            logger.error(f"Failed to extract response {resp}: {e}")
+            dict = {}
 
         span_attrs = {}
 
-        model = dump.get("model", None)
+        model = dict.get("model", None)
         if model:
             span_attrs[_MODEL_LABEL] = model
 
-        usage = dump.get("usage", {})
-        if usage and model:
-            usage = OpenaiExtractor.extract_usage(model, usage)
-            span_attrs.update(usage)
-            dump["usage"] = usage
+            usage = dict.get("usage", {})
+            if usage:
+                usage = OpenaiExtractor.extract_usage(model, usage)
+                span_attrs.update(usage)
+                dict["usage"] = usage
 
-        return Extraction(span_attributes=span_attrs, event_attributes=dump)
+        return Extraction(span_attributes=span_attrs, event_attributes=dict)
 
     @override
     def get_func_name(self) -> str:
@@ -139,13 +144,28 @@ class OpenaiExtractor(BaseExtractor):
     def get_span_name(self) -> str:
         return self.span_name
 
+    def get_unwrapped_func(self) -> Optional[Callable]:
+        func = self.get_func()
+        if not func:
+            logger.warning(f"function '{self.get_func_name()}' not found.")
+            return None
+
+        if hasattr(func, tracker._GREPTIMEAI_WRAPPED):
+            logger.warning(
+                f"the function '{self.get_func_name()}' has already been patched."
+            )
+            return None
+        return func
+
     @override
     def get_func(self) -> Optional[Callable]:
         return getattr(self.obj, self.method_name, None)
 
     @override
     def set_func(self, func: Callable):
+        setattr(func, tracker._GREPTIMEAI_WRAPPED, True)
         setattr(self.obj, self.method_name, func)
+        logger.debug(f"greptimeai has patched '{self.span_name}'")
 
     @property
     def is_async(self) -> bool:

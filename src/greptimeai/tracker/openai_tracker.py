@@ -6,7 +6,7 @@ from openai import AsyncOpenAI, OpenAI
 from pydantic import BaseModel
 from typing_extensions import override
 
-from greptimeai import _MODEL_LABEL, _SPAN_NAME_LABEL
+from greptimeai import _MODEL_LABEL, _SPAN_NAME_LABEL, logger
 from greptimeai.extractor.openai_extractor import (
     OpenaiExtractor,
     audio_extractor,
@@ -19,7 +19,7 @@ from greptimeai.extractor.openai_extractor import (
     model_extractor,
     moderation_extractor,
 )
-from greptimeai.tracker import _GREPTIMEAI_WRAPPED, BaseTracker, Extraction
+from greptimeai.tracker import BaseTracker, Extraction
 
 
 def setup(
@@ -91,6 +91,11 @@ class OpenaiTracker(BaseTracker):
         for extractor in extractors:
             self._patch(extractor)
 
+        info = "greptimeai is ready to track openai metrics and traces."
+        if not self._verbose:
+            info += "Input and Output won't be collected for verbose is False."
+        logger.info(info)
+
     def _pre_patch(
         self, extractor: OpenaiExtractor, *args, **kwargs
     ) -> Tuple[Extraction, str]:
@@ -156,7 +161,6 @@ class OpenaiTracker(BaseTracker):
                     self._post_patch(span_id, start, extractor, resp, ex)  # type: ignore
                 return resp
 
-            setattr(async_wrapper, _GREPTIMEAI_WRAPPED, True)
             extractor.set_func(async_wrapper)
         else:
 
@@ -179,5 +183,4 @@ class OpenaiTracker(BaseTracker):
                     self._post_patch(span_id, start, extractor, resp, ex)  # type: ignore
                 return resp
 
-            setattr(wrapper, _GREPTIMEAI_WRAPPED, True)
             extractor.set_func(wrapper)
