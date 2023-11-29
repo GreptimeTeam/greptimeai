@@ -33,7 +33,7 @@ class OpenaiExtractor(BaseExtractor):
         self._is_async = isinstance(client, AsyncOpenAI)
 
         if self._is_async:
-            self.method_name = f"async_openai.{self.method_name}"
+            self.span_name = f"async_openai.{self.span_name}"
 
     @staticmethod
     def get_user_id(**kwargs) -> Optional[str]:
