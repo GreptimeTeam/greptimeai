@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from greptimeai import _MODEL_LABEL, logger, tracker
 
@@ -35,7 +35,7 @@ class BaseExtractor(ABC):
         pass
 
     @abstractmethod
-    def post_extract(self, resp: Any) -> (Extraction, Any):
+    def post_extract(self, resp: Any) -> Tuple[Extraction, Any]:
         pass
 
     @abstractmethod

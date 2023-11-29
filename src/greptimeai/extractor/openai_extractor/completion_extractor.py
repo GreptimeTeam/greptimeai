@@ -1,4 +1,4 @@
-from typing import Union, Any
+from typing import Union, Any, Tuple
 
 import openai
 from openai import AsyncOpenAI, OpenAI
@@ -35,7 +35,7 @@ class CompletionExtractor(OpenaiExtractor):
         return extraction
 
     @override
-    def post_extract(self, resp: Completion) -> (Extraction, Any):
+    def post_extract(self, resp: Completion) -> Tuple[Extraction, Any]:
         extraction, resp = super().post_extract(resp)
         choices = extraction.event_attributes.get("choices", None)
         if choices:
