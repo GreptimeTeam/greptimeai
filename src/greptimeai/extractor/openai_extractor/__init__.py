@@ -141,14 +141,7 @@ class OpenaiExtractor(BaseExtractor):
         resp_dump, res_dump = itertools.tee(_generator_wrapper(), 2)
 
         def _trace_stream():
-            data = {
-                "finish_reason_stop": 0,
-                "finish_reason_length": 0,
-                "completion_tokens": 0,
-                "model": "",
-                "text": "",
-                "completion_cost": 0.0,
-            }
+            data = {}
             for item in resp_dump:
                 if hasattr(item, "model_dump"):
                     item_dump = item.model_dump()
@@ -158,18 +151,14 @@ class OpenaiExtractor(BaseExtractor):
                         for choice in item_dump["choices"]:
                             data["completion_tokens"] += 1
                             if "text" in choice:
-                                data["text"] = str(data["text"]) + choice["text"]
+                                data["text"] += choice["text"]
                             elif "delta" in choice and "content" in choice["delta"]:
                                 if choice["delta"]["content"]:
-                                    data["text"] = (
-                                        str(data["text"]) + choice["delta"]["content"]
-                                    )
+                                    data["text"] += choice["delta"]["content"]
 
                             if "finish_reason" in choice:
                                 if choice["finish_reason"] == "stop":
-                                    data["finish_reason_stop"] = (
-                                        int(data["finish_reason_stop"]) + 1
-                                    )
+                                    data["finish_reason_stop"] += 1
                                     try:
                                         tokens = _count_tokens(
                                             data["model"], data["text"]
@@ -178,8 +167,8 @@ class OpenaiExtractor(BaseExtractor):
                                             data[
                                                 "completion_cost"
                                             ] = get_openai_token_cost_for_model(
-                                                str(data["model"]),
-                                                int(data["completion_tokens"]),
+                                                data["model"],
+                                                data["completion_tokens"],
                                                 True,
                                             )
                                     except Extraction as e:
@@ -189,9 +178,7 @@ class OpenaiExtractor(BaseExtractor):
                                         data["completion_cost"] = 0.0
 
                                 elif choice["finish_reason"] == "length":
-                                    data["finish_reason_length"] = (
-                                        int(data["finish_reason_length"]) + 1
-                                    )
+                                    data["finish_reason_length"] += 1
             return data
 
         if is_stream(resp):
