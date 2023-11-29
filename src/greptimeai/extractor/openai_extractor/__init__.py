@@ -152,7 +152,6 @@ class OpenaiExtractor(BaseExtractor):
             for item in resp_dump:
                 if hasattr(item, "model_dump"):
                     item_dump = item.model_dump()
-                    print("-----item dump-=-------", item_dump)
                     if item_dump and "choices" in item_dump:
                         if "model" in item_dump:
                             data["model"] = item_dump["model"]
@@ -189,7 +188,6 @@ class OpenaiExtractor(BaseExtractor):
             return data
 
         if is_stream(resp):
-            print("********************************")
             try:
                 dump = _trace_stream()
                 resp = res_dump
@@ -202,7 +200,6 @@ class OpenaiExtractor(BaseExtractor):
                 logger.error(f"Failed to call model_dump for {resp}: {e}")
                 dump = {}
 
-        print("---------------6666666666666666666666666666666666666666----------", dump)
         span_attrs = {}
 
         model = dump.get("model", None)
