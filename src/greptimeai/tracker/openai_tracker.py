@@ -107,7 +107,7 @@ class OpenaiTracker(BaseTracker):
         ex: Optional[Exception] = None,
     ):
         latency = 1000 * (time.time() - start)
-        extraction = extractor.post_extract(resp)
+        extraction, resp = extractor.post_extract(resp)
         attrs = {
             _SPAN_NAME_LABEL: extractor.get_span_name(),
         }
@@ -118,6 +118,7 @@ class OpenaiTracker(BaseTracker):
         self._collector.record_latency(latency, attributes=attrs)
         self.end_span(span_id, extractor.get_span_name(), extraction, ex)
         self.collect_metrics(extraction=extraction, attrs=attrs)
+        return resp
 
     def _patch(self, extractor: OpenaiExtractor):
         """
@@ -153,7 +154,7 @@ class OpenaiTracker(BaseTracker):
                     ex = e
                     raise e
                 finally:
-                    self._post_patch(span_id, start, extractor, resp, ex)  # type: ignore
+                    resp = self._post_patch(span_id, start, extractor, resp, ex)  # type: ignore
                 return resp
 
             setattr(async_wrapper, _GREPTIMEAI_WRAPPED, True)
@@ -176,7 +177,7 @@ class OpenaiTracker(BaseTracker):
                     ex = e
                     raise e
                 finally:
-                    self._post_patch(span_id, start, extractor, resp, ex)  # type: ignore
+                    resp = self._post_patch(span_id, start, extractor, resp, ex)  # type: ignore
                 return resp
 
             setattr(wrapper, _GREPTIMEAI_WRAPPED, True)

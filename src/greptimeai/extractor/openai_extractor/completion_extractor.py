@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Any
 
 import openai
 from openai import AsyncOpenAI, OpenAI
@@ -35,12 +35,12 @@ class CompletionExtractor(OpenaiExtractor):
         return extraction
 
     @override
-    def post_extract(self, resp: Completion) -> Extraction:
-        extraction = super().post_extract(resp)
+    def post_extract(self, resp: Completion) -> (Extraction, Any):
+        extraction, resp = super().post_extract(resp)
         choices = extraction.event_attributes.get("choices", None)
         if choices:
             extraction.update_event_attributes(
                 {"choices": parse_choices(choices, self.verbose)}
             )
 
-        return extraction
+        return extraction, resp

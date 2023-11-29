@@ -1,8 +1,8 @@
-from typing import Union
+from typing import Union, Any
 
 import openai
 from openai import AsyncOpenAI, OpenAI
-from openai.types.chat.chat_completion import ChatCompletion
+from openai.types.chat import ChatCompletion
 from typing_extensions import override
 
 from greptimeai.extractor import Extraction
@@ -43,12 +43,12 @@ class ChatCompletionExtractor(OpenaiExtractor):
         return extraction
 
     @override
-    def post_extract(self, resp: ChatCompletion) -> Extraction:
-        extraction = super().post_extract(resp)
+    def post_extract(self, resp: ChatCompletion) -> (Extraction, Any):
+        extraction, resp = super().post_extract(resp)
         choices = extraction.event_attributes.get("choices", None)
         if choices:
             extraction.update_event_attributes(
                 {"choices": parse_choices(choices, self.verbose)}
             )
 
-        return extraction
+        return extraction, resp
