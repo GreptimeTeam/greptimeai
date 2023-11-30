@@ -119,6 +119,8 @@ class OpenaiExtractor(BaseExtractor):
                 "prompt_tokens": prompt_tokens,
                 "prompt_cost": prompt_cost,
             }
+            span_attrs[_PROMPT_TOKENS_LABEl] = prompt_tokens
+            span_attrs[_PROMPT_COST_LABEl] = prompt_cost
         if len(args) > 0:
             event_attrs["args"] = args
 
@@ -157,7 +159,6 @@ class OpenaiExtractor(BaseExtractor):
             completion_tokens = 0
             model_str = ""
             text = ""
-            completion_cost = 0.0
 
             for item in resp_dump:
                 if hasattr(item, "model_dump"):
@@ -166,7 +167,6 @@ class OpenaiExtractor(BaseExtractor):
                         if "model" in item_dump:
                             model_str = item_dump["model"]
                         for choice in item_dump["choices"]:
-                            completion_cost += 1
                             if "text" in choice:
                                 text += choice["text"]
                             elif "delta" in choice and "content" in choice["delta"]:
@@ -176,26 +176,20 @@ class OpenaiExtractor(BaseExtractor):
                             if "finish_reason" in choice:
                                 if choice["finish_reason"] == "stop":
                                     finish_reason_stop += 1
-                                    tokens = _count_tokens(model_str, text)
-                                    if tokens and tokens != 0:
-                                        completion_cost = (
-                                            get_openai_token_cost_for_model(
-                                                model_str,
-                                                completion_tokens,
-                                                True,
-                                            )
-                                        )
+                                    completion_tokens = _count_tokens(model_str, text)
 
                                 elif choice["finish_reason"] == "length":
                                     finish_reason_length += 1
             data = {
                 "finish_reason_stop": finish_reason_stop,
                 "finish_reason_length": finish_reason_length,
-                "completion_tokens": completion_tokens,
                 "model": model_str,
                 "text": text,
-                "completion_cost": completion_cost,
+                "usage": {
+                    _COMPLETION_TOKENS_LABEL: completion_tokens,
+                },
             }
+
             return data
 
         if is_stream(resp):

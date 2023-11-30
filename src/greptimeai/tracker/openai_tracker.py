@@ -6,7 +6,12 @@ from openai import AsyncOpenAI, OpenAI
 from pydantic import BaseModel
 from typing_extensions import override
 
-from greptimeai import _MODEL_LABEL, _SPAN_NAME_LABEL
+from greptimeai import (
+    _MODEL_LABEL,
+    _SPAN_NAME_LABEL,
+    _PROMPT_TOKENS_LABEl,
+    _PROMPT_COST_LABEl,
+)
 from greptimeai.extractor.openai_extractor import (
     OpenaiExtractor,
     audio_extractor,
@@ -95,6 +100,12 @@ class OpenaiTracker(BaseTracker):
         self, extractor: OpenaiExtractor, *args, **kwargs
     ) -> Tuple[Extraction, str]:
         extraction = extractor.pre_extract(*args, **kwargs)
+        prompt_tokens = extraction.span_attributes.get(_PROMPT_TOKENS_LABEl, None)
+        prompt_cost = extraction.span_attributes.get(_PROMPT_COST_LABEl, None)
+        if prompt_tokens:
+            self.prompt_tokens = prompt_tokens
+        if prompt_cost:
+            self.prompt_cost = prompt_cost
         span_id: str = self.start_span(extractor.get_span_name(), extraction)  # type: ignore
         return (extraction, span_id)
 
@@ -108,6 +119,7 @@ class OpenaiTracker(BaseTracker):
     ):
         latency = 1000 * (time.time() - start)
         extraction, resp = extractor.post_extract(resp)
+        extraction = self._supplement_prompt(extraction)
         attrs = {
             _SPAN_NAME_LABEL: extractor.get_span_name(),
         }
@@ -182,3 +194,16 @@ class OpenaiTracker(BaseTracker):
 
             setattr(wrapper, _GREPTIMEAI_WRAPPED, True)
             extractor.set_func(wrapper)
+
+    def _supplement_prompt(self, extraction: Extraction) -> Extraction:
+        if self.prompt_tokens:
+            prompt_tokens = extraction.span_attributes.get(_PROMPT_TOKENS_LABEl, None)
+            if not prompt_tokens:
+                extraction.span_attributes[_PROMPT_TOKENS_LABEl] = self.prompt_tokens
+
+        if self.prompt_cost:
+            prompt_cost = extraction.span_attributes.get(_PROMPT_COST_LABEl, None)
+            if not prompt_cost:
+                extraction.span_attributes[_PROMPT_COST_LABEl] = self.prompt_cost
+
+        return extraction
