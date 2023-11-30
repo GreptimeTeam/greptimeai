@@ -61,6 +61,8 @@ class OpenaiTracker(BaseTracker):
             service_name="openai", host=host, database=database, token=token
         )
         self._verbose = verbose
+        self.prompt_tokens = None
+        self.prompt_cost = None
 
     @override
     def setup(
@@ -197,13 +199,25 @@ class OpenaiTracker(BaseTracker):
 
     def _supplement_prompt(self, extraction: Extraction) -> Extraction:
         if self.prompt_tokens:
-            prompt_tokens = extraction.span_attributes.get(_PROMPT_TOKENS_LABEl, None)
-            if not prompt_tokens:
+            prompt_tokens_span = extraction.span_attributes.get(
+                _PROMPT_TOKENS_LABEl, None
+            )
+            prompt_tokens_event = extraction.event_attributes.get(
+                _PROMPT_TOKENS_LABEl, None
+            )
+            if not prompt_tokens_span:
                 extraction.span_attributes[_PROMPT_TOKENS_LABEl] = self.prompt_tokens
+            if not prompt_tokens_event:
+                extraction.event_attributes[_PROMPT_TOKENS_LABEl] = self.prompt_tokens
 
         if self.prompt_cost:
-            prompt_cost = extraction.span_attributes.get(_PROMPT_COST_LABEl, None)
-            if not prompt_cost:
+            prompt_cost_span = extraction.span_attributes.get(_PROMPT_COST_LABEl, None)
+            prompt_cost_event = extraction.event_attributes.get(
+                _PROMPT_COST_LABEl, None
+            )
+            if not prompt_cost_span:
                 extraction.span_attributes[_PROMPT_COST_LABEl] = self.prompt_cost
+            if not prompt_cost_event:
+                extraction.event_attributes[_PROMPT_COST_LABEl] = self.prompt_cost
 
         return extraction
