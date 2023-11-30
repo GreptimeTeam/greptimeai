@@ -1,9 +1,9 @@
 import importlib
 import itertools
 from typing import Any, Callable, Dict, Optional, Union, Tuple
-from typing import Generic
 
 from openai import AsyncOpenAI, OpenAI
+from openai._streaming import Stream, AsyncStream
 from typing_extensions import override
 
 from greptimeai import (
@@ -93,34 +93,32 @@ class OpenaiExtractor(BaseExtractor):
 
         event_attrs = {**kwargs}
         if "stream" in kwargs and kwargs["stream"]:
-            prompt_usage = {"prompt_tokens": 0, "prompt_cost": 0.0}
+            prompt_tokens = 0
+            prompt_cost = 0.0
             if "model" in kwargs:
                 if "prompt" in kwargs:
                     if isinstance(kwargs["prompt"], str):
-                        prompt_usage["prompt_tokens"] = _count_tokens(
-                            kwargs["model"], kwargs["prompt"]
-                        )
+                        prompt_tokens = _count_tokens(kwargs["model"], kwargs["prompt"])
                     elif isinstance(kwargs["prompt"], list):
                         content = ""
                         for prompt in kwargs["prompt"]:
                             content += prompt
-                        prompt_usage["prompt_tokens"] = _count_tokens(
-                            kwargs["model"], content
-                        )
+                        prompt_tokens = _count_tokens(kwargs["model"], content)
                 elif "messages" in kwargs:
                     content = ""
                     for message in kwargs["messages"]:
                         if "content" in message:
                             content += message["content"]
-                    prompt_usage["prompt_tokens"] = _count_tokens(
-                        kwargs["model"], content
-                    )
+                    prompt_tokens = _count_tokens(kwargs["model"], content)
 
-                if prompt_usage["prompt_tokens"]:
-                    prompt_usage["prompt_cost"] = get_openai_token_cost_for_model(
-                        kwargs["model"], prompt_usage["prompt_tokens"], False
+                if prompt_tokens:
+                    prompt_cost = get_openai_token_cost_for_model(
+                        kwargs["model"], prompt_tokens, False
                     )
-            event_attrs["prompt_usage"] = prompt_usage
+            event_attrs["prompt_usage"] = {
+                "prompt_tokens": prompt_tokens,
+                "prompt_cost": prompt_cost,
+            }
         if len(args) > 0:
             event_attrs["args"] = args
 
@@ -154,51 +152,50 @@ class OpenaiExtractor(BaseExtractor):
         resp_dump, res_dump = itertools.tee(_generator_wrapper(), 2)
 
         def _trace_stream():
-            data = {
-                "finish_reason_stop": 0,
-                "finish_reason_length": 0,
-                "completion_tokens": 0,
-                "model": "",
-                "text": "",
-                "completion_cost": 0.0,
-            }
+            finish_reason_stop = 0
+            finish_reason_length = 0
+            completion_tokens = 0
+            model_str = ""
+            text = ""
+            completion_cost = 0.0
+
             for item in resp_dump:
                 if hasattr(item, "model_dump"):
                     item_dump = item.model_dump()
                     if item_dump and "choices" in item_dump:
                         if "model" in item_dump:
-                            data["model"] = item_dump["model"]
+                            model_str = item_dump["model"]
                         for choice in item_dump["choices"]:
-                            data["completion_tokens"] += 1
+                            completion_cost += 1
                             if "text" in choice:
-                                data["text"] += choice["text"]
+                                text += choice["text"]
                             elif "delta" in choice and "content" in choice["delta"]:
                                 if choice["delta"]["content"]:
-                                    data["text"] += choice["delta"]["content"]
+                                    text += choice["delta"]["content"]
 
                             if "finish_reason" in choice:
                                 if choice["finish_reason"] == "stop":
-                                    data["finish_reason_stop"] += 1
-                                    try:
-                                        tokens = _count_tokens(
-                                            data["model"], data["text"]
-                                        )
-                                        if tokens and tokens != 0:
-                                            data[
-                                                "completion_cost"
-                                            ] = get_openai_token_cost_for_model(
-                                                data["model"],
-                                                data["completion_tokens"],
+                                    finish_reason_stop += 1
+                                    tokens = _count_tokens(model_str, text)
+                                    if tokens and tokens != 0:
+                                        completion_cost = (
+                                            get_openai_token_cost_for_model(
+                                                model_str,
+                                                completion_tokens,
                                                 True,
                                             )
-                                    except Extraction as e:
-                                        logger.error(
-                                            f"Failed to calculate token cost: {e}"
                                         )
-                                        data["completion_cost"] = 0.0
 
                                 elif choice["finish_reason"] == "length":
-                                    data["finish_reason_length"] += 1
+                                    finish_reason_length += 1
+            data = {
+                "finish_reason_stop": finish_reason_stop,
+                "finish_reason_length": finish_reason_length,
+                "completion_tokens": completion_tokens,
+                "model": model_str,
+                "text": text,
+                "completion_cost": completion_cost,
+            }
             return data
 
         if is_stream(resp):
@@ -250,7 +247,7 @@ class OpenaiExtractor(BaseExtractor):
 
 
 def is_stream(obj):
-    return obj and isinstance(obj, Generic)
+    return obj and isinstance(obj, Stream) or isinstance(obj, AsyncStream)
 
 
 def _count_tokens(model, text):
