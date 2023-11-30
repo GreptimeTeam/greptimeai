@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Optional
 
 from greptimeai import _MODEL_LABEL
-from greptimeai.tracker import Trackee
 
 
 class Extraction:
@@ -33,8 +32,4 @@ class BaseExtractor(ABC):
 
     @abstractmethod
     def post_extract(self, resp: Any) -> Extraction:
-        pass
-
-    @abstractmethod
-    def get_trackees(self) -> Sequence[Trackee]:
         pass

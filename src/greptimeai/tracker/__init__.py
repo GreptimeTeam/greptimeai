@@ -1,5 +1,4 @@
-from abc import ABC, abstractmethod
-from typing import Any, Callable, Optional, Union
+from typing import Any, Dict, Optional, Union
 from uuid import UUID
 
 from opentelemetry.util.types import Attributes
@@ -12,49 +11,12 @@ from greptimeai import (
     _SPAN_NAME_LABEL,
     _PROMPT_COST_LABEl,
     _PROMPT_TOKENS_LABEl,
-    logger,
 )
 from greptimeai.collection import Collector
 from greptimeai.extractor import Extraction
 
-_GREPTIMEAI_WRAPPED = "__GREPTIMEAI_WRAPPED__"
 
-
-class Trackee:
-    def __init__(self, obj: Any, method_name: str, span_name: str):
-        self.obj = obj
-        self.method_name = method_name
-        self.span_name = span_name
-
-    def __repr__(self):
-        return self.span_name
-
-    def get_func_name(self) -> str:
-        return self.method_name
-
-    def get_span_name(self) -> str:
-        return self.span_name
-
-    def get_unwrapped_func(self) -> Optional[Callable]:
-        func = getattr(self.obj, self.method_name, None)
-        if not func:
-            logger.warning(f"function '{self.get_func_name()}' not found.")
-            return None
-
-        if hasattr(func, _GREPTIMEAI_WRAPPED):
-            logger.warning(
-                f"the function '{self.get_func_name()}' has already been patched."
-            )
-            return None
-        return func
-
-    def set_func_with_wrapped_attr(self, func: Callable):
-        setattr(func, _GREPTIMEAI_WRAPPED, True)
-        setattr(self.obj, self.method_name, func)
-        logger.debug(f"greptimeai has patched '{self.span_name}'")
-
-
-class BaseTracker(ABC):
+class BaseTracker:
     """
     base tracker to collect metrics and traces
     """
@@ -69,10 +31,6 @@ class BaseTracker(ABC):
         self._collector = Collector(
             service_name=service_name, host=host, database=database, token=token
         )
-
-    @abstractmethod
-    def setup(self, _client: Optional[Any] = None):
-        pass
 
     def start_span(
         self, span_name: str, extraction: Extraction
@@ -103,16 +61,25 @@ class BaseTracker(ABC):
         )
 
     def collect_error_count(
-        self, extraction: Extraction, trackee: Trackee, ex: Exception
+        self,
+        model_name: Optional[str],
+        span_name: str,
+        ex: Exception,
     ):
         attributes = {
             _ERROR_TYPE_LABEL: ex.__class__.__name__,
-            _SPAN_NAME_LABEL: trackee.get_span_name(),
-            _MODEL_LABEL: extraction.get_model_name(),
+            _SPAN_NAME_LABEL: span_name,
         }
+        if model_name:
+            attributes[_MODEL_LABEL] = model_name
+
         self._collector.collect_error_count(attributes=attributes)
 
-    def collect_metrics(self, extraction: Extraction, attrs: Optional[Attributes]):
+    def collect_metrics(
+        self,
+        span_attrs: Dict[str, Any],
+        attrs: Optional[Attributes],
+    ):
         """
         Collects metrics for the given extraction and attributes.
 
@@ -123,7 +90,6 @@ class BaseTracker(ABC):
         Returns:
             None
         """
-        span_attrs = extraction.span_attributes
         prompt_tokens = span_attrs.get(_PROMPT_TOKENS_LABEl, 0)
         prompt_cost = span_attrs.get(_PROMPT_COST_LABEl, 0)
         completion_tokens = span_attrs.get(_COMPLETION_TOKENS_LABEL, 0)
@@ -136,3 +102,6 @@ class BaseTracker(ABC):
             completion_cost=completion_cost,
             attrs=attrs,
         )
+
+    def record_latency(self, latency: float, attributes: Optional[Attributes] = None):
+        self._collector.record_latency(latency, attributes=attributes)

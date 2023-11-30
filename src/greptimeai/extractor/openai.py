@@ -1,6 +1,5 @@
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, Dict, Optional, Union
 
-from openai import AsyncOpenAI, OpenAI
 from openai._response import APIResponse
 from typing_extensions import override
 
@@ -14,8 +13,6 @@ from greptimeai import (
     logger,
 )
 from greptimeai.extractor import BaseExtractor, Extraction
-from greptimeai.tracker import Trackee
-from greptimeai.utils.openai.parser import parse_raw_response
 from greptimeai.utils.openai.token import get_openai_token_cost_for_model
 
 _X_USER_ID = "x-user-id"
@@ -23,21 +20,28 @@ _X_USER_ID = "x-user-id"
 
 
 class OpenaiExtractor(BaseExtractor):
-    def __init__(
-        self,
-        trackees: Sequence[Trackee],
-        client: Union[OpenAI, AsyncOpenAI, None] = None,
-    ):
-        self._is_async = isinstance(client, AsyncOpenAI)
+    @staticmethod
+    def parse_raw_response(resp: APIResponse) -> Dict[str, Any]:
+        dict = {
+            "headers": resp.headers,
+            "status_code": resp.status_code,
+            "url": resp.url,
+            "method": resp.method,
+            "cookies": resp.http_response.cookies,
+        }
 
-        for trackee in trackees:
-            prefix = "client" if client else "openai"
-            trackee.span_name = f"{prefix}.{trackee.span_name}"
+        try:
+            dict["parsed"] = resp.parse()
+        except Exception as e:
+            logger.error(f"Failed to parse response, {e}")
+            dict["parsed"] = {}
 
-            if self._is_async:
-                trackee.span_name = f"async_{trackee.span_name}"
+        try:
+            dict["text"] = resp.text
+        except Exception as e:
+            logger.error(f"Failed to get response text, {e}")
 
-        self.trackees = trackees
+        return dict
 
     @staticmethod
     def get_user_id(**kwargs) -> Optional[str]:
@@ -115,7 +119,7 @@ class OpenaiExtractor(BaseExtractor):
         try:
             dict: Dict[str, Any] = {}
             if isinstance(resp, APIResponse):
-                dict = parse_raw_response(resp)
+                dict = OpenaiExtractor.parse_raw_response(resp)
                 logger.debug(f"after parse_raw_response: {dict=}")
             else:
                 dict = resp.model_dump()
@@ -136,11 +140,3 @@ class OpenaiExtractor(BaseExtractor):
                 dict["usage"] = usage
 
         return Extraction(span_attributes=span_attrs, event_attributes=dict)
-
-    @override
-    def get_trackees(self) -> Sequence[Trackee]:
-        return self.trackees
-
-    @property
-    def is_async(self) -> bool:
-        return self._is_async

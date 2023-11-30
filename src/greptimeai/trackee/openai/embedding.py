@@ -3,11 +3,12 @@ from typing import Union
 import openai
 from openai import AsyncOpenAI, OpenAI
 
-from greptimeai.extractor.openai_extractor import OpenaiExtractor
-from greptimeai.tracker import Trackee
+from greptimeai.trackee import Trackee
+
+from . import OpenaiTrackees
 
 
-class EmbeddingExtractor(OpenaiExtractor):
+class EmbeddingTrackees(OpenaiTrackees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         embeddings_create = Trackee(
             obj=client.embeddings if client else openai.embeddings,
@@ -36,4 +37,4 @@ class EmbeddingExtractor(OpenaiExtractor):
             )
             trackees.append(raw_embeddings_create)
 
-        super().__init__(client=client, trackees=trackees)
+        super().__init__(trackees=trackees, client=client)

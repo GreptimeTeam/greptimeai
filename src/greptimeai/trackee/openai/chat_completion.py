@@ -3,11 +3,12 @@ from typing import Union
 import openai
 from openai import AsyncOpenAI, OpenAI
 
-from greptimeai.extractor.openai_extractor import OpenaiExtractor
-from greptimeai.tracker import Trackee
+from greptimeai.trackee import Trackee
+
+from . import OpenaiTrackees
 
 
-class ChatCompletionExtractor(OpenaiExtractor):
+class ChatCompletionTrackees(OpenaiTrackees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         chat_completion_create = Trackee(
             obj=client.chat.completions if client else openai.chat.completions,
@@ -45,4 +46,4 @@ class ChatCompletionExtractor(OpenaiExtractor):
             )
             trackees.append(raw_chat_completion_create)
 
-        super().__init__(client=client, trackees=trackees)
+        super().__init__(trackees=trackees, client=client)

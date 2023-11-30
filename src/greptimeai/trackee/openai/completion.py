@@ -3,11 +3,12 @@ from typing import Union
 import openai
 from openai import AsyncOpenAI, OpenAI
 
-from greptimeai.extractor.openai_extractor import OpenaiExtractor
-from greptimeai.tracker import Trackee
+from greptimeai.trackee import Trackee
+
+from . import OpenaiTrackees
 
 
-class CompletionExtractor(OpenaiExtractor):
+class CompletionTrackees(OpenaiTrackees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         completion_create = Trackee(
             obj=client.completions if client else openai.completions,
@@ -36,4 +37,4 @@ class CompletionExtractor(OpenaiExtractor):
             )
             trackees.append(raw_completion_create)
 
-        super().__init__(client=client, trackees=trackees)
+        super().__init__(trackees=trackees, client=client)

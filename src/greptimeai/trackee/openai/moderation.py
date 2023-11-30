@@ -3,11 +3,12 @@ from typing import Union
 import openai
 from openai import AsyncOpenAI, OpenAI
 
-from greptimeai.extractor.openai_extractor import OpenaiExtractor
-from greptimeai.tracker import Trackee
+from greptimeai.trackee import Trackee
+
+from . import OpenaiTrackees
 
 
-class ModerationExtractor(OpenaiExtractor):
+class ModerationTrackees(OpenaiTrackees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         moderations_create = Trackee(
             obj=client.moderations if client else openai.moderations,
@@ -36,4 +37,5 @@ class ModerationExtractor(OpenaiExtractor):
             )
             trackees.append(raw_moderations_create)
 
-        super().__init__(client=client, trackees=trackees)
+
+        super().__init__(trackees=trackees, client=client)

@@ -3,11 +3,12 @@ from typing import Union
 import openai
 from openai import AsyncOpenAI, OpenAI
 
-from greptimeai.extractor.openai_extractor import OpenaiExtractor
-from greptimeai.tracker import Trackee
+from greptimeai.trackee import Trackee
+
+from . import OpenaiTrackees
 
 
-class SpeechExtractor(OpenaiExtractor):
+class _SpeechTrackees:
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         audio_speech_create = Trackee(
             obj=client.audio.speech if client else openai.audio.speech,
@@ -31,7 +32,7 @@ class SpeechExtractor(OpenaiExtractor):
             span_name="audio.speech.with_raw_response.create",
         )
 
-        trackees = [
+        self.trackees = [
             audio_speech_create,
             audio_raw_speech_create,
             audio_speech_raw_create,
@@ -43,12 +44,10 @@ class SpeechExtractor(OpenaiExtractor):
                 method_name="create",
                 span_name="with_raw_response.audio.speech.create",
             )
-            trackees.append(raw_audio_speech_create)
-
-        super().__init__(client=client, trackees=trackees)
+            self.trackees.append(raw_audio_speech_create)
 
 
-class TranscriptionExtractor(OpenaiExtractor):
+class _TranscriptionTrackees:
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         audio_transcriptions_create = Trackee(
             obj=client.audio.transcriptions if client else openai.audio.transcriptions,
@@ -72,7 +71,7 @@ class TranscriptionExtractor(OpenaiExtractor):
             span_name="audio.transcriptions.with_raw_response.create",
         )
 
-        trackees = [
+        self.trackees = [
             audio_transcriptions_create,
             audio_raw_transcriptions_create,
             audio_transcriptions_raw_create,
@@ -84,12 +83,10 @@ class TranscriptionExtractor(OpenaiExtractor):
                 method_name="create",
                 span_name="with_raw_response.audio.transcriptions.create",
             )
-            trackees.append(raw_audio_transcriptions_create)
-
-        super().__init__(client=client, trackees=trackees)
+            self.trackees.append(raw_audio_transcriptions_create)
 
 
-class TranslationExtractor(OpenaiExtractor):
+class _TranslationTrackees:
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         audio_translations_create = Trackee(
             obj=client.audio.translations if client else openai.audio.translations,
@@ -113,7 +110,7 @@ class TranslationExtractor(OpenaiExtractor):
             span_name="audio.translations.with_raw_response.create",
         )
 
-        trackees = [
+        self.trackees = [
             audio_translations_create,
             audio_raw_translations_create,
             audio_translations_raw_create,
@@ -125,6 +122,19 @@ class TranslationExtractor(OpenaiExtractor):
                 method_name="create",
                 span_name="with_raw_response.audio.translations.create",
             )
-            trackees.append(raw_audio_translations_create)
+            self.trackees.append(raw_audio_translations_create)
 
-        super().__init__(client=client, trackees=trackees)
+
+class AudioTrackees(OpenaiTrackees):
+    def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
+        speech_trackees = _SpeechTrackees(client)
+        transcription_trackees = _TranscriptionTrackees(client)
+        translation_trackees = _TranslationTrackees(client)
+
+        trackees = (
+            speech_trackees.trackees
+            + transcription_trackees.trackees
+            + translation_trackees.trackees
+        )
+
+        super().__init__(trackees=trackees, client=client)

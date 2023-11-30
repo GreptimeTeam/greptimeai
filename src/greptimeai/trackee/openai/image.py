@@ -3,11 +3,12 @@ from typing import Union
 import openai
 from openai import AsyncOpenAI, OpenAI
 
-from greptimeai.extractor.openai_extractor import OpenaiExtractor
-from greptimeai.tracker import Trackee
+from greptimeai.trackee import Trackee
+
+from . import OpenaiTrackees
 
 
-class _ImageExtractor(OpenaiExtractor):
+class _ImageTrackees:
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None], method_name: str):
         images = Trackee(
             obj=client.images if client else openai.images,
@@ -23,7 +24,7 @@ class _ImageExtractor(OpenaiExtractor):
             span_name=f"images.with_raw_response.{method_name}",
         )
 
-        trackees = [
+        self.trackees = [
             images,
             images_raw,
         ]
@@ -34,21 +35,34 @@ class _ImageExtractor(OpenaiExtractor):
                 method_name=method_name,
                 span_name=f"with_raw_response.images.{method_name}",
             )
-            trackees.append(raw_images)
-
-        super().__init__(client=client, trackees=trackees)
+            self.trackees.append(raw_images)
 
 
-class ImageGenerateExtractor(_ImageExtractor):
+class _ImageGenerateTrackees(_ImageTrackees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         super().__init__(client=client, method_name="generate")
 
 
-class ImageEditExtractor(_ImageExtractor):
+class _ImageEditTrackees(_ImageTrackees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         super().__init__(client=client, method_name="edit")
 
 
-class ImageVariationExtractor(_ImageExtractor):
+class _ImageVariationTrackees(_ImageTrackees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         super().__init__(client=client, method_name="create_variation")
+
+
+class ImageTrackees(OpenaiTrackees):
+    def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
+        generate_trackees = _ImageGenerateTrackees(client=client)
+        edit_trackees = _ImageEditTrackees(client=client)
+        variation_trackees = _ImageVariationTrackees(client=client)
+
+        trackees = (
+            generate_trackees.trackees
+            + edit_trackees.trackees
+            + variation_trackees.trackees
+        )
+
+        super().__init__(trackees=trackees, client=client)

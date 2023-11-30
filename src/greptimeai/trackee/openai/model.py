@@ -3,11 +3,12 @@ from typing import Union
 import openai
 from openai import AsyncOpenAI, OpenAI
 
-from greptimeai.extractor.openai_extractor import OpenaiExtractor
-from greptimeai.tracker import Trackee
+from greptimeai.trackee import Trackee
+
+from . import OpenaiTrackees
 
 
-class _ModelExtractor(OpenaiExtractor):
+class _ModelTrackees:
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None], method_name: str):
         models = Trackee(
             obj=client.models if client else openai.models,
@@ -23,7 +24,7 @@ class _ModelExtractor(OpenaiExtractor):
             span_name=f"models.with_raw_response.{method_name}",
         )
 
-        trackees = [
+        self.trackees = [
             models,
             models_raw,
         ]
@@ -34,21 +35,34 @@ class _ModelExtractor(OpenaiExtractor):
                 method_name=method_name,
                 span_name=f"with_raw_response.models.{method_name}",
             )
-            trackees.append(raw_models)
-
-        super().__init__(client=client, trackees=trackees)
+            self.trackees.append(raw_models)
 
 
-class ModelListExtractor(_ModelExtractor):
+class _ModelListTrackees(_ModelTrackees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         super().__init__(client=client, method_name="list")
 
 
-class ModelRetrieveExtractor(_ModelExtractor):
+class _ModelRetrieveTrackees(_ModelTrackees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         super().__init__(client=client, method_name="retrieve")
 
 
-class ModelDeleteExtractor(_ModelExtractor):
+class _ModelDeleteTrackees(_ModelTrackees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         super().__init__(client=client, method_name="delete")
+
+
+class ModelTrackees(OpenaiTrackees):
+    def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
+        list_trackees = _ModelListTrackees(client=client)
+        retrieve_trackees = _ModelRetrieveTrackees(client=client)
+        delete_trackees = _ModelDeleteTrackees(client=client)
+
+        trackees = (
+            list_trackees.trackees
+            + retrieve_trackees.trackees
+            + delete_trackees.trackees
+        )
+
+        super().__init__(trackees=trackees, client=client)
