@@ -1,5 +1,3 @@
-from typing import Optional
-
 from greptimeai import logger
 
 # from https://github.com/langchain-ai/langchain/blob/master/libs/langchain/langchain/callbacks/openai_info.py

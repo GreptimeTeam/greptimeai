@@ -1,6 +1,7 @@
 from typing import Any, Dict, Optional, Union
 
 from openai._response import APIResponse
+from pydantic import BaseModel
 from typing_extensions import override
 
 from greptimeai import (
@@ -22,26 +23,27 @@ _X_USER_ID = "x-user-id"
 class OpenaiExtractor(BaseExtractor):
     @staticmethod
     def parse_raw_response(resp: APIResponse) -> Dict[str, Any]:
-        dict = {
-            "headers": resp.headers,
-            "status_code": resp.status_code,
-            "url": resp.url,
-            "method": resp.method,
-            "cookies": resp.http_response.cookies,
-        }
+        def _http_info() -> Dict[str, Any]:
+            headers = {}
+            for k, v in resp.headers.items():
+                headers[k] = v
 
+            return {
+                "headers": headers,
+                "status_code": resp.status_code,
+                "url": str(resp.url),
+                "method": resp.method,
+            }
+
+        result: Dict[str, Any] = {}
         try:
-            dict["parsed"] = resp.parse()
+            obj: BaseModel = resp.parse()
+            result = obj.model_dump()
+            result["http_info"] = _http_info()
         except Exception as e:
             logger.error(f"Failed to parse response, {e}")
-            dict["parsed"] = {}
 
-        try:
-            dict["text"] = resp.text
-        except Exception as e:
-            logger.error(f"Failed to get response text, {e}")
-
-        return dict
+        return result
 
     @staticmethod
     def get_user_id(**kwargs) -> Optional[str]:
