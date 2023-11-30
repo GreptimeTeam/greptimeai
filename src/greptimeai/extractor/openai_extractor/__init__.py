@@ -93,21 +93,34 @@ class OpenaiExtractor(BaseExtractor):
 
         event_attrs = {**kwargs}
         if "stream" in kwargs and kwargs["stream"]:
-            if "model" in kwargs and "prompt" in kwargs:
-                prompt_usage = {"prompt_tokens": 0, "prompt_cost": 0.0}
-                if isinstance(kwargs["prompt"], str):
-                    prompt_tokens = _count_tokens(kwargs["model"], kwargs["prompt"])
-                    if prompt_tokens:
-                        prompt_usage["prompt_tokens"] = prompt_tokens
-                elif isinstance(kwargs["prompt"], list):
-                    for prompt in kwargs["prompt"]:
-                        prompt_tokens = _count_tokens(kwargs["model"], prompt)
-                        if prompt_tokens:
-                            prompt_usage["prompt_tokens"] += prompt_tokens
-                prompt_usage["prompt_cost"] = get_openai_token_cost_for_model(
-                    kwargs["model"], prompt_usage["prompt_tokens"], False
-                )
-                event_attrs["prompt_usage"] = prompt_usage
+            prompt_usage = {"prompt_tokens": 0, "prompt_cost": 0.0}
+            if "model" in kwargs:
+                if "prompt" in kwargs:
+                    if isinstance(kwargs["prompt"], str):
+                        prompt_usage["prompt_tokens"] = _count_tokens(
+                            kwargs["model"], kwargs["prompt"]
+                        )
+                    elif isinstance(kwargs["prompt"], list):
+                        content = ""
+                        for prompt in kwargs["prompt"]:
+                            content += prompt
+                        prompt_usage["prompt_tokens"] = _count_tokens(
+                            kwargs["model"], content
+                        )
+                elif "messages" in kwargs:
+                    content = ""
+                    for message in kwargs["messages"]:
+                        if "content" in message:
+                            content += message["content"]
+                    prompt_usage["prompt_tokens"] = _count_tokens(
+                        kwargs["model"], content
+                    )
+
+                if prompt_usage["prompt_tokens"]:
+                    prompt_usage["prompt_cost"] = get_openai_token_cost_for_model(
+                        kwargs["model"], prompt_usage["prompt_tokens"], False
+                    )
+            event_attrs["prompt_usage"] = prompt_usage
         if len(args) > 0:
             event_attrs["args"] = args
 
@@ -141,7 +154,14 @@ class OpenaiExtractor(BaseExtractor):
         resp_dump, res_dump = itertools.tee(_generator_wrapper(), 2)
 
         def _trace_stream():
-            data = {}
+            data = {
+                "finish_reason_stop": 0,
+                "finish_reason_length": 0,
+                "completion_tokens": 0,
+                "model": "",
+                "text": "",
+                "completion_cost": 0.0,
+            }
             for item in resp_dump:
                 if hasattr(item, "model_dump"):
                     item_dump = item.model_dump()
