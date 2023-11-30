@@ -75,9 +75,8 @@ class _OpenaiPatcher:
         TODO(yuanbohan): to support:
           - [ ] stream
           - [x] async
-          - [ ] with_raw_response
-          - [ ] error, timeout, retry
-          - [ ] trace headers of request and response
+          - [x] with_raw_response
+          - [ ] retry
         """
 
         func = trackee.get_unwrapped_func()
