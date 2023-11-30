@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Optional, Union
 from uuid import UUID
 
-from extractor.openai_extractor import OpenaiExtractor
 from opentelemetry.util.types import Attributes
 
 from greptimeai import (

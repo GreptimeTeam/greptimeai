@@ -1,9 +1,8 @@
 import functools
 import time
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Any, Callable, List, Optional, Tuple, Union
 
 from openai import AsyncOpenAI, OpenAI
-from pydantic import BaseModel
 from typing_extensions import override
 
 from greptimeai import _MODEL_LABEL, _SPAN_NAME_LABEL, logger
@@ -79,11 +78,11 @@ class OpenaiTracker(BaseTracker):
             model_extractor.ModelRetrieveExtractor(client),
             model_extractor.ModelDeleteExtractor(client),
             moderation_extractor.ModerationExtractor(client),
-            # fine_tuning_extractor.FineTuningListEventsExtractor(client),
-            # fine_tuning_extractor.FineTuningCreateExtractor(client),
-            # fine_tuning_extractor.FineTuningCancelExtractor(client),
-            # fine_tuning_extractor.FineTuningRetrieveExtractor(client),
-            # fine_tuning_extractor.FineTuningListExtractor(client),
+            fine_tuning_extractor.FineTuningListEventsExtractor(client),
+            fine_tuning_extractor.FineTuningCreateExtractor(client),
+            fine_tuning_extractor.FineTuningCancelExtractor(client),
+            fine_tuning_extractor.FineTuningRetrieveExtractor(client),
+            fine_tuning_extractor.FineTuningListExtractor(client),
         ]
 
         for extractor in extractors:
@@ -111,14 +110,12 @@ class OpenaiTracker(BaseTracker):
         start: float,
         extractor: OpenaiExtractor,
         span_name: str,
-        resp: BaseModel,
+        resp: Any,
         ex: Optional[Exception] = None,
     ):
         latency = 1000 * (time.time() - start)
         extraction = extractor.post_extract(resp)
-        attrs = {
-            _SPAN_NAME_LABEL: span_name
-        }
+        attrs = {_SPAN_NAME_LABEL: span_name}
         model = extraction.get_model_name()
         if model:
             attrs[_MODEL_LABEL] = model
@@ -142,7 +139,9 @@ class OpenaiTracker(BaseTracker):
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            extraction, span_id, start = self._pre_patch(extractor, trackee.get_span_name(), *args, **kwargs)
+            extraction, span_id, start = self._pre_patch(
+                extractor, trackee.get_span_name(), *args, **kwargs
+            )
             resp, ex = None, None
             try:
                 resp = func(*args, **kwargs)
@@ -151,14 +150,26 @@ class OpenaiTracker(BaseTracker):
                 ex = e
                 raise e
             finally:
-                self._post_patch(span_id=span_id, start=start, extractor=extractor, trackee=trackee resp=resp, ex=ex,)  # type: ignore
+                self._post_patch(
+                    span_id=span_id,
+                    start=start,
+                    extractor=extractor,
+                    span_name=trackee.get_span_name(),
+                    resp=resp,
+                    ex=ex,
+                )  # type: ignore
             return resp
+
         trackee.set_func_with_wrapped_attr(wrapper)
 
-    def _patch_async(self, func: Callable, extractor: OpenaiExtractor, trackee: Trackee):
+    def _patch_async(
+        self, func: Callable, extractor: OpenaiExtractor, trackee: Trackee
+    ):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
-            extraction, span_id, start = self._pre_patch(extractor, trackee.get_span_name(), *args, **kwargs)
+            extraction, span_id, start = self._pre_patch(
+                extractor, trackee.get_span_name(), *args, **kwargs
+            )
             resp, ex = None, None
             try:
                 resp = await func(*args, **kwargs)
@@ -167,6 +178,14 @@ class OpenaiTracker(BaseTracker):
                 ex = e
                 raise e
             finally:
-                self._post_patch(span_id=span_id, start=start, extractor=extractor, trackee=trackee resp=resp, ex=ex)  # type: ignore
+                self._post_patch(
+                    span_id=span_id,
+                    start=start,
+                    extractor=extractor,
+                    span_name=trackee.get_span_name(),
+                    resp=resp,
+                    ex=ex,
+                )  # type: ignore
             return resp
+
         trackee.set_func_with_wrapped_attr(wrapper)

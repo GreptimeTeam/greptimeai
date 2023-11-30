@@ -1,9 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Optional, Sequence
-
-from tracker import Trackee
+from typing import Any, Dict, Optional, Sequence
 
 from greptimeai import _MODEL_LABEL
+from greptimeai.tracker import Trackee
 
 
 class Extraction:

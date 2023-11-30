@@ -1,8 +1,7 @@
-from typing import Any, Callable, Dict, Optional, Sequence, Union
+from typing import Any, Dict, Optional, Sequence, Union
 
 from openai import AsyncOpenAI, OpenAI
 from openai._response import APIResponse
-from tracker import Trackee
 from typing_extensions import override
 
 from greptimeai import (
@@ -15,6 +14,7 @@ from greptimeai import (
     logger,
 )
 from greptimeai.extractor import BaseExtractor, Extraction
+from greptimeai.tracker import Trackee
 from greptimeai.utils.openai.parser import parse_raw_response
 from greptimeai.utils.openai.token import get_openai_token_cost_for_model
 

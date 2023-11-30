@@ -2,9 +2,9 @@ from typing import Union
 
 import openai
 from openai import AsyncOpenAI, OpenAI
-from tracker import Trackee
 
 from greptimeai.extractor.openai_extractor import OpenaiExtractor
+from greptimeai.tracker import Trackee
 
 
 class ChatCompletionExtractor(OpenaiExtractor):

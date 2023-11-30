@@ -2,16 +2,9 @@ from typing import Union
 
 import openai
 from openai import AsyncOpenAI, OpenAI
-from tracker import Trackee
-from typing_extensions import override
 
-from greptimeai import _MODEL_LABEL, _PROMPT_COST_LABEl, _PROMPT_TOKENS_LABEl
-from greptimeai.extractor import Extraction
 from greptimeai.extractor.openai_extractor import OpenaiExtractor
-from greptimeai.utils.openai.token import (
-    get_openai_audio_cost_for_tts,
-    num_characters_for_audio,
-)
+from greptimeai.tracker import Trackee
 
 
 class SpeechExtractor(OpenaiExtractor):
