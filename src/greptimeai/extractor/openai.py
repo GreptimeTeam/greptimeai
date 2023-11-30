@@ -1,6 +1,7 @@
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union
 
-from openai import AsyncOpenAI, OpenAI
+from openai._response import APIResponse
+from pydantic import BaseModel
 from typing_extensions import override
 
 from greptimeai import (
@@ -20,20 +21,29 @@ _X_USER_ID = "x-user-id"
 
 
 class OpenaiExtractor(BaseExtractor):
-    def __init__(
-        self,
-        obj: object,
-        method_name: str,
-        span_name: str,
-        client: Union[OpenAI, AsyncOpenAI, None] = None,
-    ):
-        self.obj = obj
-        self.span_name = span_name
-        self.method_name = method_name
-        self._is_async = isinstance(client, AsyncOpenAI)
+    @staticmethod
+    def parse_raw_response(resp: APIResponse) -> Dict[str, Any]:
+        def _http_info() -> Dict[str, Any]:
+            headers = {}
+            for k, v in resp.headers.items():
+                headers[k] = v
 
-        if self._is_async:
-            self.span_name = f"async_openai.{self.span_name}"
+            return {
+                "headers": headers,
+                "status_code": resp.status_code,
+                "url": str(resp.url),
+                "method": resp.method,
+            }
+
+        result: Dict[str, Any] = {}
+        try:
+            obj: BaseModel = resp.parse()
+            result = obj.model_dump()
+            result["http_info"] = _http_info()
+        except Exception as e:
+            logger.error(f"Failed to parse response, {e}")
+
+        return result
 
     @staticmethod
     def get_user_id(**kwargs) -> Optional[str]:
@@ -96,57 +106,39 @@ class OpenaiExtractor(BaseExtractor):
     def post_extract(self, resp: Any) -> Extraction:
         """
         extract for span attributes:
-                _MODEL_LABEL
-                _COMPLETION_COST_LABEL
-                _COMPLETION_TOKENS_LABEL
-                _PROMPT_COST_LABEl
-                _PROMPT_TOKENS_LABEl
+          - _MODEL_LABEL
+          - _COMPLETION_COST_LABEL
+          - _COMPLETION_TOKENS_LABEL
+          - _PROMPT_COST_LABEl
+          - _PROMPT_TOKENS_LABEl
 
         merge usage into resp as event attributes
 
         Args:
 
-            resp: response from openai api, which MUST inherit the BaseModel class so far.add()
-
-
-        TODO: support response which DOSE NOT inherit the BaseModel class
+            resp: inherit from the BaseModel class, or instance of APIResponse class
         """
         try:
-            dump = resp.model_dump()
+            dict: Dict[str, Any] = {}
+            if isinstance(resp, APIResponse):
+                dict = OpenaiExtractor.parse_raw_response(resp)
+                logger.debug(f"after parse_raw_response: {dict=}")
+            else:
+                dict = resp.model_dump()
         except Exception as e:
-            logger.error(f"Failed to call model_dump for {resp}: {e}")
-            dump = {}
+            logger.error(f"Failed to extract response {resp}: {e}")
+            dict = {}
 
         span_attrs = {}
 
-        model = dump.get("model", None)
+        model = dict.get("model", None)
         if model:
             span_attrs[_MODEL_LABEL] = model
 
-        usage = dump.get("usage", {})
-        if usage and model:
-            usage = OpenaiExtractor.extract_usage(model, usage)
-            span_attrs.update(usage)
-            dump["usage"] = usage
+            usage = dict.get("usage", {})
+            if usage:
+                usage = OpenaiExtractor.extract_usage(model, usage)
+                span_attrs.update(usage)
+                dict["usage"] = usage
 
-        return Extraction(span_attributes=span_attrs, event_attributes=dump)
-
-    @override
-    def get_func_name(self) -> str:
-        return self.method_name
-
-    @override
-    def get_span_name(self) -> str:
-        return self.span_name
-
-    @override
-    def get_func(self) -> Optional[Callable]:
-        return getattr(self.obj, self.method_name, None)
-
-    @override
-    def set_func(self, func: Callable):
-        setattr(self.obj, self.method_name, func)
-
-    @property
-    def is_async(self) -> bool:
-        return self._is_async
+        return Extraction(span_attributes=span_attrs, event_attributes=dict)

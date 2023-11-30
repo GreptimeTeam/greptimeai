@@ -141,7 +141,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler, BaseTracker):
             span_attrs={},
             event_name="chain_error",
             event_attrs=event_attrs,
-            ex=error,  # type: ignore
+            ex=error,
         )
         self._collector.collect_error_count(
             {
@@ -173,7 +173,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler, BaseTracker):
         streaming = _get_serialized_streaming(serialized)
         if streaming and invocation_params:
             str_messages = " ".join(prompts)
-            model_name: str = invocation_params.get("model_name")  # type: ignore
+            model_name: str = invocation_params.get("model_name", "")
             prompt_tokens = num_tokens_from_messages(str_messages, model_name)
             prompt_cost = get_openai_token_cost_for_model(model_name, prompt_tokens)
             span_attrs[_MODEL_LABEL] = model_name
@@ -222,7 +222,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler, BaseTracker):
 
         streaming = _get_serialized_streaming(serialized)
         if streaming and invocation_params:
-            model_name: str = invocation_params.get("model_name")  # type: ignore
+            model_name: str = invocation_params.get("model_name", "")
             prompt_tokens = num_tokens_from_messages(str_messages, model_name)
             prompt_cost = get_openai_token_cost_for_model(model_name, prompt_tokens)
             span_attrs[_MODEL_LABEL] = model_name
@@ -268,7 +268,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler, BaseTracker):
         model_name: Optional[str] = output.get("model_name")
         if model_name is None:
             model_name = self._collector.get_model_in_context(run_id) or ""
-        model_name = standardize_model_name(model_name)  # type: ignore
+        model_name = standardize_model_name(model_name)
 
         token_usage = output.get("token_usage", {})
 
@@ -348,7 +348,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler, BaseTracker):
             span_attrs={},
             event_name="llm_error",
             event_attrs=event_attrs,
-            ex=error,  # type: ignore
+            ex=error,
         )
         self._collector.collect_error_count(
             {
@@ -464,7 +464,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler, BaseTracker):
             span_attrs={},
             event_name="tool_error",
             event_attrs=event_attrs,
-            ex=error,  # type: ignore
+            ex=error,
         )
         self._collector.collect_error_count(
             {
@@ -596,7 +596,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler, BaseTracker):
             span_attrs={},
             event_name="retriever_error",
             event_attrs=event_attrs,
-            ex=error,  # type: ignore
+            ex=error,
         )
         self._collector.collect_error_count(
             {
