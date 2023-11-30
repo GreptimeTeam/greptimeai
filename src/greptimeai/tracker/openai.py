@@ -19,7 +19,7 @@ from greptimeai.trackee.openai.moderation import ModerationTrackees
 from greptimeai.tracker import BaseTracker, Extraction
 
 
-class OpenaiPatcher:
+class _OpenaiPatcher:
     def __init__(
         self,
         trackees: OpenaiTrackees,  # specify what methods to be patched
@@ -141,7 +141,7 @@ class OpenaiPatcher:
             self._patch_one(trackee)
 
 
-class AudioPatcher(OpenaiPatcher):
+class _AudioPatcher(_OpenaiPatcher):
     def __init__(
         self,
         tracker: BaseTracker,
@@ -151,7 +151,7 @@ class AudioPatcher(OpenaiPatcher):
         super().__init__(tracker=tracker, trackees=trackees, client=client)
 
 
-class ChatCompletionPatcher(OpenaiPatcher):
+class _ChatCompletionPatcher(_OpenaiPatcher):
     def __init__(
         self,
         tracker: BaseTracker,
@@ -161,7 +161,7 @@ class ChatCompletionPatcher(OpenaiPatcher):
         super().__init__(tracker=tracker, trackees=trackees, client=client)
 
 
-class CompletionPatcher(OpenaiPatcher):
+class _CompletionPatcher(_OpenaiPatcher):
     def __init__(
         self,
         tracker: BaseTracker,
@@ -171,7 +171,7 @@ class CompletionPatcher(OpenaiPatcher):
         super().__init__(tracker=tracker, trackees=trackees, client=client)
 
 
-class FilePatcher(OpenaiPatcher):
+class _FilePatcher(_OpenaiPatcher):
     def __init__(
         self,
         tracker: BaseTracker,
@@ -181,7 +181,7 @@ class FilePatcher(OpenaiPatcher):
         super().__init__(tracker=tracker, trackees=trackees, client=client)
 
 
-class FineTuningPatcher(OpenaiPatcher):
+class _FineTuningPatcher(_OpenaiPatcher):
     def __init__(
         self,
         tracker: BaseTracker,
@@ -191,7 +191,7 @@ class FineTuningPatcher(OpenaiPatcher):
         super().__init__(tracker=tracker, trackees=trackees, client=client)
 
 
-class ImagePatcher(OpenaiPatcher):
+class _ImagePatcher(_OpenaiPatcher):
     def __init__(
         self,
         tracker: BaseTracker,
@@ -201,7 +201,7 @@ class ImagePatcher(OpenaiPatcher):
         super().__init__(tracker=tracker, trackees=trackees, client=client)
 
 
-class ModelPatcher(OpenaiPatcher):
+class _ModelPatcher(_OpenaiPatcher):
     def __init__(
         self,
         tracker: BaseTracker,
@@ -211,7 +211,7 @@ class ModelPatcher(OpenaiPatcher):
         super().__init__(tracker=tracker, trackees=trackees, client=client)
 
 
-class ModerationPatcher(OpenaiPatcher):
+class _ModerationPatcher(_OpenaiPatcher):
     def __init__(
         self,
         tracker: BaseTracker,
@@ -240,15 +240,15 @@ def setup(
         client: if None, then openai module-level client will be patched.
     """
     tracker = BaseTracker(host, database, token)
-    patchers: List[OpenaiPatcher] = [
-        AudioPatcher(tracker=tracker, client=client),
-        ChatCompletionPatcher(tracker=tracker, client=client),
-        CompletionPatcher(tracker=tracker, client=client),
-        FilePatcher(tracker=tracker, client=client),
-        FineTuningPatcher(tracker=tracker, client=client),
-        ImagePatcher(tracker=tracker, client=client),
-        ModelPatcher(tracker=tracker, client=client),
-        ModerationPatcher(tracker=tracker, client=client),
+    patchers: List[_OpenaiPatcher] = [
+        _AudioPatcher(tracker=tracker, client=client),
+        _ChatCompletionPatcher(tracker=tracker, client=client),
+        _CompletionPatcher(tracker=tracker, client=client),
+        _FilePatcher(tracker=tracker, client=client),
+        _FineTuningPatcher(tracker=tracker, client=client),
+        _ImagePatcher(tracker=tracker, client=client),
+        _ModelPatcher(tracker=tracker, client=client),
+        _ModerationPatcher(tracker=tracker, client=client),
     ]
 
     for patcher in patchers:
