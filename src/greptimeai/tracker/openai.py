@@ -47,7 +47,7 @@ class _OpenaiPatcher:
         **kwargs,
     ) -> Tuple[Extraction, str, float]:
         extraction = self.extractor.pre_extract(*args, **kwargs)
-        span_id: str = self.start_span(span_name, extraction)  # type: ignore
+        span_id: str = self.tracker.start_span(span_name, extraction)
         start = time.time()
         return (extraction, span_id, start)
 
@@ -106,7 +106,7 @@ class _OpenaiPatcher:
                         span_name=span_name,
                         resp=resp,
                         ex=ex,
-                    )  # type: ignore
+                    )
                 return resp
 
             trackee.wrap_func(async_wrapper)
@@ -131,7 +131,7 @@ class _OpenaiPatcher:
                         span_name=span_name,
                         resp=resp,
                         ex=ex,
-                    )  # type: ignore
+                    )
                 return resp
 
             trackee.wrap_func(wrapper)
@@ -254,4 +254,4 @@ def setup(
     for patcher in patchers:
         patcher.patch()
 
-    logger.info("greptimeai is ready to track openai metrics and traces.")
+    logger.info("ready to track openai metrics and traces.")

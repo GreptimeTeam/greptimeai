@@ -1,5 +1,4 @@
-from typing import Any, Dict, Optional, Union
-from uuid import UUID
+from typing import Any, Dict, Optional, cast
 
 from opentelemetry.util.types import Attributes
 
@@ -32,10 +31,8 @@ class BaseTracker:
             service_name=service_name, host=host, database=database, token=token
         )
 
-    def start_span(
-        self, span_name: str, extraction: Extraction
-    ) -> Union[UUID, str, None]:
-        return self._collector.start_span(
+    def start_span(self, span_name: str, extraction: Extraction) -> str:
+        span_id = self._collector.start_span(
             span_id=None,
             parent_id=None,
             span_name=span_name,
@@ -43,6 +40,7 @@ class BaseTracker:
             span_attrs=extraction.span_attributes,
             event_attrs=extraction.event_attributes,
         )
+        return cast(str, span_id)
 
     def end_span(
         self,

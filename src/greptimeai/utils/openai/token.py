@@ -91,10 +91,7 @@ MODEL_COST_PER_1K_TOKENS = {
 }
 
 
-def standardize_model_name(
-    model_name: str,
-    is_completion: bool = False,
-) -> str:
+def standardize_model_name(model_name: str, is_completion: bool = False) -> str:
     """
     Standardize the model name to a format that can be used in the OpenAI API.
 
@@ -128,7 +125,7 @@ def standardize_model_name(
 
 
 def get_openai_token_cost_for_model(
-    model_name: Optional[str], num_tokens: int, is_completion: bool = False
+    model_name: str, num_tokens: int, is_completion: bool = False
 ) -> float:
     """
     Get the cost in USD for a given model and number of tokens.
@@ -168,6 +165,10 @@ def num_tokens_from_messages(messages: str, model="gpt-3.5-turbo-0613") -> int:
     Refer: https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
     """
     import tiktoken
+
+    if not model:
+        logger.warning("failed to calculate tokens for message for model name is none")
+        return 0
 
     try:
         encoding = tiktoken.encoding_for_model(model)

@@ -36,7 +36,7 @@ class Trackee:
     def wrap_func(self, func: Callable):
         setattr(func, _GREPTIMEAI_WRAPPED, True)
         setattr(self.obj, self.method_name, func)
-        logger.debug(f"greptimeai has patched '{self.span_name}'")
+        logger.debug(f"patched '{self.span_name}'")
 
 
 class Trackees:

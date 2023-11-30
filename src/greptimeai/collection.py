@@ -3,7 +3,7 @@ import json
 import logging
 import os
 import time
-from typing import Any, Dict, List, MutableMapping, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
 from opentelemetry import metrics, trace
@@ -84,7 +84,7 @@ def _is_valid_otel_attributes_value_type(val: Any) -> bool:
     return isinstance(val, (bool, str, int, float, bytes))
 
 
-def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Attributes:
+def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Dict[str, AttributeValue]:
     """
     prepare attributes value to any of ['bool', 'str', 'bytes', 'int', 'float']
     or a sequence of these types.
@@ -92,7 +92,7 @@ def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Attributes:
     Other types will be sanitated to json string, and
     append this key in `_JSON_KEYS_IN_OTLP_ATTRIBUTES`
     """
-    result: MutableMapping[str, AttributeValue] = {}
+    result: Dict[str, AttributeValue] = {}
     if not attrs:
         return result
 
@@ -515,7 +515,7 @@ class Collector:
         event_name: str,
         span_attrs: Dict[str, Any] = {},
         event_attrs: Dict[str, Any] = {},
-        ex: Optional[Exception] = None,
+        ex: Optional[BaseException] = None,
     ):
         logger.debug(f"end span for {span_name} with {span_id=}")
 
@@ -526,9 +526,9 @@ class Collector:
         if context and context.span:
             span = context.span
             if ex:
-                span.record_exception(ex)
+                span.record_exception(ex)  # type: ignore
             if span_attributes:
-                span.set_attributes(attributes=span_attributes)  # type: ignore
+                span.set_attributes(attributes=span_attributes)
             code = StatusCode.ERROR if ex else StatusCode.OK
             span.set_status(Status(code))
             span.add_event(event_name, attributes=event_attributes)
