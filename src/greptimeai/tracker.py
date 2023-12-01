@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, Optional, Tuple
 
 from opentelemetry.util.types import Attributes
 
@@ -15,9 +15,9 @@ from greptimeai.collection import Collector
 from greptimeai.extractor import Extraction
 
 
-class BaseTracker:
+class Tracker:
     """
-    base tracker to collect metrics and traces
+    tracker to collect metrics and traces
     """
 
     def __init__(
@@ -31,8 +31,8 @@ class BaseTracker:
             service_name=service_name, host=host, database=database, token=token
         )
 
-    def start_span(self, span_name: str, extraction: Extraction) -> str:
-        span_id = self._collector.start_span(
+    def start_span(self, span_name: str, extraction: Extraction) -> Tuple[str, str]:
+        return self._collector.start_span(
             span_id=None,
             parent_id=None,
             span_name=span_name,
@@ -40,7 +40,6 @@ class BaseTracker:
             span_attrs=extraction.span_attributes,
             event_attrs=extraction.event_attributes,
         )
-        return cast(str, span_id)
 
     def end_span(
         self,

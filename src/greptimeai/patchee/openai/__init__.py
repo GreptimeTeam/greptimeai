@@ -2,22 +2,22 @@ from typing import Sequence, Union
 
 from openai import AsyncOpenAI, OpenAI
 
-from greptimeai.trackee import Trackee, Trackees
+from greptimeai.patchee import Patchee
 
 
-class OpenaiTrackees(Trackees):
-    trackees: Sequence[Trackee] = []
+class OpenaiPatchees:
+    patchees: Sequence[Patchee] = []
     client: Union[OpenAI, AsyncOpenAI, None]
 
     def __init__(
         self,
-        trackees: Sequence[Trackee],
+        patchees: Sequence[Patchee],
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
-        self.trackees = trackees
+        self.patchees = patchees
         self.client = client
 
         self.is_async = isinstance(client, AsyncOpenAI)
 
-    def get_trackees(self) -> Sequence[Trackee]:
-        return self.trackees
+    def get_patchees(self) -> Sequence[Patchee]:
+        return self.patchees

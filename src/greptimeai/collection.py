@@ -17,7 +17,7 @@ from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Span, Status, StatusCode, Tracer, set_span_in_context
-from opentelemetry.trace.span import format_span_id
+from opentelemetry.trace.span import format_span_id, format_trace_id
 from opentelemetry.util.types import Attributes, AttributeValue
 from typing_extensions import override
 
@@ -440,7 +440,7 @@ class Collector:
         event_name: str,
         span_attrs: Dict[str, Any] = {},  # model SHOULD exist in span attrs
         event_attrs: Dict[str, Any] = {},
-    ) -> Union[UUID, str, None]:
+    ) -> Tuple[str, str]:
         """
         NOTE: end_span MUST BE called with the the same span_id and span_name to revoke the key in trace table.
 
@@ -453,13 +453,14 @@ class Collector:
 
         Returns:
 
-            id: can retrieve context via this id. If None, no span has been started.
+            Tuple of trace_id and span_id.
+
         """
         logger.debug(f"start span for {span_name} with {span_id=} or {parent_id=}")
         span_attributes = _sanitate_attributes(span_attrs)
         event_attributes = _sanitate_attributes(event_attrs)
 
-        def _do_start_span(ctx: Optional[Context] = None):
+        def _do_start_span(ctx: Optional[Context] = None) -> Tuple[str, str]:
             span = self._tracer.start_span(
                 span_name, context=ctx, attributes=span_attributes
             )
@@ -469,9 +470,12 @@ class Collector:
                 name=span_name, model=span_attrs.get("model", ""), span=span
             )
 
-            final_id = span_id or format_span_id(span.get_span_context().span_id)
-            self._trace_tables.put_trace_context(final_id, trace_context)
-            return final_id
+            span_context = span.get_span_context()
+            str_trace_id, str_span_id = format_trace_id(
+                span_context.trace_id
+            ), format_span_id(span_context.span_id)
+            self._trace_tables.put_trace_context(str_span_id, trace_context)
+            return str_trace_id, str_span_id
 
         if parent_id:
             trace_context = self._trace_tables.get_trace_context(parent_id)
@@ -479,9 +483,9 @@ class Collector:
                 return _do_start_span(trace_context.set_self_as_current())
             else:
                 logging.error(
-                    f"unexpected behavior of start_span. parent span of { parent_id } not found."
+                    f"Parent span of { parent_id } not found, will act as Root span."
                 )
-                return None
+                return _do_start_span()
 
         if span_id is None:
             return _do_start_span()

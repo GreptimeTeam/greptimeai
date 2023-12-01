@@ -3,20 +3,20 @@ from typing import Union
 import openai
 from openai import AsyncOpenAI, OpenAI
 
-from greptimeai.trackee import Trackee
+from greptimeai.patchee import Patchee
 
-from . import OpenaiTrackees
+from . import OpenaiPatchees
 
 
-class _FileTrackees:
+class _FilePatchees:
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None], method_name: str):
-        files = Trackee(
+        files = Patchee(
             obj=client.files if client else openai.files,
             method_name=method_name,
             span_name=f"files.{method_name}",
         )
 
-        files_raw = Trackee(
+        files_raw = Patchee(
             obj=client.files.with_raw_response
             if client
             else openai.files.with_raw_response,
@@ -24,43 +24,40 @@ class _FileTrackees:
             span_name=f"files.with_raw_response.{method_name}",
         )
 
-        self.trackees = [
-            files,
-            files_raw,
-        ]
+        self.patchees = [files, files_raw]
 
         if client:
-            raw_files = Trackee(
+            raw_files = Patchee(
                 obj=client.with_raw_response.files,
                 method_name=method_name,
                 span_name=f"with_raw_response.files.{method_name}",
             )
-            self.trackees.append(raw_files)
+            self.patchees.append(raw_files)
 
 
-class _FileListTrackees(_FileTrackees):
+class _FileListPatchees(_FilePatchees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         super().__init__(client=client, method_name="list")
 
 
-class _FileCreateTrackees(_FileTrackees):
+class _FileCreatePatchees(_FilePatchees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         super().__init__(client=client, method_name="create")
 
 
-class _FileDeleteTrackees(_FileTrackees):
+class _FileDeletePatchees(_FilePatchees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         super().__init__(client=client, method_name="delete")
 
 
-class _FileRetrieveTrackees(_FileTrackees):
+class _FileRetrievePatchees(_FilePatchees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         super().__init__(client=client, method_name="retrieve")
 
 
-class _FileRetrieveContentTrackees(_FileTrackees):
+class _FileRetrieveContentPatchees(_FilePatchees):
     """
-    `.retrieve_content()` is deprecated, but it should be tracked as well.
+    `.retrieve_content()` is deprecated, but it should be patched as well.
     The `.content()` method should be used instead
     """
 
@@ -68,27 +65,27 @@ class _FileRetrieveContentTrackees(_FileTrackees):
         super().__init__(client=client, method_name="retrieve_content")
 
 
-class _FileContentTrackees(_FileTrackees):
+class _FileContentPatchees(_FilePatchees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         super().__init__(client=client, method_name="content")
 
 
-class FileTrackees(OpenaiTrackees):
+class FilePatchees(OpenaiPatchees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
-        list_trackees = _FileListTrackees(client=client)
-        create_trackees = _FileCreateTrackees(client=client)
-        delete_trackees = _FileDeleteTrackees(client=client)
-        retrieve_trackees = _FileRetrieveTrackees(client=client)
-        retrieve_content_trackees = _FileRetrieveContentTrackees(client=client)
-        content_trackees = _FileContentTrackees(client=client)
+        list = _FileListPatchees(client=client)
+        create = _FileCreatePatchees(client=client)
+        delete = _FileDeletePatchees(client=client)
+        retrieve = _FileRetrievePatchees(client=client)
+        retrieve_content = _FileRetrieveContentPatchees(client=client)
+        content = _FileContentPatchees(client=client)
 
-        trackees = (
-            list_trackees.trackees
-            + create_trackees.trackees
-            + delete_trackees.trackees
-            + retrieve_trackees.trackees
-            + retrieve_content_trackees.trackees
-            + content_trackees.trackees
+        patchees = (
+            list.patchees
+            + create.patchees
+            + delete.patchees
+            + retrieve.patchees
+            + retrieve_content.patchees
+            + content.patchees
         )
 
-        super().__init__(trackees=trackees, client=client)
+        super().__init__(patchees=patchees, client=client)

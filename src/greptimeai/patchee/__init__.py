@@ -1,11 +1,11 @@
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, Optional
 
 from greptimeai import logger
 
 _GREPTIMEAI_WRAPPED = "__GREPTIMEAI_WRAPPED__"
 
 
-class Trackee:
+class Patchee:
     def __init__(self, obj: Any, method_name: str, span_name: str):
         self.obj = obj
         self.method_name = method_name
@@ -37,10 +37,3 @@ class Trackee:
         setattr(func, _GREPTIMEAI_WRAPPED, True)
         setattr(self.obj, self.method_name, func)
         logger.debug(f"patched '{self.span_name}'")
-
-
-class Trackees:
-    trackees: Sequence[Trackee] = []
-
-    def get_trackees(self) -> Sequence[Trackee]:
-        return self.trackees

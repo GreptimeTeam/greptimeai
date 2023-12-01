@@ -3,20 +3,20 @@ from typing import Union
 import openai
 from openai import AsyncOpenAI, OpenAI
 
-from greptimeai.trackee import Trackee
+from greptimeai.patchee import Patchee
 
-from . import OpenaiTrackees
+from . import OpenaiPatchees
 
 
-class _FineTuningTrackees:
+class _FineTuningPatchees:
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None], method_name: str):
-        fine_tuning_jobs = Trackee(
+        fine_tuning_jobs = Patchee(
             obj=client.fine_tuning.jobs if client else openai.fine_tuning.jobs,
             method_name=method_name,
             span_name=f"fine_tuning.jobs.{method_name}",
         )
 
-        fine_tuning_raw_jobs = Trackee(
+        fine_tuning_raw_jobs = Patchee(
             obj=client.fine_tuning.with_raw_response.jobs
             if client
             else openai.fine_tuning.with_raw_response.jobs,
@@ -24,7 +24,7 @@ class _FineTuningTrackees:
             span_name=f"fine_tuning.with_raw_response.jobs.{method_name}",
         )
 
-        fine_tuning_jobs_raw = Trackee(
+        fine_tuning_jobs_raw = Patchee(
             obj=client.fine_tuning.jobs.with_raw_response
             if client
             else openai.fine_tuning.jobs.with_raw_response,
@@ -32,60 +32,60 @@ class _FineTuningTrackees:
             span_name=f"fine_tuning.jobs.with_raw_response.{method_name}",
         )
 
-        self.trackees = [
+        self.patchees = [
             fine_tuning_jobs,
             fine_tuning_raw_jobs,
             fine_tuning_jobs_raw,
         ]
 
         if client:
-            raw_fine_tuning = Trackee(
+            raw_fine_tuning = Patchee(
                 obj=client.with_raw_response.fine_tuning.jobs,
                 method_name=method_name,
                 span_name=f"with_raw_response.fine_tuning.jobs.{method_name}",
             )
-            self.trackees.append(raw_fine_tuning)
+            self.patchees.append(raw_fine_tuning)
 
 
-class _FineTuningListTrackees(_FineTuningTrackees):
+class _FineTuningListPatchees(_FineTuningPatchees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         super().__init__(client=client, method_name="list")
 
 
-class _FineTuningCreateTrackees(_FineTuningTrackees):
+class _FineTuningCreatePatchees(_FineTuningPatchees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         super().__init__(client=client, method_name="create")
 
 
-class _FineTuningCancelTrackees(_FineTuningTrackees):
+class _FineTuningCancelPatchees(_FineTuningPatchees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         super().__init__(client=client, method_name="cancel")
 
 
-class _FineTuningRetrieveTrackees(_FineTuningTrackees):
+class _FineTuningRetrievePatchees(_FineTuningPatchees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         super().__init__(client=client, method_name="retrieve")
 
 
-class _FineTuningListEventsTrackees(_FineTuningTrackees):
+class _FineTuningListEventsPatchees(_FineTuningPatchees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         super().__init__(client=client, method_name="list_events")
 
 
-class FineTuningTrackees(OpenaiTrackees):
+class FineTuningPatchees(OpenaiPatchees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
-        list_trackees = _FineTuningListTrackees(client=client)
-        create_trackees = _FineTuningCreateTrackees(client=client)
-        cancel_trackees = _FineTuningCancelTrackees(client=client)
-        retrieve_trackees = _FineTuningRetrieveTrackees(client=client)
-        list_events_trackees = _FineTuningListEventsTrackees(client=client)
+        list = _FineTuningListPatchees(client=client)
+        create = _FineTuningCreatePatchees(client=client)
+        cancel = _FineTuningCancelPatchees(client=client)
+        retrieve = _FineTuningRetrievePatchees(client=client)
+        list_events = _FineTuningListEventsPatchees(client=client)
 
-        trackees = (
-            list_trackees.trackees
-            + create_trackees.trackees
-            + cancel_trackees.trackees
-            + retrieve_trackees.trackees
-            + list_events_trackees.trackees
+        patchees = (
+            list.patchees
+            + create.patchees
+            + cancel.patchees
+            + retrieve.patchees
+            + list_events.patchees
         )
 
-        super().__init__(trackees=trackees, client=client)
+        super().__init__(patchees=patchees, client=client)
