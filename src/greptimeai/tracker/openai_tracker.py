@@ -174,7 +174,9 @@ class OpenaiTracker(BaseTracker):
                     raise e
                 finally:
                     if is_async_stream(resp):
-                        resp = self._trace_async_stream(span_id, span_name, start, resp, ex)
+                        resp = self._trace_async_stream(
+                            span_id, span_name, start, resp, ex
+                        )
                     else:
                         resp = self._post_patch(span_id, start, extractor, resp, ex)  # type: ignore
                 return resp
@@ -215,23 +217,23 @@ class OpenaiTracker(BaseTracker):
             prompt_tokens_span = extraction.span_attributes.get(
                 _PROMPT_TOKENS_LABEl, None
             )
-            prompt_tokens_event = extraction.event_attributes.get(
-                _PROMPT_TOKENS_LABEl, None
-            )
+            usage = extraction.event_attributes.get("usage", None)
             if not prompt_tokens_span:
                 extraction.span_attributes[_PROMPT_TOKENS_LABEl] = self.prompt_tokens
-            if not prompt_tokens_event:
-                extraction.event_attributes[_PROMPT_TOKENS_LABEl] = self.prompt_tokens
+            if usage and _PROMPT_TOKENS_LABEl not in usage:
+                extraction.event_attributes["usage"][
+                    _PROMPT_TOKENS_LABEl
+                ] = self.prompt_tokens
 
         if self.prompt_cost:
             prompt_cost_span = extraction.span_attributes.get(_PROMPT_COST_LABEl, None)
-            prompt_cost_event = extraction.event_attributes.get(
-                _PROMPT_COST_LABEl, None
-            )
+            usage = extraction.event_attributes.get("usage", None)
             if not prompt_cost_span:
                 extraction.span_attributes[_PROMPT_COST_LABEl] = self.prompt_cost
-            if not prompt_cost_event:
-                extraction.event_attributes[_PROMPT_COST_LABEl] = self.prompt_cost
+            if usage and _PROMPT_COST_LABEl not in usage:
+                extraction.event_attributes["usage"][
+                    _PROMPT_COST_LABEl
+                ] = self.prompt_cost
 
         return extraction
 
@@ -247,6 +249,10 @@ class OpenaiTracker(BaseTracker):
             yield item
             if hasattr(item, "model_dump"):
                 item_dump = item.model_dump()
+                event_name = "process"
+                if "id" in item_dump:
+                    event_name = item_dump["id"]
+                self.add_span_event(span_id, event_name, item_dump)
                 if item_dump and "choices" in item_dump:
                     if "model" in item_dump:
                         model_str = item_dump["model"]
@@ -311,6 +317,10 @@ class OpenaiTracker(BaseTracker):
             yield item
             if hasattr(item, "model_dump"):
                 item_dump = item.model_dump()
+                event_name = "process"
+                if "id" in item_dump:
+                    event_name = item_dump["id"]
+                self.add_span_event(span_id, event_name, item_dump)
                 if item_dump and "choices" in item_dump:
                     if "model" in item_dump:
                         model_str = item_dump["model"]
@@ -362,6 +372,7 @@ class OpenaiTracker(BaseTracker):
         self._collector.record_latency(latency, attributes=attrs)
         self.end_span(span_id, span_name, extraction, ex)
         self.collect_metrics(extraction=extraction, attrs=attrs)
+
 
 def is_stream(obj):
     return obj and isinstance(obj, Stream)

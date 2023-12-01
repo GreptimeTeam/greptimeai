@@ -65,6 +65,18 @@ class BaseTracker(ABC):
             ex=ex,
         )
 
+    def add_span_event(
+        self,
+        span_id: str,
+        event_name: str,
+        event_attr: Dict[str, Any],
+    ):
+        self._collector.add_span_event(
+            span_id=span_id,
+            event_name=event_name,
+            event_attrs=event_attr,
+        )
+
     def collect_error_count(self, ex: Exception, attrs: Dict[str, Any]):
         """
         Collects error count for a given extraction and exception.
