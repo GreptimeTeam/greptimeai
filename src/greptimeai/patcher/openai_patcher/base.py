@@ -7,18 +7,18 @@ from typing_extensions import override
 
 from greptimeai.collector import Collector
 from greptimeai.extractor import Extraction
-from greptimeai.extractor.openai import OpenaiExtractor
+from greptimeai.extractor.openai_extractor import OpenaiExtractor
 from greptimeai.labels import _MODEL_LABEL, _SPAN_NAME_LABEL
 from greptimeai.patchee import Patchee
-from greptimeai.patchee.openai import OpenaiPatchees
-from greptimeai.patchee.openai.audio import AudioPatchees
-from greptimeai.patchee.openai.chat_completion import ChatCompletionPatchees
-from greptimeai.patchee.openai.completion import CompletionPatchees
-from greptimeai.patchee.openai.file import FilePatchees
-from greptimeai.patchee.openai.fine_tuning import FineTuningPatchees
-from greptimeai.patchee.openai.image import ImagePatchees
-from greptimeai.patchee.openai.model import ModelPatchees
-from greptimeai.patchee.openai.moderation import ModerationPatchees
+from greptimeai.patchee.openai_patchee import OpenaiPatchees
+from greptimeai.patchee.openai_patchee.audio import AudioPatchees
+from greptimeai.patchee.openai_patchee.chat_completion import ChatCompletionPatchees
+from greptimeai.patchee.openai_patchee.completion import CompletionPatchees
+from greptimeai.patchee.openai_patchee.file import FilePatchees
+from greptimeai.patchee.openai_patchee.fine_tuning import FineTuningPatchees
+from greptimeai.patchee.openai_patchee.image import ImagePatchees
+from greptimeai.patchee.openai_patchee.model import ModelPatchees
+from greptimeai.patchee.openai_patchee.moderation import ModerationPatchees
 from greptimeai.patcher import Patcher
 
 
@@ -74,7 +74,7 @@ class _OpenaiPatcher(Patcher):
         if model:
             attrs[_MODEL_LABEL] = model
 
-        self.collector.record_latency(latency, attributes=attrs)
+        self.collector._collector.record_latency(latency, attributes=attrs)
         self.collector.end_span(
             span_id=span_id,
             span_name=span_name,

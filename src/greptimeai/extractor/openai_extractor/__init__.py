@@ -63,7 +63,7 @@ class OpenaiExtractor(BaseExtractor):
         result: Dict[str, Any] = {}
         try:
             obj: BaseModel = resp.parse()
-            result = obj.model_dump()
+            result = obj.model_dump(exclude_unset=True)
             result["http_info"] = _http_info()
         except Exception as e:
             logger.error(f"Failed to parse response, {e}")
@@ -149,7 +149,7 @@ class OpenaiExtractor(BaseExtractor):
                 dict = OpenaiExtractor.parse_raw_response(resp)
                 logger.debug(f"after parse_raw_response: {dict=}")
             else:
-                dict = resp.model_dump()
+                dict = resp.model_dump(exclude_unset=True)
         except Exception as e:
             logger.error(f"Failed to extract response {resp}: {e}")
             dict = {}

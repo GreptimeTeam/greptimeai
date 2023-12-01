@@ -81,6 +81,3 @@ class Collector:
             completion_cost=completion_cost,
             attrs=attrs,
         )
-
-    def record_latency(self, latency: float, attributes: Optional[Attributes] = None):
-        self._collector.record_latency(latency, attributes=attributes)
