@@ -24,8 +24,8 @@ from greptimeai import (
     _PROMPT_COST_LABEl,
     _PROMPT_TOKENS_LABEl,
     logger,
+    tracker,
 )
-from greptimeai.tracker import BaseTracker
 from greptimeai.utils.openai.token import (
     get_openai_token_cost_for_model,
     num_tokens_from_messages,
@@ -48,7 +48,7 @@ from . import (
 )
 
 
-class GreptimeCallbackHandler(BaseCallbackHandler, BaseTracker):
+class GreptimeCallbackHandler(BaseCallbackHandler, tracker.Tracker):
     """
     Greptime LangChain callback handler to collect metrics and traces.
     """
