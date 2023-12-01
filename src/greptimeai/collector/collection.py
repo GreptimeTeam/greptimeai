@@ -21,8 +21,7 @@ from opentelemetry.trace.span import format_span_id, format_trace_id
 from opentelemetry.util.types import Attributes, AttributeValue
 from typing_extensions import override
 
-from .. import logger
-from ..scope import _NAME, _VERSION
+from greptimeai import _NAME, _VERSION, logger
 
 _JSON_KEYS_IN_OTLP_ATTRIBUTES = "otlp_json_keys"
 
