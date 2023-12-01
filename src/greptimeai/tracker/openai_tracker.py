@@ -3,6 +3,7 @@ import time
 from typing import Optional, Tuple, Union
 
 from openai import AsyncOpenAI, OpenAI
+from openai._streaming import Stream, AsyncStream
 from pydantic import BaseModel
 from typing_extensions import override
 
@@ -11,6 +12,8 @@ from greptimeai import (
     _SPAN_NAME_LABEL,
     _PROMPT_TOKENS_LABEl,
     _PROMPT_COST_LABEl,
+    _COMPLETION_TOKENS_LABEL,
+    _COMPLETION_COST_LABEL,
 )
 from greptimeai.extractor.openai_extractor import (
     OpenaiExtractor,
@@ -25,6 +28,7 @@ from greptimeai.extractor.openai_extractor import (
     moderation_extractor,
 )
 from greptimeai.tracker import _GREPTIMEAI_WRAPPED, BaseTracker, Extraction
+from greptimeai.utils.openai.token import get_openai_token_cost_for_model, _count_tokens
 
 
 def setup(
@@ -156,19 +160,23 @@ class OpenaiTracker(BaseTracker):
             async def async_wrapper(*args, **kwargs):
                 extraction, span_id = self._pre_patch(extractor, *args, **kwargs)
                 start = time.time()
+                span_name = extractor.get_span_name()
                 resp, ex = None, None
                 try:
                     resp = await func(*args, **kwargs)
                 except Exception as e:
                     attrs = {
-                        _SPAN_NAME_LABEL: extractor.get_span_name(),
+                        _SPAN_NAME_LABEL: span_name,
                         _MODEL_LABEL: extraction.get_model_name(),
                     }
                     self.collect_error_count(e, attrs)
                     ex = e
                     raise e
                 finally:
-                    resp = self._post_patch(span_id, start, extractor, resp, ex)  # type: ignore
+                    if is_async_stream(resp):
+                        resp = self._trace_async_stream(span_id, span_name, start, resp, ex)
+                    else:
+                        resp = self._post_patch(span_id, start, extractor, resp, ex)  # type: ignore
                 return resp
 
             setattr(async_wrapper, _GREPTIMEAI_WRAPPED, True)
@@ -179,19 +187,24 @@ class OpenaiTracker(BaseTracker):
             def wrapper(*args, **kwargs):
                 extraction, span_id = self._pre_patch(extractor, *args, **kwargs)
                 start = time.time()
+                span_name = extractor.get_span_name()
                 resp, ex = None, None
                 try:
                     resp = func(*args, **kwargs)
                 except Exception as e:
                     attrs = {
-                        _SPAN_NAME_LABEL: extractor.get_span_name(),
+                        _SPAN_NAME_LABEL: span_name,
                         _MODEL_LABEL: extraction.get_model_name(),
                     }
                     self.collect_error_count(e, attrs)
                     ex = e
                     raise e
                 finally:
-                    resp = self._post_patch(span_id, start, extractor, resp, ex)  # type: ignore
+                    if is_stream(resp):
+                        resp = self._trace_stream(span_id, span_name, start, resp, ex)
+                    else:
+                        resp = self._post_patch(span_id, start, extractor, resp, ex)  # type: ignore
+
                 return resp
 
             setattr(wrapper, _GREPTIMEAI_WRAPPED, True)
@@ -221,3 +234,138 @@ class OpenaiTracker(BaseTracker):
                 extraction.event_attributes[_PROMPT_COST_LABEl] = self.prompt_cost
 
         return extraction
+
+    def _trace_stream(self, span_id, span_name, start, resp, ex):
+        finish_reason_stop = 0
+        finish_reason_length = 0
+        completion_tokens = 0
+        model_str = ""
+        text = ""
+        latency = 1000 * (time.time() - start)
+
+        for item in resp:
+            yield item
+            if hasattr(item, "model_dump"):
+                item_dump = item.model_dump()
+                if item_dump and "choices" in item_dump:
+                    if "model" in item_dump:
+                        model_str = item_dump["model"]
+                    for choice in item_dump["choices"]:
+                        if "text" in choice:
+                            text += choice["text"]
+                        elif "delta" in choice and "content" in choice["delta"]:
+                            if choice["delta"]["content"]:
+                                text += choice["delta"]["content"]
+
+                        if "finish_reason" in choice:
+                            if choice["finish_reason"] == "stop":
+                                finish_reason_stop += 1
+                                completion_tokens = _count_tokens(model_str, text)
+
+                            elif choice["finish_reason"] == "length":
+                                finish_reason_length += 1
+        completion_cost = get_openai_token_cost_for_model(
+            model_str, completion_tokens, True
+        )
+        data = {
+            "finish_reason_stop": finish_reason_stop,
+            "finish_reason_length": finish_reason_length,
+            "model": model_str,
+            "text": text,
+            "usage": {
+                _COMPLETION_TOKENS_LABEL: completion_tokens,
+                _COMPLETION_COST_LABEL: completion_cost,
+            },
+        }
+        span_attrs = {}
+        attrs = {
+            _SPAN_NAME_LABEL: span_name,
+        }
+
+        if model_str:
+            span_attrs[_MODEL_LABEL] = model_str
+            attrs[_MODEL_LABEL] = model_str
+
+        usage = data.get("usage", {})
+        if usage and model_str:
+            usage = OpenaiExtractor.extract_usage(model_str, usage)
+            span_attrs.update(usage)
+            data["usage"] = usage
+
+        extraction = Extraction(span_attributes=span_attrs, event_attributes=data)
+        extraction = self._supplement_prompt(extraction)
+
+        self._collector.record_latency(latency, attributes=attrs)
+        self.end_span(span_id, span_name, extraction, ex)
+        self.collect_metrics(extraction=extraction, attrs=attrs)
+
+    async def _trace_async_stream(self, span_id, span_name, start, resp, ex):
+        finish_reason_stop = 0
+        finish_reason_length = 0
+        completion_tokens = 0
+        model_str = ""
+        text = ""
+        latency = 1000 * (time.time() - start)
+
+        async for item in resp:
+            yield item
+            if hasattr(item, "model_dump"):
+                item_dump = item.model_dump()
+                if item_dump and "choices" in item_dump:
+                    if "model" in item_dump:
+                        model_str = item_dump["model"]
+                    for choice in item_dump["choices"]:
+                        if "text" in choice:
+                            text += choice["text"]
+                        elif "delta" in choice and "content" in choice["delta"]:
+                            if choice["delta"]["content"]:
+                                text += choice["delta"]["content"]
+
+                        if "finish_reason" in choice:
+                            if choice["finish_reason"] == "stop":
+                                finish_reason_stop += 1
+                                completion_tokens = _count_tokens(model_str, text)
+
+                            elif choice["finish_reason"] == "length":
+                                finish_reason_length += 1
+        completion_cost = get_openai_token_cost_for_model(
+            model_str, completion_tokens, True
+        )
+        data = {
+            "finish_reason_stop": finish_reason_stop,
+            "finish_reason_length": finish_reason_length,
+            "model": model_str,
+            "text": text,
+            "usage": {
+                _COMPLETION_TOKENS_LABEL: completion_tokens,
+                _COMPLETION_COST_LABEL: completion_cost,
+            },
+        }
+        span_attrs = {}
+        attrs = {
+            _SPAN_NAME_LABEL: span_name,
+        }
+
+        if model_str:
+            span_attrs[_MODEL_LABEL] = model_str
+            attrs[_MODEL_LABEL] = model_str
+
+        usage = data.get("usage", {})
+        if usage and model_str:
+            usage = OpenaiExtractor.extract_usage(model_str, usage)
+            span_attrs.update(usage)
+            data["usage"] = usage
+
+        extraction = Extraction(span_attributes=span_attrs, event_attributes=data)
+        extraction = self._supplement_prompt(extraction)
+
+        self._collector.record_latency(latency, attributes=attrs)
+        self.end_span(span_id, span_name, extraction, ex)
+        self.collect_metrics(extraction=extraction, attrs=attrs)
+
+def is_stream(obj):
+    return obj and isinstance(obj, Stream)
+
+
+def is_async_stream(obj):
+    return obj and isinstance(obj, AsyncStream)

@@ -1,5 +1,3 @@
-import importlib
-import itertools
 from typing import Any, Callable, Dict, Optional, Union, Tuple
 
 from openai import AsyncOpenAI, OpenAI
@@ -16,7 +14,7 @@ from greptimeai import (
     logger,
 )
 from greptimeai.extractor import BaseExtractor, Extraction
-from greptimeai.utils.openai.token import get_openai_token_cost_for_model
+from greptimeai.utils.openai.token import get_openai_token_cost_for_model, _count_tokens
 
 _X_USER_ID = "x-user-id"
 
@@ -26,11 +24,11 @@ _X_USER_ID = "x-user-id"
 
 class OpenaiExtractor(BaseExtractor):
     def __init__(
-        self,
-        obj: object,
-        method_name: str,
-        span_name: str,
-        client: Union[OpenAI, AsyncOpenAI, None] = None,
+            self,
+            obj: object,
+            method_name: str,
+            span_name: str,
+            client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         self.obj = obj
         self.span_name = span_name
@@ -50,7 +48,7 @@ class OpenaiExtractor(BaseExtractor):
 
     @staticmethod
     def extract_usage(
-        model: Optional[str], usage: Optional[Dict[str, int]]
+            model: Optional[str], usage: Optional[Dict[str, int]]
     ) -> Dict[str, Union[float, int]]:
         res: Dict[str, Union[float, int]] = {}
 
@@ -146,66 +144,13 @@ class OpenaiExtractor(BaseExtractor):
         TODO: support response which DOSE NOT inherit the BaseModel class
         """
         dump = {}
-
-        def _generator_wrapper():
-            for i in resp:
-                yield i
-
-        resp_dump, res_dump = itertools.tee(_generator_wrapper(), 2)
-
-        def _trace_stream():
-            finish_reason_stop = 0
-            finish_reason_length = 0
-            completion_tokens = 0
-            model_str = ""
-            text = ""
-
-            for item in resp_dump:
-                if hasattr(item, "model_dump"):
-                    item_dump = item.model_dump()
-                    if item_dump and "choices" in item_dump:
-                        if "model" in item_dump:
-                            model_str = item_dump["model"]
-                        for choice in item_dump["choices"]:
-                            if "text" in choice:
-                                text += choice["text"]
-                            elif "delta" in choice and "content" in choice["delta"]:
-                                if choice["delta"]["content"]:
-                                    text += choice["delta"]["content"]
-
-                            if "finish_reason" in choice:
-                                if choice["finish_reason"] == "stop":
-                                    finish_reason_stop += 1
-                                    completion_tokens = _count_tokens(model_str, text)
-
-                                elif choice["finish_reason"] == "length":
-                                    finish_reason_length += 1
-            data = {
-                "finish_reason_stop": finish_reason_stop,
-                "finish_reason_length": finish_reason_length,
-                "model": model_str,
-                "text": text,
-                "usage": {
-                    _COMPLETION_TOKENS_LABEL: completion_tokens,
-                },
-            }
-
-            return data
-
-        if is_stream(resp):
-            try:
-                dump = _trace_stream()
-                resp = res_dump
-            except Exception as e:
-                logger.error(f"Failed to call generator_wrapper for {resp}: {e}")
-        else:
-            try:
-                dump = resp.model_dump()
-            except Exception as e:
-                logger.error(f"Failed to call model_dump for {resp}: {e}")
-                dump = {}
-
         span_attrs = {}
+
+        try:
+            dump = resp.model_dump()
+        except Exception as e:
+            logger.error(f"Failed to call model_dump for {resp}: {e}")
+            dump = {}
 
         model = dump.get("model", None)
         if model:
@@ -241,23 +186,8 @@ class OpenaiExtractor(BaseExtractor):
 
 
 def is_stream(obj):
-    return obj and isinstance(obj, Stream) or isinstance(obj, AsyncStream)
+    return obj and isinstance(obj, Stream)
 
 
-def _count_tokens(model, text):
-    encoding = None
-    try:
-        tiktoken = importlib.import_module("tiktoken")
-        encoding = tiktoken.encoding_for_model(model)
-        if encoding:
-            logger.debug("cached encoding for model %s", model)
-        else:
-            logger.debug("no encoding returned for model %s", model)
-    except ModuleNotFoundError:
-        logger.debug("tiktoken not installed, will not count OpenAI stream tokens.")
-    except Exception:
-        logger.error("failed to use tiktoken for model %s", model, exc_info=True)
-
-    if encoding:
-        return len(encoding.encode(text))
-    return None
+def is_async_stream(obj):
+    return obj and isinstance(obj, AsyncStream)
