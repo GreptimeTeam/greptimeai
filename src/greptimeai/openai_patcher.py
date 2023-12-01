@@ -5,8 +5,7 @@ from openai import AsyncOpenAI, OpenAI
 from greptimeai import logger
 from greptimeai.collector import Collector
 from greptimeai.patcher import Patcher
-
-from .base import (
+from greptimeai.patcher.openai_patcher.base import (
     _AudioPatcher,
     _ChatCompletionPatcher,
     _CompletionPatcher,
@@ -16,7 +15,7 @@ from .base import (
     _ModelPatcher,
     _ModerationPatcher,
 )
-from .retry import _RetryPatcher
+from greptimeai.patcher.openai_patcher.retry import _RetryPatcher
 
 
 def setup(
