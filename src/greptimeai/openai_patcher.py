@@ -36,7 +36,9 @@ def setup(
         token: if None or empty string, GREPTIMEAI_TOKEN environment variable will be used.
         client: if None, then openai module-level client will be patched.
     """
-    collector = Collector(host, database, token)
+    collector = Collector(
+        service_name="openai", host=host, database=database, token=token
+    )
     patchers: List[Patcher] = [
         _AudioPatcher(collector=collector, client=client),
         _ChatCompletionPatcher(collector=collector, client=client),
