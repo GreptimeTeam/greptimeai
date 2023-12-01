@@ -5,9 +5,10 @@ from typing import Any, Dict, Optional, Tuple, Union
 from openai import AsyncOpenAI, OpenAI
 from typing_extensions import override
 
-from greptimeai import _MODEL_LABEL, _SPAN_NAME_LABEL
+from greptimeai.collector import Collector
 from greptimeai.extractor import Extraction
 from greptimeai.extractor.openai import OpenaiExtractor
+from greptimeai.labels import _MODEL_LABEL, _SPAN_NAME_LABEL
 from greptimeai.patchee import Patchee
 from greptimeai.patchee.openai import OpenaiPatchees
 from greptimeai.patchee.openai.audio import AudioPatchees
@@ -19,18 +20,17 @@ from greptimeai.patchee.openai.image import ImagePatchees
 from greptimeai.patchee.openai.model import ModelPatchees
 from greptimeai.patchee.openai.moderation import ModerationPatchees
 from greptimeai.patcher import Patcher
-from greptimeai.tracker import Tracker
 
 
 class _OpenaiPatcher(Patcher):
     def __init__(
         self,
         patchees: OpenaiPatchees,  # specify what methods to be patched
-        tracker: Tracker,  # collect metrics and traces
+        collector: Collector,  # collect metrics and traces
         extractor: Optional[OpenaiExtractor] = None,  # extract info from req and resp
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
-        self.tracker = tracker
+        self.collector = collector
         self.extractor = extractor or OpenaiExtractor()
         self.is_async = isinstance(client, AsyncOpenAI)
 
@@ -50,7 +50,11 @@ class _OpenaiPatcher(Patcher):
         **kwargs,
     ) -> Tuple[Extraction, str, float, Dict[str, Any]]:
         extraction = self.extractor.pre_extract(*args, **kwargs)
-        trace_id, span_id = self.tracker.start_span(span_name, extraction)
+        trace_id, span_id = self.collector.start_span(
+            span_name=span_name,
+            span_attrs=extraction.span_attributes,
+            event_attrs=extraction.event_attributes,
+        )
         OpenaiExtractor.update_trace_info(kwargs, trace_id, span_id)
         start = time.time()
         return (extraction, span_id, start, kwargs)
@@ -70,9 +74,17 @@ class _OpenaiPatcher(Patcher):
         if model:
             attrs[_MODEL_LABEL] = model
 
-        self.tracker.record_latency(latency, attributes=attrs)
-        self.tracker.end_span(span_id, span_name, extraction, ex)
-        self.tracker.collect_metrics(span_attrs=extraction.span_attributes, attrs=attrs)
+        self.collector.record_latency(latency, attributes=attrs)
+        self.collector.end_span(
+            span_id=span_id,
+            span_name=span_name,
+            span_attrs=extraction.span_attributes,
+            event_attrs=extraction.event_attributes,
+            ex=ex,
+        )
+        self.collector.collect_metrics(
+            span_attrs=extraction.span_attributes, attrs=attrs
+        )
 
     def patch_one(self, patchee: Patchee):
         """
@@ -100,7 +112,7 @@ class _OpenaiPatcher(Patcher):
                 try:
                     resp = await func(*args, **kwargs)
                 except Exception as e:
-                    self.tracker.collect_error_count(
+                    self.collector.collect_error_count(
                         extraction.get_model_name(), span_name, e
                     )
                     ex = e
@@ -127,7 +139,7 @@ class _OpenaiPatcher(Patcher):
                 try:
                     resp = func(*args, **kwargs)
                 except Exception as e:
-                    self.tracker.collect_error_count(
+                    self.collector.collect_error_count(
                         extraction.get_model_name(), span_name, e
                     )
                     ex = e
@@ -153,78 +165,78 @@ class _OpenaiPatcher(Patcher):
 class _AudioPatcher(_OpenaiPatcher):
     def __init__(
         self,
-        tracker: Tracker,
+        collector: Collector,
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = AudioPatchees(client=client)
-        super().__init__(tracker=tracker, patchees=patchees, client=client)
+        super().__init__(collector=collector, patchees=patchees, client=client)
 
 
 class _ChatCompletionPatcher(_OpenaiPatcher):
     def __init__(
         self,
-        tracker: Tracker,
+        collector: Collector,
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = ChatCompletionPatchees(client=client)
-        super().__init__(tracker=tracker, patchees=patchees, client=client)
+        super().__init__(collector=collector, patchees=patchees, client=client)
 
 
 class _CompletionPatcher(_OpenaiPatcher):
     def __init__(
         self,
-        tracker: Tracker,
+        collector: Collector,
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = CompletionPatchees(client=client)
-        super().__init__(tracker=tracker, patchees=patchees, client=client)
+        super().__init__(collector=collector, patchees=patchees, client=client)
 
 
 class _FilePatcher(_OpenaiPatcher):
     def __init__(
         self,
-        tracker: Tracker,
+        collector: Collector,
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = FilePatchees(client=client)
-        super().__init__(tracker=tracker, patchees=patchees, client=client)
+        super().__init__(collector=collector, patchees=patchees, client=client)
 
 
 class _FineTuningPatcher(_OpenaiPatcher):
     def __init__(
         self,
-        tracker: Tracker,
+        collector: Collector,
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = FineTuningPatchees(client=client)
-        super().__init__(tracker=tracker, patchees=patchees, client=client)
+        super().__init__(collector=collector, patchees=patchees, client=client)
 
 
 class _ImagePatcher(_OpenaiPatcher):
     def __init__(
         self,
-        tracker: Tracker,
+        collector: Collector,
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = ImagePatchees(client=client)
-        super().__init__(tracker=tracker, patchees=patchees, client=client)
+        super().__init__(collector=collector, patchees=patchees, client=client)
 
 
 class _ModelPatcher(_OpenaiPatcher):
     def __init__(
         self,
-        tracker: Tracker,
+        collector: Collector,
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = ModelPatchees(client=client)
-        super().__init__(tracker=tracker, patchees=patchees, client=client)
+        super().__init__(collector=collector, patchees=patchees, client=client)
 
 
 class _ModerationPatcher(_OpenaiPatcher):
     def __init__(
         self,
-        tracker: Tracker,
+        collector: Collector,
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = ModerationPatchees(client=client)
-        super().__init__(tracker=tracker, patchees=patchees, client=client)
+        super().__init__(collector=collector, patchees=patchees, client=client)

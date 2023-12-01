@@ -3,8 +3,8 @@ from typing import List, Union
 from openai import AsyncOpenAI, OpenAI
 
 from greptimeai import logger
+from greptimeai.collector import Collector
 from greptimeai.patcher import Patcher
-from greptimeai.tracker import Tracker
 
 from .base import (
     _AudioPatcher,
@@ -37,17 +37,17 @@ def setup(
         token: if None or empty string, GREPTIMEAI_TOKEN environment variable will be used.
         client: if None, then openai module-level client will be patched.
     """
-    tracker = Tracker(host, database, token)
+    collector = Collector(host, database, token)
     patchers: List[Patcher] = [
-        _AudioPatcher(tracker=tracker, client=client),
-        _ChatCompletionPatcher(tracker=tracker, client=client),
-        _CompletionPatcher(tracker=tracker, client=client),
-        _FilePatcher(tracker=tracker, client=client),
-        _FineTuningPatcher(tracker=tracker, client=client),
-        _ImagePatcher(tracker=tracker, client=client),
-        _ModelPatcher(tracker=tracker, client=client),
-        _ModerationPatcher(tracker=tracker, client=client),
-        _RetryPatcher(tracker=tracker, client=client),
+        _AudioPatcher(collector=collector, client=client),
+        _ChatCompletionPatcher(collector=collector, client=client),
+        _CompletionPatcher(collector=collector, client=client),
+        _FilePatcher(collector=collector, client=client),
+        _FineTuningPatcher(collector=collector, client=client),
+        _ImagePatcher(collector=collector, client=client),
+        _ModelPatcher(collector=collector, client=client),
+        _ModerationPatcher(collector=collector, client=client),
+        _RetryPatcher(collector=collector, client=client),
     ]
 
     for patcher in patchers:

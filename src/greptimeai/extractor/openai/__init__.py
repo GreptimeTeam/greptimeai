@@ -4,16 +4,16 @@ from openai._response import APIResponse
 from pydantic import BaseModel
 from typing_extensions import override
 
-from greptimeai import (
+from greptimeai import logger
+from greptimeai.extractor import BaseExtractor, Extraction
+from greptimeai.labels import (
     _COMPLETION_COST_LABEL,
     _COMPLETION_TOKENS_LABEL,
     _MODEL_LABEL,
     _USER_ID_LABEL,
     _PROMPT_COST_LABEl,
     _PROMPT_TOKENS_LABEl,
-    logger,
 )
-from greptimeai.extractor import BaseExtractor, Extraction
 from greptimeai.utils.openai.token import get_openai_token_cost_for_model
 
 _OPENAI_EXTRA_HEADERS_KEY = "extra_headers"

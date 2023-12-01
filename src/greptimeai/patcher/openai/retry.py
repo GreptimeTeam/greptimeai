@@ -5,9 +5,9 @@ from openai import AsyncOpenAI, OpenAI
 from typing_extensions import override
 
 from greptimeai import logger
+from greptimeai.collector import Collector
 from greptimeai.patchee import Patchee
 from greptimeai.patchee.openai.retry import RetryPatchees
-from greptimeai.tracker import Tracker
 
 from .base import _OpenaiPatcher
 
@@ -15,11 +15,11 @@ from .base import _OpenaiPatcher
 class _RetryPatcher(_OpenaiPatcher):
     def __init__(
         self,
-        tracker: Tracker,
+        collector: Collector,
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = RetryPatchees(client=client)
-        super().__init__(tracker=tracker, patchees=patchees, client=client)
+        super().__init__(collector=collector, patchees=patchees, client=client)
 
     @override
     def patch_one(self, patchee: Patchee):

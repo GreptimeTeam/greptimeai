@@ -21,8 +21,8 @@ from opentelemetry.trace.span import format_span_id, format_trace_id
 from opentelemetry.util.types import Attributes, AttributeValue
 from typing_extensions import override
 
-from . import logger
-from .scope import _NAME, _VERSION
+from .. import logger
+from ..scope import _NAME, _VERSION
 
 _JSON_KEYS_IN_OTLP_ATTRIBUTES = "otlp_json_keys"
 
@@ -316,7 +316,7 @@ class _Observation:
         return callback
 
 
-class Collector:
+class _Collector:
     """
     Collector class is responsible for collecting metrics and traces.
 

@@ -13,7 +13,9 @@ from langchain.schema.output import (
 )
 from tenacity import RetryCallState
 
-from greptimeai import (
+from greptimeai import logger
+from greptimeai.collector import Collector
+from greptimeai.labels import (
     _CLASS_TYPE_LABEL,
     _COMPLETION_COST_LABEL,
     _COMPLETION_TOKENS_LABEL,
@@ -23,8 +25,6 @@ from greptimeai import (
     _USER_ID_LABEL,
     _PROMPT_COST_LABEl,
     _PROMPT_TOKENS_LABEl,
-    logger,
-    tracker,
 )
 from greptimeai.utils.openai.token import (
     get_openai_token_cost_for_model,
@@ -48,7 +48,7 @@ from . import (
 )
 
 
-class GreptimeCallbackHandler(BaseCallbackHandler, tracker.Tracker):
+class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
     """
     Greptime LangChain callback handler to collect metrics and traces.
     """
