@@ -5,8 +5,7 @@ examples and guides on [greptimeai-cookbook][greptimeai-cookbook]
 
 ## Installation
 
-To start, ensure you have Python 3.8 or newer. If you just
-want to use the package, run:
+To start, ensure you have Python 3.8 or newer. If you just want to use the package, run:
 
 ```sh
 pip install --upgrade greptimeai
@@ -28,44 +27,24 @@ export GREPTIMEAI_DATABASE=''
 export GREPTIMEAI_TOKEN=''
 ```
 
-#### LangChain
+or you can pass them via parameters.
 
-LangChain provides a callback system that allows you to hook into the various stages of your LLM
-application.
-Assuming you're using LangChain to empower your Application, what you need to do is just initiate
-GreptimeCallbackHandler as the following:
+## Examples
 
-```python
-from greptimeai.langchain.callback import GreptimeCallbackHandler
-from langchain.chains import LLMChain
-from langchain.llms import OpenAI
-from langchain.prompts import PromptTemplate
+- [langchain](./examples/langchain.ipynb)
+- [openai](./examples/openai.ipynb)
 
-callbacks = [GreptimeCallbackHandler()]
-llm = OpenAI()
-prompt = PromptTemplate.from_template("1 + {number} = ")
+## Contributing
 
-# Constructor callback: First, let's explicitly set the GreptimeCallbackHandler
-# when initializing our chain
-chain = LLMChain(llm=llm, prompt=prompt, callbacks=callbacks)
-chain.run(number=2)
+Contributions are highly encouraged!
 
-# Request callbacks: Finally, let's use the request `callbacks` to achieve the same result
-chain = LLMChain(llm=llm, prompt=prompt)
-chain.run(number=2, callbacks=callbacks)
-```
+Pull requests that add support for or fix a bug in a feature will likely be accepted after review.
 
-This example needs to be configured with your OpenAI account's private API key which is available on
-[openai platform][openai]. Set it as the `OPENAI_API_KEY` environment variable:
+## Licensing
 
-```bash
-export OPENAI_API_KEY='sk-...'
-```
+All code in this repository is licensed under the [Apache License 2.0](LICENSE).
 
-#### OpenAI
-
-Coming
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be licensed as above, without any additional terms or conditions.
 
 [greptimeai]: https://console.greptime.cloud/ai
 [greptimeai-cookbook]: https://github.com/GreptimeTeam/greptimeai-cookbook
-[openai]: https://platform.openai.com/account/api-keys
