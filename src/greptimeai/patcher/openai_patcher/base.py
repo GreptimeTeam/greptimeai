@@ -33,11 +33,11 @@ from greptimeai.utils.openai.stream import StreamUtil
 
 class _OpenaiPatcher(Patcher):
     def __init__(
-        self,
-        patchees: OpenaiPatchees,  # specify what methods to be patched
-        collector: Collector,  # collect metrics and traces
-        extractor: Optional[OpenaiExtractor] = None,  # extract info from req and resp
-        client: Union[OpenAI, AsyncOpenAI, None] = None,
+            self,
+            patchees: OpenaiPatchees,  # specify what methods to be patched
+            collector: Collector,  # collect metrics and traces
+            extractor: Optional[OpenaiExtractor] = None,  # extract info from req and resp
+            client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         self.collector = collector
         self.extractor = extractor or OpenaiExtractor()
@@ -55,10 +55,10 @@ class _OpenaiPatcher(Patcher):
         self.patchees = patchees
 
     def _pre_patch(
-        self,
-        span_name: str,
-        *args,
-        **kwargs,
+            self,
+            span_name: str,
+            *args,
+            **kwargs,
     ) -> Tuple[Extraction, str, float, Dict[str, Any]]:
         extraction = self.extractor.pre_extract(*args, **kwargs)
         prompt_tokens = extraction.span_attributes.get(_PROMPT_TOKENS_LABEl, None)
@@ -77,12 +77,12 @@ class _OpenaiPatcher(Patcher):
         return (extraction, span_id, start, kwargs)
 
     def _post_patch(
-        self,
-        span_id: str,
-        start: float,
-        span_name: str,
-        resp: Any,
-        ex: Optional[Exception] = None,
+            self,
+            span_id: str,
+            start: float,
+            span_name: str,
+            resp: Any,
+            ex: Optional[Exception] = None,
     ):
         latency = 1000 * (time.time() - start)
         extraction = self.extractor.post_extract(resp)
@@ -251,13 +251,13 @@ class _OpenaiPatcher(Patcher):
                 _COMPLETION_COST_LABEL: completion_cost,
             },
         }
-        span_attrs = {}
+        span_attrs: Dict = {}
         attrs = {
             _SPAN_NAME_LABEL: span_name,
         }
 
         if model_str:
-            span_attrs: [Dict[str:Any]] = {_MODEL_LABEL: model_str}
+            span_attrs[_MODEL_LABEL] = model_str
             attrs[_MODEL_LABEL] = model_str
 
         usage = data.get("usage", None)
@@ -283,9 +283,9 @@ class _OpenaiPatcher(Patcher):
 
 class _AudioPatcher(_OpenaiPatcher):
     def __init__(
-        self,
-        collector: Collector,
-        client: Union[OpenAI, AsyncOpenAI, None] = None,
+            self,
+            collector: Collector,
+            client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = AudioPatchees(client=client)
         super().__init__(collector=collector, patchees=patchees, client=client)
@@ -293,9 +293,9 @@ class _AudioPatcher(_OpenaiPatcher):
 
 class _ChatCompletionPatcher(_OpenaiPatcher):
     def __init__(
-        self,
-        collector: Collector,
-        client: Union[OpenAI, AsyncOpenAI, None] = None,
+            self,
+            collector: Collector,
+            client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = ChatCompletionPatchees(client=client)
         super().__init__(collector=collector, patchees=patchees, client=client)
@@ -303,9 +303,9 @@ class _ChatCompletionPatcher(_OpenaiPatcher):
 
 class _CompletionPatcher(_OpenaiPatcher):
     def __init__(
-        self,
-        collector: Collector,
-        client: Union[OpenAI, AsyncOpenAI, None] = None,
+            self,
+            collector: Collector,
+            client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = CompletionPatchees(client=client)
         super().__init__(collector=collector, patchees=patchees, client=client)
@@ -313,9 +313,9 @@ class _CompletionPatcher(_OpenaiPatcher):
 
 class _FilePatcher(_OpenaiPatcher):
     def __init__(
-        self,
-        collector: Collector,
-        client: Union[OpenAI, AsyncOpenAI, None] = None,
+            self,
+            collector: Collector,
+            client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = FilePatchees(client=client)
         super().__init__(collector=collector, patchees=patchees, client=client)
@@ -323,9 +323,9 @@ class _FilePatcher(_OpenaiPatcher):
 
 class _FineTuningPatcher(_OpenaiPatcher):
     def __init__(
-        self,
-        collector: Collector,
-        client: Union[OpenAI, AsyncOpenAI, None] = None,
+            self,
+            collector: Collector,
+            client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = FineTuningPatchees(client=client)
         super().__init__(collector=collector, patchees=patchees, client=client)
@@ -333,9 +333,9 @@ class _FineTuningPatcher(_OpenaiPatcher):
 
 class _ImagePatcher(_OpenaiPatcher):
     def __init__(
-        self,
-        collector: Collector,
-        client: Union[OpenAI, AsyncOpenAI, None] = None,
+            self,
+            collector: Collector,
+            client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = ImagePatchees(client=client)
         super().__init__(collector=collector, patchees=patchees, client=client)
@@ -343,9 +343,9 @@ class _ImagePatcher(_OpenaiPatcher):
 
 class _ModelPatcher(_OpenaiPatcher):
     def __init__(
-        self,
-        collector: Collector,
-        client: Union[OpenAI, AsyncOpenAI, None] = None,
+            self,
+            collector: Collector,
+            client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = ModelPatchees(client=client)
         super().__init__(collector=collector, patchees=patchees, client=client)
@@ -353,9 +353,9 @@ class _ModelPatcher(_OpenaiPatcher):
 
 class _ModerationPatcher(_OpenaiPatcher):
     def __init__(
-        self,
-        collector: Collector,
-        client: Union[OpenAI, AsyncOpenAI, None] = None,
+            self,
+            collector: Collector,
+            client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = ModerationPatchees(client=client)
         super().__init__(collector=collector, patchees=patchees, client=client)
