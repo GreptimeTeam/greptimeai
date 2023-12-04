@@ -127,7 +127,7 @@ def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Dict[str, Attribute
     return result
 
 
-class _TraceContext:
+class _SpanContext:
     """
     ease context management for OTLP Context and span_id
     """
@@ -151,36 +151,35 @@ class _TraceContext:
         )
 
 
-class _TraceTable:
+class _SpanTable:
     """
     NOTE: different span_name may have same span_id.
     """
 
     def __init__(self):
-        self._traces: Dict[str, List[_TraceContext]] = {}
+        self._spans: Dict[str, List[_SpanContext]] = {}
 
-    def put_trace_context(
-        self,
-        span_id: Union[UUID, str],
-        context: _TraceContext,
-    ):
+    def put_span_context(self, key: str, context: _SpanContext):
         """
-        Pay Attention: different span_name may have same run_id in LangChain.
+        Pay Attention:
+
+        - different span_name may have same run_id in LangChain.
+        - the key may not be the OTLP span_id, maybe it is UUID format from langchain.
+          The key is to help find the span_context.
         """
-        str_id = str(span_id)
-        context_list = self._traces.get(str_id, [])
+        context_list = self._spans.get(key, [])
         context_list.append(context)
-        self._traces[str_id] = context_list
+        self._spans[key] = context_list
 
-    def get_trace_context(
-        self, span_id: Union[UUID, str], span_name: Optional[str] = None
-    ) -> Optional[_TraceContext]:
+    def get_span_context(
+        self, key: str, span_name: Optional[str] = None
+    ) -> Optional[_SpanContext]:
         """
         Args:
 
             span_name: if is None or empty, the last context will be returned
         """
-        context_list = self._traces.get(str(span_id), [])
+        context_list = self._spans.get(key, [])
         if len(context_list) == 0:
             return None
 
@@ -193,9 +192,9 @@ class _TraceTable:
 
         return None
 
-    def pop_trace_context(
-        self, span_id: Union[UUID, str], span_name: Optional[str] = None
-    ) -> Optional[_TraceContext]:
+    def pop_span_context(
+        self, key: str, span_name: Optional[str] = None
+    ) -> Optional[_SpanContext]:
         """
         if there is only one span matched this span_id, then span_id key will be removed
 
@@ -203,8 +202,7 @@ class _TraceTable:
 
             span_name: if is None or empty, the last context will be returned
         """
-        str_id = str(span_id)
-        context_list = self._traces.get(str_id, [])
+        context_list = self._spans.get(key, [])
 
         if len(context_list) == 0:
             return None
@@ -223,9 +221,9 @@ class _TraceTable:
                     rest_list.append(context)
 
         if len(rest_list) == 0:
-            self._traces.pop(str_id, None)
+            self._spans.pop(key, None)
         else:
-            self._traces[str_id] = rest_list
+            self._spans[key] = rest_list
 
         return target_context
 
@@ -345,7 +343,7 @@ class _Collector:
         self._duration_tables = _DurationTable()
         self._prompt_cost = _Observation("prompt_cost")
         self._completion_cost = _Observation("completion_cost")
-        self._trace_tables = _TraceTable()
+        self._span_tables = _SpanTable()
 
         self._setup_otel_exporter()
         self._setup_otel_metrics()
@@ -433,8 +431,8 @@ class _Collector:
 
     def start_span(
         self,
-        span_id: Union[UUID, str, None],
-        parent_id: Union[UUID, str, None],
+        span_id: Union[UUID, str, None],  # uuid from langchain
+        parent_id: Union[UUID, str, None],  # uuid from langchain
         span_name: str,
         event_name: str,
         span_attrs: Dict[str, Any] = {},  # model SHOULD exist in span attrs
@@ -465,7 +463,7 @@ class _Collector:
             )
             span.add_event(event_name, attributes=event_attributes)
 
-            trace_context = _TraceContext(
+            trace_context = _SpanContext(
                 name=span_name, model=span_attrs.get("model", ""), span=span
             )
 
@@ -473,13 +471,16 @@ class _Collector:
             str_trace_id, str_span_id = format_trace_id(
                 span_context.trace_id
             ), format_span_id(span_context.span_id)
-            self._trace_tables.put_trace_context(str_span_id, trace_context)
+
+            # NOTE: if span_id is specified, then use it as key
+            span_key = str(span_id) if span_id else str_span_id
+            self._span_tables.put_span_context(span_key, trace_context)
             return str_trace_id, str_span_id
 
         if parent_id:
-            trace_context = self._trace_tables.get_trace_context(parent_id)
-            if trace_context:
-                return _do_start_span(trace_context.set_self_as_current())
+            span_context = self._span_tables.get_span_context(str(parent_id))
+            if span_context:
+                return _do_start_span(span_context.set_self_as_current())
             else:
                 logging.error(
                     f"Parent span of { parent_id } not found, will act as Root span."
@@ -489,11 +490,11 @@ class _Collector:
         if span_id is None:
             return _do_start_span()
 
-        # trace_context may exist for the same run_id in LangChain. For Example:
+        # span_context may exist for the same run_id in LangChain. For Example:
         # different Chain triggered in the same trace may have the same run_id.
-        trace_context = self._trace_tables.get_trace_context(span_id)
-        if trace_context:
-            return _do_start_span(trace_context.set_self_as_current())
+        span_context = self._span_tables.get_span_context(str(span_id))
+        if span_context:
+            return _do_start_span(span_context.set_self_as_current())
         else:
             return _do_start_span()
 
@@ -505,7 +506,7 @@ class _Collector:
         """
         logger.debug(f"add event for {event_name} with {span_id=}")
         attrs = _sanitate_attributes(event_attrs)
-        context = self._trace_tables.get_trace_context(span_id)
+        context = self._span_tables.get_span_context(str(span_id))
         if context:
             context.span.add_event(event_name, attributes=attrs)
         else:
@@ -525,7 +526,7 @@ class _Collector:
         span_attributes = _sanitate_attributes(span_attrs)
         event_attributes = _sanitate_attributes(event_attrs)
 
-        context = self._trace_tables.pop_trace_context(span_id, span_name)
+        context = self._span_tables.pop_span_context(str(span_id), span_name)
         if context and context.span:
             span = context.span
             if ex:
@@ -600,7 +601,7 @@ class _Collector:
         self._llm_error_count.add(1, attributes)
 
     def get_model_in_context(self, span_id: Union[UUID, str]) -> Optional[str]:
-        context = self._trace_tables.get_trace_context(span_id)
+        context = self._span_tables.get_span_context(str(span_id))
 
         if context:
             return context.model
