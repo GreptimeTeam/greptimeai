@@ -80,7 +80,7 @@ class OpenaiExtractor(BaseExtractor):
 
     @staticmethod
     def extract_usage(
-        model: Optional[str], usage: Optional[Dict[str, int]]
+        model: Optional[str], usage: Optional[Dict[str, Any]]
     ) -> Dict[str, Union[float, int]]:
         res: Dict[str, Union[float, int]] = {}
 

@@ -219,9 +219,7 @@ class _OpenaiPatcher(Patcher):
             yield item
             if hasattr(item, "model_dump"):
                 item_dump = item.model_dump()
-                event_name = "process"
-                if "id" in item_dump:
-                    event_name = item_dump["id"]
+                event_name = "streaming"
                 self.collector.add_span_event(span_id, event_name, item_dump)
                 if item_dump and "choices" in item_dump:
                     if "model" in item_dump:
@@ -262,10 +260,11 @@ class _OpenaiPatcher(Patcher):
             span_attrs[_MODEL_LABEL] = model_str
             attrs[_MODEL_LABEL] = model_str
 
-        usage = data.get("usage", {})
+        usage = data.get("usage", None)
         if usage and model_str:
             usage = OpenaiExtractor.extract_usage(model_str, usage)
-            span_attrs.update(usage)
+            for key in usage:
+                span_attrs[key] = usage[key]
             data["usage"] = usage
 
         extraction = Extraction(span_attributes=span_attrs, event_attributes=data)
