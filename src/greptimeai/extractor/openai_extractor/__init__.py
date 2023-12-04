@@ -1,32 +1,57 @@
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 from openai._response import APIResponse
 from pydantic import BaseModel
 from typing_extensions import override
 
-from greptimeai import (
+from greptimeai import logger
+from greptimeai.extractor import BaseExtractor, Extraction
+from greptimeai.labels import (
     _COMPLETION_COST_LABEL,
     _COMPLETION_TOKENS_LABEL,
     _MODEL_LABEL,
     _USER_ID_LABEL,
     _PROMPT_COST_LABEl,
     _PROMPT_TOKENS_LABEl,
-    logger,
 )
-from greptimeai.extractor import BaseExtractor, Extraction
 from greptimeai.utils.openai.token import get_openai_token_cost_for_model
 
-_X_USER_ID = "x-user-id"
-# TODO(yuanbohan): support more x headers in extra_headers. e.g. x-trace-id, x-span-id, x-span-context
+_OPENAI_EXTRA_HEADERS_KEY = "extra_headers"
+_OPENAI_USER_KEY = "user"
+
+_X_USER_ID_KEY = "x-user-id"
+_X_TRACE_ID_KEY = "x-trace-id"
+_X_SPAN_ID_KEY = "x-span-id"
 
 
 class OpenaiExtractor(BaseExtractor):
     @staticmethod
+    def update_trace_info(kwargs: Dict[str, Any], trace_id: str, span_id: str):
+        attrs = {_X_TRACE_ID_KEY: trace_id, _X_SPAN_ID_KEY: span_id}
+
+        extra_headers: Dict[str, Any] = kwargs.get(_OPENAI_EXTRA_HEADERS_KEY, {})
+        extra_headers.update(attrs)
+
+        kwargs[_OPENAI_EXTRA_HEADERS_KEY] = extra_headers
+
+    @staticmethod
+    def get_trace_info(**kwargs) -> Optional[Tuple[str, str]]:
+        extra_headers = kwargs.get(_OPENAI_EXTRA_HEADERS_KEY)
+        if not extra_headers:
+            return None
+
+        trace_id = extra_headers.get(_X_TRACE_ID_KEY)
+        span_id = extra_headers.get(_X_SPAN_ID_KEY)
+
+        if trace_id or span_id:
+            return trace_id, span_id
+
+        return None
+
+    @staticmethod
     def parse_raw_response(resp: APIResponse) -> Dict[str, Any]:
         def _http_info() -> Dict[str, Any]:
-            headers = {}
-            for k, v in resp.headers.items():
-                headers[k] = v
+            headers = {k: v for k, v in resp.headers.items()}
 
             return {
                 "headers": headers,
@@ -38,7 +63,7 @@ class OpenaiExtractor(BaseExtractor):
         result: Dict[str, Any] = {}
         try:
             obj: BaseModel = resp.parse()
-            result = obj.model_dump()
+            result = obj.model_dump(exclude_unset=True)
             result["http_info"] = _http_info()
         except Exception as e:
             logger.error(f"Failed to parse response, {e}")
@@ -47,10 +72,10 @@ class OpenaiExtractor(BaseExtractor):
 
     @staticmethod
     def get_user_id(**kwargs) -> Optional[str]:
-        user_id = kwargs.get("user", None)
-        extra_headers = kwargs.get("extra_headers", None)
-        if extra_headers and _X_USER_ID in extra_headers:
-            user_id = extra_headers[_X_USER_ID]
+        user_id = kwargs.get(_OPENAI_USER_KEY)
+        extra_headers = kwargs.get(_OPENAI_EXTRA_HEADERS_KEY)
+        if extra_headers and _X_USER_ID_KEY in extra_headers:
+            user_id = extra_headers[_X_USER_ID_KEY]
         return user_id
 
     @staticmethod
@@ -124,14 +149,14 @@ class OpenaiExtractor(BaseExtractor):
                 dict = OpenaiExtractor.parse_raw_response(resp)
                 logger.debug(f"after parse_raw_response: {dict=}")
             else:
-                dict = resp.model_dump()
+                dict = resp.model_dump(exclude_unset=True)
         except Exception as e:
             logger.error(f"Failed to extract response {resp}: {e}")
             dict = {}
 
         span_attrs = {}
 
-        model = dict.get("model", None)
+        model = dict.get("model")
         if model:
             span_attrs[_MODEL_LABEL] = model
 

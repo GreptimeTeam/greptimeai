@@ -3,20 +3,20 @@ from typing import Union
 import openai
 from openai import AsyncOpenAI, OpenAI
 
-from greptimeai.trackee import Trackee
+from greptimeai.patchee import Patchee
 
-from . import OpenaiTrackees
+from . import OpenaiPatchees
 
 
-class ChatCompletionTrackees(OpenaiTrackees):
+class ChatCompletionPatchees(OpenaiPatchees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
-        chat_completion_create = Trackee(
+        chat_completion_create = Patchee(
             obj=client.chat.completions if client else openai.chat.completions,
             method_name="create",
             span_name="chat.completions.create",
         )
 
-        chat_raw_completion_create = Trackee(
+        chat_raw_completion_create = Patchee(
             obj=client.chat.with_raw_response.completions
             if client
             else openai.chat.with_raw_response.completions,
@@ -24,7 +24,7 @@ class ChatCompletionTrackees(OpenaiTrackees):
             span_name="chat.with_raw_response.completions.create",
         )
 
-        chat_completion_raw_create = Trackee(
+        chat_completion_raw_create = Patchee(
             obj=client.chat.completions.with_raw_response
             if client
             else openai.chat.completions.with_raw_response,
@@ -32,18 +32,18 @@ class ChatCompletionTrackees(OpenaiTrackees):
             span_name="chat.completions.with_raw_response.create",
         )
 
-        trackees = [
+        patchees = [
             chat_completion_create,
             chat_raw_completion_create,
             chat_completion_raw_create,
         ]
 
         if client:
-            raw_chat_completion_create = Trackee(
+            raw_chat_completion_create = Patchee(
                 obj=client.with_raw_response.chat.completions,
                 method_name="create",
                 span_name="with_raw_response.chat.completions.create",
             )
-            trackees.append(raw_chat_completion_create)
+            patchees.append(raw_chat_completion_create)
 
-        super().__init__(trackees=trackees, client=client)
+        super().__init__(patchees=patchees, client=client)

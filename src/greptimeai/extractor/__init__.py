@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 
-from greptimeai import _MODEL_LABEL
+from greptimeai.labels import _MODEL_LABEL
 
 
 class Extraction:

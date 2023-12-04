@@ -3,20 +3,20 @@ from typing import Union
 import openai
 from openai import AsyncOpenAI, OpenAI
 
-from greptimeai.trackee import Trackee
+from greptimeai.patchee import Patchee
 
-from . import OpenaiTrackees
+from . import OpenaiPatchees
 
 
-class ModerationTrackees(OpenaiTrackees):
+class ModerationPatchees(OpenaiPatchees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
-        moderations_create = Trackee(
+        moderations_create = Patchee(
             obj=client.moderations if client else openai.moderations,
             method_name="create",
             span_name="moderations.create",
         )
 
-        moderations_raw_create = Trackee(
+        moderations_raw_create = Patchee(
             obj=client.moderations.with_raw_response
             if client
             else openai.moderations.with_raw_response,
@@ -24,18 +24,14 @@ class ModerationTrackees(OpenaiTrackees):
             span_name="moderations.with_raw_response.create",
         )
 
-        trackees = [
-            moderations_create,
-            moderations_raw_create,
-        ]
+        patchees = [moderations_create, moderations_raw_create]
 
         if client:
-            raw_moderations_create = Trackee(
+            raw_moderations_create = Patchee(
                 obj=client.with_raw_response.moderations,
                 method_name="create",
                 span_name="with_raw_response.moderations.create",
             )
-            trackees.append(raw_moderations_create)
+            patchees.append(raw_moderations_create)
 
-
-        super().__init__(trackees=trackees, client=client)
+        super().__init__(patchees=patchees, client=client)
