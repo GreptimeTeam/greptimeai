@@ -82,7 +82,9 @@ class OpenaiExtractor(BaseExtractor):
         return user_id
 
     @staticmethod
-    def extract_usage(model: Optional[str], usage: Any) -> Dict[str, Union[float, int]]:
+    def extract_usage(
+        model: Optional[str], usage: Optional[Dict[str, int]]
+    ) -> Dict[str, Union[float, int]]:
         res: Dict[str, Union[float, int]] = {}
 
         if not usage or not model:
