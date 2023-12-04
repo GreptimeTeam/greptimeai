@@ -1,3 +1,5 @@
+import importlib
+
 from greptimeai import logger
 
 # from https://github.com/langchain-ai/langchain/blob/master/libs/langchain/langchain/callbacks/openai_info.py
@@ -216,3 +218,21 @@ def get_openai_audio_cost_for_whisper(seconds: int) -> float:
     """
     cost = 0.006 * (seconds / 60)
     return round(cost, 6)
+
+def count_tokens(model, text):
+    encoding = None
+    try:
+        tiktoken = importlib.import_module("tiktoken")
+        encoding = tiktoken.encoding_for_model(model)
+        if encoding:
+            logger.debug("cached encoding for model %s", model)
+        else:
+            logger.debug("no encoding returned for model %s", model)
+    except ModuleNotFoundError:
+        logger.debug("tiktoken not installed, will not count OpenAI stream tokens.")
+    except Exception:
+        logger.error("failed to use tiktoken for model %s", model, exc_info=True)
+
+    if encoding:
+        return len(encoding.encode(text))
+    return None

@@ -81,3 +81,15 @@ class Collector:
             completion_cost=completion_cost,
             attrs=attrs,
         )
+
+    def add_span_event(
+            self,
+            span_id: str,
+            event_name: str,
+            event_attr: Dict[str, Any],
+    ):
+        self._collector.add_span_event(
+            span_id=span_id,
+            event_name=event_name,
+            event_attrs=event_attr,
+        )
