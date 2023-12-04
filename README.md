@@ -11,7 +11,7 @@ To start, ensure you have Python 3.8 or newer. If you just want to use the packa
 pip install --upgrade greptimeai
 ```
 
-## Usage
+## Setup
 
 To get started, create a service by registering [greptimeai][greptimeai], and get:
 
