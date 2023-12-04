@@ -14,7 +14,10 @@ from greptimeai.labels import (
     _PROMPT_COST_LABEl,
     _PROMPT_TOKENS_LABEl,
 )
-from greptimeai.utils.openai.token import get_openai_token_cost_for_model
+from greptimeai.utils.openai.token import (
+    get_openai_token_cost_for_model,
+    num_tokens_from_messages,
+)
 
 _OPENAI_EXTRA_HEADERS_KEY = "extra_headers"
 _OPENAI_USER_KEY = "user"
@@ -79,9 +82,7 @@ class OpenaiExtractor(BaseExtractor):
         return user_id
 
     @staticmethod
-    def extract_usage(
-        model: Optional[str], usage: Any
-    ) -> Dict[str, Union[float, int]]:
+    def extract_usage(model: Optional[str], usage: Any) -> Dict[str, Union[float, int]]:
         res: Dict[str, Union[float, int]] = {}
 
         if not usage or not model:
@@ -122,6 +123,41 @@ class OpenaiExtractor(BaseExtractor):
             span_attrs[_USER_ID_LABEL] = user_id
 
         event_attrs = {**kwargs}
+        if "stream" in kwargs and kwargs["stream"]:
+            prompt_tokens = 0
+            prompt_cost = 0.0
+            if "model" in kwargs:
+                if "prompt" in kwargs:
+                    if isinstance(kwargs["prompt"], str):
+                        prompt_tokens = num_tokens_from_messages(
+                            model=kwargs["model"], messages=kwargs["prompt"]
+                        )
+                    elif isinstance(kwargs["prompt"], list):
+                        content = ""
+                        for prompt in kwargs["prompt"]:
+                            content += prompt
+                        prompt_tokens = num_tokens_from_messages(
+                            model=kwargs["model"], messages=content
+                        )
+                elif "messages" in kwargs:
+                    content = ""
+                    for message in kwargs["messages"]:
+                        if "content" in message:
+                            content += message["content"]
+                    prompt_tokens = num_tokens_from_messages(
+                        model=kwargs["model"], messages=content
+                    )
+
+                if prompt_tokens:
+                    prompt_cost = get_openai_token_cost_for_model(
+                        kwargs["model"], prompt_tokens, False
+                    )
+            event_attrs["prompt_usage"] = {
+                "prompt_tokens": prompt_tokens,
+                "prompt_cost": prompt_cost,
+            }
+            span_attrs[_PROMPT_TOKENS_LABEl] = prompt_tokens
+            span_attrs[_PROMPT_COST_LABEl] = prompt_cost
         if len(args) > 0:
             event_attrs["args"] = args
 

@@ -1,8 +1,12 @@
 import functools
 import time
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union, Iterator
 
+import openai
 from openai import AsyncOpenAI, OpenAI
+from openai._types import ResponseT
+from openai.types import Completion
+from openai.types.chat import ChatCompletionChunk
 from typing_extensions import override
 
 from greptimeai.collector import Collector
@@ -13,8 +17,6 @@ from greptimeai.labels import (
     _SPAN_NAME_LABEL,
     _COMPLETION_TOKENS_LABEL,
     _COMPLETION_COST_LABEL,
-    _PROMPT_TOKENS_LABEl,
-    _PROMPT_COST_LABEl,
 )
 from greptimeai.patchee import Patchee
 from greptimeai.patchee.openai_patchee import OpenaiPatchees
@@ -27,8 +29,11 @@ from greptimeai.patchee.openai_patchee.image import ImagePatchees
 from greptimeai.patchee.openai_patchee.model import ModelPatchees
 from greptimeai.patchee.openai_patchee.moderation import ModerationPatchees
 from greptimeai.patcher import Patcher
-from greptimeai.utils.openai.token import get_openai_token_cost_for_model, count_tokens
 from greptimeai.utils.openai.stream import StreamUtil
+from greptimeai.utils.openai.token import (
+    get_openai_token_cost_for_model,
+    num_tokens_from_messages,
+)
 
 
 class _OpenaiPatcher(Patcher):
@@ -42,8 +47,6 @@ class _OpenaiPatcher(Patcher):
         self.collector = collector
         self.extractor = extractor or OpenaiExtractor()
         self.is_async = isinstance(client, AsyncOpenAI)
-        self.prompt_tokens = None
-        self.prompt_cost = None
 
         prefix = "client" if client else "openai"
         for patchee in patchees.get_patchees():
@@ -61,12 +64,6 @@ class _OpenaiPatcher(Patcher):
             **kwargs,
     ) -> Tuple[Extraction, str, float, Dict[str, Any]]:
         extraction = self.extractor.pre_extract(*args, **kwargs)
-        prompt_tokens = extraction.span_attributes.get(_PROMPT_TOKENS_LABEl, None)
-        prompt_cost = extraction.span_attributes.get(_PROMPT_COST_LABEl, None)
-        if prompt_tokens:
-            self.prompt_tokens = prompt_tokens
-        if prompt_cost:
-            self.prompt_cost = prompt_cost
         trace_id, span_id = self.collector.start_span(
             span_name=span_name,
             span_attrs=extraction.span_attributes,
@@ -163,7 +160,9 @@ class _OpenaiPatcher(Patcher):
                     raise e
                 finally:
                     if StreamUtil.is_stream(resp):
-                        resp = self._trace_stream(span_id, span_name, start, resp, ex)
+                        openai.Stream.__iter__ = self._patch_stream(  # type: ignore
+                            span_id, span_name, start, ex
+                        )
 
                     else:
                         self._post_patch(
@@ -182,103 +181,76 @@ class _OpenaiPatcher(Patcher):
         for patchee in self.patchees.get_patchees():
             self.patch_one(patchee)
 
-    def _supplement_prompt(self, extraction: Extraction) -> Extraction:
-        if self.prompt_tokens:
-            prompt_tokens_span = extraction.span_attributes.get(
-                _PROMPT_TOKENS_LABEl, None
-            )
-            usage = extraction.event_attributes.get("usage", None)
-            if not prompt_tokens_span:
-                extraction.span_attributes[_PROMPT_TOKENS_LABEl] = self.prompt_tokens
-            if usage and _PROMPT_TOKENS_LABEl not in usage:
-                extraction.event_attributes["usage"][
-                    _PROMPT_TOKENS_LABEl
-                ] = self.prompt_tokens
-
-        if self.prompt_cost:
-            prompt_cost_span = extraction.span_attributes.get(_PROMPT_COST_LABEl, None)
-            usage = extraction.event_attributes.get("usage", None)
-            if not prompt_cost_span:
-                extraction.span_attributes[_PROMPT_COST_LABEl] = self.prompt_cost
-            if usage and _PROMPT_COST_LABEl not in usage:
-                extraction.event_attributes["usage"][
-                    _PROMPT_COST_LABEl
-                ] = self.prompt_cost
-
-        return extraction
-
-    def _trace_stream(self, span_id, span_name, start, resp, ex):
-        finish_reason_stop = 0
-        finish_reason_length = 0
-        completion_tokens = 0
-        model_str = ""
-        text = ""
-        latency = 1000 * (time.time() - start)
-
-        for item in resp:
-            yield item
-            if hasattr(item, "model_dump"):
-                item_dump = item.model_dump()
+    def _patch_stream(self, span_id: str, span_name: str, start, ex):
+        def _iter(obj) -> Iterator[ResponseT]:
+            text = ""
+            model_str = ""
+            completion_tokens = 0
+            for item in obj._iterator:
+                yield item
                 event_name = "streaming"
-                self.collector.add_span_event(span_id, event_name, item_dump)
-                if item_dump and "choices" in item_dump:
-                    if "model" in item_dump:
-                        model_str = item_dump["model"]
-                    for choice in item_dump["choices"]:
-                        if "text" in choice:
-                            text += choice["text"]
-                        elif "delta" in choice and "content" in choice["delta"]:
-                            if choice["delta"]["content"]:
-                                text += choice["delta"]["content"]
+                if isinstance(item, ChatCompletionChunk):
+                    self.collector.add_span_event(
+                        span_id, event_name, item.model_dump()
+                    )
+                    model_str = item.model
+                    for choice in item.choices:
+                        if choice.finish_reason == "stop":
+                            completion_tokens = num_tokens_from_messages(
+                                model=model_str, messages=text
+                            )
+                            continue
+                        if choice.delta.content:
+                            text += choice.delta.content
+                elif isinstance(item, Completion):
+                    self.collector.add_span_event(
+                        span_id, event_name, item.model_dump()
+                    )
+                    model_str = item.model
+                    for choice in item.choices:  # type: ignore
+                        if choice.finish_reason == "stop":
+                            completion_tokens = num_tokens_from_messages(
+                                model=model_str, messages=text
+                            )
+                            continue
+                        text += choice.text  # type: ignore
 
-                        if "finish_reason" in choice:
-                            if choice["finish_reason"] == "stop":
-                                finish_reason_stop += 1
-                                completion_tokens = count_tokens(model_str, text)
+            completion_cost = get_openai_token_cost_for_model(
+                model_str, completion_tokens, True
+            )
+            data = {
+                "model": model_str,
+                "text": text,
+                "usage": {
+                    _COMPLETION_TOKENS_LABEL: completion_tokens,
+                    _COMPLETION_COST_LABEL: completion_cost,
+                },
+            }
 
-                            elif choice["finish_reason"] == "length":
-                                finish_reason_length += 1
-        completion_cost = get_openai_token_cost_for_model(
-            model_str, completion_tokens, True
-        )
-        data = {
-            "finish_reason_stop": finish_reason_stop,
-            "finish_reason_length": finish_reason_length,
-            "model": model_str,
-            "text": text,
-            "usage": {
+            span_attrs: Dict = {
                 _COMPLETION_TOKENS_LABEL: completion_tokens,
                 _COMPLETION_COST_LABEL: completion_cost,
-            },
-        }
-        span_attrs: Dict = {}
-        attrs = {
-            _SPAN_NAME_LABEL: span_name,
-        }
+            }
+            attrs = {
+                _SPAN_NAME_LABEL: span_name,
+            }
 
-        if model_str:
-            span_attrs[_MODEL_LABEL] = model_str
-            attrs[_MODEL_LABEL] = model_str
+            if model_str:
+                span_attrs[_MODEL_LABEL] = model_str
+                attrs[_MODEL_LABEL] = model_str
 
-        usage = data.get("usage", None)
-        if usage and model_str:
-            usage = OpenaiExtractor.extract_usage(model_str, usage)
-            span_attrs.update(usage)
-            data["usage"] = usage
+            latency = 1000 * (time.time() - start)
+            self.collector._collector.record_latency(latency, attributes=attrs)
+            self.collector.end_span(
+                span_id=span_id,
+                span_name=span_name,
+                span_attrs=span_attrs,
+                event_attrs=data,
+                ex=ex,
+            )
+            self.collector.collect_metrics(span_attrs=span_attrs, attrs=attrs)
 
-        extraction = Extraction(span_attributes=span_attrs, event_attributes=data)
-        extraction = self._supplement_prompt(extraction)
-        self.collector._collector.record_latency(latency, attributes=attrs)
-        self.collector.end_span(
-            span_id=span_id,
-            span_name=span_name,
-            span_attrs=extraction.span_attributes,
-            event_attrs=extraction.event_attributes,
-            ex=ex,
-        )
-        self.collector.collect_metrics(
-            span_attrs=extraction.span_attributes, attrs=attrs
-        )
+        return _iter
 
 
 class _AudioPatcher(_OpenaiPatcher):
