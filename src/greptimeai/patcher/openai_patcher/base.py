@@ -257,14 +257,13 @@ class _OpenaiPatcher(Patcher):
         }
 
         if model_str:
-            span_attrs[_MODEL_LABEL] = model_str
+            span_attrs: [Dict[str:Any]] = {_MODEL_LABEL: model_str}
             attrs[_MODEL_LABEL] = model_str
 
         usage = data.get("usage", None)
         if usage and model_str:
             usage = OpenaiExtractor.extract_usage(model_str, usage)
-            for key in usage:
-                span_attrs[key] = usage[key]
+            span_attrs.update(usage)
             data["usage"] = usage
 
         extraction = Extraction(span_attributes=span_attrs, event_attributes=data)
