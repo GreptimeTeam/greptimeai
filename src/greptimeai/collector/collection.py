@@ -368,23 +368,23 @@ class _Collector:
             headers=greptime_headers,
             timeout=5,
         )
-        metric_reader = PeriodicExportingMetricReader(
+        self._metric_reader = PeriodicExportingMetricReader(
             metrics_exporter, export_interval_millis=15000
         )
         metre_provider = MeterProvider(
-            resource=resource, metric_readers=[metric_reader]
+            resource=resource, metric_readers=[self._metric_reader]
         )
         metrics.set_meter_provider(metre_provider)
 
         trace_provider = TracerProvider(resource=resource)
-        span_processor = BatchSpanProcessor(
+        self._span_processor = BatchSpanProcessor(
             OTLPSpanExporter(
                 endpoint=trace_endpoint,
                 headers=greptime_headers,
                 timeout=5,
             )
         )
-        trace_provider.add_span_processor(span_processor)
+        trace_provider.add_span_processor(self._span_processor)
         trace.set_tracer_provider(trace_provider)
 
     def _setup_otel_metrics(self):
@@ -610,3 +610,10 @@ class _Collector:
     @property
     def tracer(self) -> Tracer:
         return self._tracer
+
+    def _force_flush(self):
+        """
+        DO NOT call this method to flush metrics and traces, this is only for test cases.
+        """
+        self._metric_reader.force_flush()
+        self._span_processor.force_flush()

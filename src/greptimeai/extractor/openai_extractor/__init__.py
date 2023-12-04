@@ -18,7 +18,9 @@ from greptimeai.utils.openai.token import get_openai_token_cost_for_model
 
 _OPENAI_EXTRA_HEADERS_KEY = "extra_headers"
 _OPENAI_USER_KEY = "user"
+_GREPTIMEAI_USER_KEY = "user_id"
 
+# the followings are from extra_headers
 _X_USER_ID_KEY = "x-user-id"
 _X_TRACE_ID_KEY = "x-trace-id"
 _X_SPAN_ID_KEY = "x-span-id"
@@ -72,7 +74,13 @@ class OpenaiExtractor(BaseExtractor):
 
     @staticmethod
     def get_user_id(**kwargs) -> Optional[str]:
-        user_id = kwargs.get(_OPENAI_USER_KEY)
+        """
+        the upper has higher priority:
+        - _X_USER_ID_KEY in extra_headers
+        - _GREPTIMEAI_USER_KEY in kwargs
+        - _OPENAI_USER_KEY in kwargs
+        """
+        user_id = kwargs.get(_GREPTIMEAI_USER_KEY) or kwargs.get(_OPENAI_USER_KEY)
         extra_headers = kwargs.get(_OPENAI_EXTRA_HEADERS_KEY)
         if extra_headers and _X_USER_ID_KEY in extra_headers:
             user_id = extra_headers[_X_USER_ID_KEY]
