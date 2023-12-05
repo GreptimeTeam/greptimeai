@@ -41,7 +41,7 @@ class _RetryPatcher(_OpenaiPatcher):
         if not func:
             return
 
-        if self.is_async:
+        if patchee.is_async():
 
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):

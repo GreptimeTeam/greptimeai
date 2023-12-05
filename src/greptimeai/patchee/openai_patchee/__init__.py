@@ -17,7 +17,5 @@ class OpenaiPatchees:
         self.patchees = patchees
         self.client = client
 
-        self.is_async = isinstance(client, AsyncOpenAI)
-
     def get_patchees(self) -> Sequence[Patchee]:
         return self.patchees

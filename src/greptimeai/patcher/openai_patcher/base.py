@@ -1,8 +1,8 @@
 import functools
 import time
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
-from openai import AsyncOpenAI, OpenAI
+from openai import AsyncOpenAI, AsyncStream, OpenAI, Stream
 from typing_extensions import override
 
 from greptimeai.collector import Collector
@@ -20,6 +20,10 @@ from greptimeai.patchee.openai_patchee.image import ImagePatchees
 from greptimeai.patchee.openai_patchee.model import ModelPatchees
 from greptimeai.patchee.openai_patchee.moderation import ModerationPatchees
 from greptimeai.patcher import Patcher
+from greptimeai.patcher.openai_patcher.stream import (
+    patch_astream_aiter,
+    patch_stream_iter,
+)
 
 
 class _OpenaiPatcher(Patcher):
@@ -32,14 +36,10 @@ class _OpenaiPatcher(Patcher):
     ):
         self.collector = collector
         self.extractor = extractor or OpenaiExtractor()
-        self.is_async = isinstance(client, AsyncOpenAI)
 
         prefix = "client" if client else "openai"
         for patchee in patchees.get_patchees():
             patchee.span_name = f"{prefix}.{patchee.span_name}"
-
-            if self.is_async:
-                patchee.span_name = f"async_{patchee.span_name}"
 
         self.patchees = patchees
 
@@ -86,10 +86,80 @@ class _OpenaiPatcher(Patcher):
             span_attrs=extraction.span_attributes, attrs=attrs
         )
 
+    def _patch_sync(self, func: Callable, span_name: str, patchee: Patchee):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            extraction, span_id, start, kwargs = self._pre_patch(
+                span_name, *args, **kwargs
+            )
+            resp, ex = None, None
+            try:
+                resp = func(*args, **kwargs)
+            except Exception as e:
+                self.collector.collect_error_count(
+                    extraction.get_model_name(), span_name, e
+                )
+                ex = e
+                raise e
+            finally:
+                if isinstance(resp, Stream):
+                    patch_stream_iter(
+                        stream=resp,
+                        collector=self.collector,
+                        span_id=span_id,
+                        span_name=span_name,
+                    )
+                else:
+                    self._post_patch(
+                        span_id=span_id,
+                        start=start,
+                        span_name=span_name,
+                        resp=resp,
+                        ex=ex,
+                    )
+            return resp
+
+        patchee.wrap_func(wrapper)
+
+    def _patch_async(self, func: Callable, span_name: str, patchee: Patchee):
+        @functools.wraps(func)
+        async def async_wrapper(*args, **kwargs):
+            extraction, span_id, start, kwargs = self._pre_patch(
+                span_name, *args, **kwargs
+            )
+            resp, ex = None, None
+            try:
+                resp = await func(*args, **kwargs)
+            except Exception as e:
+                self.collector.collect_error_count(
+                    extraction.get_model_name(), span_name, e
+                )
+                ex = e
+                raise e
+            finally:
+                if isinstance(resp, AsyncStream):
+                    patch_astream_aiter(
+                        stream=resp,
+                        collector=self.collector,
+                        span_id=span_id,
+                        span_name=span_name,
+                    )
+                else:
+                    self._post_patch(
+                        span_id=span_id,
+                        start=start,
+                        span_name=span_name,
+                        resp=resp,
+                        ex=ex,
+                    )
+            return resp
+
+        patchee.wrap_func(async_wrapper)
+
     def patch_one(self, patchee: Patchee):
         """
         TODO(yuanbohan): to support:
-          - [ ] stream
+          - [x] stream
           - [x] async
           - [x] with_raw_response
           - [x] retry
@@ -101,60 +171,10 @@ class _OpenaiPatcher(Patcher):
             return
 
         span_name = patchee.get_span_name()
-        if self.is_async:
-
-            @functools.wraps(func)
-            async def async_wrapper(*args, **kwargs):
-                extraction, span_id, start, kwargs = self._pre_patch(
-                    span_name, *args, **kwargs
-                )
-                resp, ex = None, None
-                try:
-                    resp = await func(*args, **kwargs)
-                except Exception as e:
-                    self.collector.collect_error_count(
-                        extraction.get_model_name(), span_name, e
-                    )
-                    ex = e
-                    raise e
-                finally:
-                    self._post_patch(
-                        span_id=span_id,
-                        start=start,
-                        span_name=span_name,
-                        resp=resp,
-                        ex=ex,
-                    )
-                return resp
-
-            patchee.wrap_func(async_wrapper)
+        if patchee.is_async():
+            self._patch_async(func, span_name, patchee)
         else:
-
-            @functools.wraps(func)
-            def wrapper(*args, **kwargs):
-                extraction, span_id, start, kwargs = self._pre_patch(
-                    span_name, *args, **kwargs
-                )
-                resp, ex = None, None
-                try:
-                    resp = func(*args, **kwargs)
-                except Exception as e:
-                    self.collector.collect_error_count(
-                        extraction.get_model_name(), span_name, e
-                    )
-                    ex = e
-                    raise e
-                finally:
-                    self._post_patch(
-                        span_id=span_id,
-                        start=start,
-                        span_name=span_name,
-                        resp=resp,
-                        ex=ex,
-                    )
-                return resp
-
-            patchee.wrap_func(wrapper)
+            self._patch_sync(func, span_name, patchee)
 
     @override
     def patch(self):
