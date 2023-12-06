@@ -287,7 +287,7 @@ class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
                 str_messages = " ".join(texts)
                 completion_tokens = num_tokens_from_messages(str_messages, model_name)
                 completion_cost = get_openai_token_cost_for_model(
-                    model_name, prompt_tokens, is_completion=True
+                    model_name, completion_tokens, is_completion=True
                 )
 
         self._collector.collect_metrics(
