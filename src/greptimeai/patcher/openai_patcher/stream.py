@@ -1,4 +1,4 @@
-from typing import Any, AsyncIterator, Dict, Iterator, Optional, Tuple
+from typing import Any, AsyncIterator, Dict, Iterator, Optional, Tuple, Union
 
 from openai import AsyncStream, Stream
 from openai.types.chat import ChatCompletionChunk
@@ -11,6 +11,7 @@ from greptimeai.labels import (
     _COMPLETION_TOKENS_LABEL,
     _MODEL_LABEL,
     _SPAN_NAME_LABEL,
+    _STREAM_LABEL,
 )
 from greptimeai.utils.openai.token import (
     get_openai_token_cost_for_model,
@@ -89,9 +90,10 @@ def _end_collect(
         _COMPLETION_COST_LABEL: completion_cost,
     }
 
-    attrs = {
+    attrs: Dict[str, Union[str, bool]] = {
         _SPAN_NAME_LABEL: span_name,
         _MODEL_LABEL: model_name,
+        _STREAM_LABEL: True,
     }
 
     collector.collect_metrics(span_attrs=span_attrs, attrs=attrs)
