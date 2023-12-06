@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 from openai import AsyncOpenAI, AsyncStream, OpenAI, Stream
 from typing_extensions import override
 
+from greptimeai import logger
 from greptimeai.collector import Collector
 from greptimeai.extractor import Extraction
 from greptimeai.extractor.openai_extractor import OpenaiExtractor
@@ -102,6 +103,7 @@ class _OpenaiPatcher(Patcher):
                 ex = e
                 raise e
             finally:
+                logger.info(f"before: resp: {resp} {type(resp)} {dir(resp)}")
                 if isinstance(resp, Stream):
                     patch_stream_iter(
                         stream=resp,
@@ -109,6 +111,7 @@ class _OpenaiPatcher(Patcher):
                         span_id=span_id,
                         span_name=span_name,
                     )
+                    logger.info(f"after: resp: {resp} {type(resp)} {dir(resp)}")
                 else:
                     self._post_patch(
                         span_id=span_id,

@@ -37,7 +37,7 @@ def _extract_chat_completion_chunk_tokens(chunk: ChatCompletionChunk) -> str:
     tokens = ""
     for choice in chunk.choices:
         if choice.delta.content:
-            tokens = f"{tokens}\n{choice.delta.content}"
+            tokens += choice.delta.content
     return tokens
 
 
@@ -47,7 +47,7 @@ def _extract_completion_tokens(completion: Completion) -> str:
 
     tokens = ""
     for choice in completion.choices:
-        tokens = f"{tokens}\n{choice.text}"
+        tokens += choice.text
     return tokens
 
 
@@ -62,36 +62,25 @@ def _extract_tokens(resp: Any) -> str:
 
 
 def _collect_resp(
-    resp: Any, collector: Collector, span_id: str, span_name: str, event_name: str
-) -> Tuple[int, float]:
+    resp: Any, collector: Collector, span_id: str, event_name: str
+) -> Tuple[str, str]:
     event_attrs = _extract_resp(resp)
     model_name = event_attrs.get("model", "")
-
     tokens = _extract_tokens(resp)
-    num = num_tokens_from_messages(tokens, model_name)
-    cost = get_openai_token_cost_for_model(model_name, num, True)
-    span_attrs = {
-        _COMPLETION_TOKENS_LABEL: tokens,
-        _COMPLETION_COST_LABEL: cost,
-    }
-    attrs = {
-        _SPAN_NAME_LABEL: span_name,
-        _MODEL_LABEL: model_name,
-    }
-    collector.collect_metrics(span_attrs=span_attrs, attrs=attrs)
     collector._collector.add_span_event(
         span_id=span_id,
         event_name=event_name,
         event_attrs=event_attrs,
     )
 
-    return num, cost
+    return tokens, model_name
 
 
 def _end_collect(
     collector: Collector,
     span_id: str,
     span_name: str,
+    model_name: str,
     completion_tokens: int,
     completion_cost: float,
 ):
@@ -99,6 +88,13 @@ def _end_collect(
         _COMPLETION_TOKENS_LABEL: completion_tokens,
         _COMPLETION_COST_LABEL: completion_cost,
     }
+
+    attrs = {
+        _SPAN_NAME_LABEL: span_name,
+        _MODEL_LABEL: model_name,
+    }
+
+    collector.collect_metrics(span_attrs=span_attrs, attrs=attrs)
     collector.end_span(
         span_id=span_id,
         span_name=span_name,
@@ -110,46 +106,61 @@ def _end_collect(
 def patch_stream_iter(
     stream: Stream, collector: Collector, span_id: str, span_name: str
 ):
+    logger.info(f"stream: {stream} {dir(stream)}")
+
     def _iter(obj) -> Iterator[Any]:
-        completion_tokens, completion_cost = 0, 0.0
+        completion_tokens = ""
+        model_name = ""
+
+        logger.info(f"before iterator: obj: {obj} {dir(obj)}")
         for item in obj._iterator:
+            logger.info(f"item: {item} {dir(item)}")
             yield item
 
-            num, cost = _collect_resp(item, collector, span_id, span_name, "stream")
-            completion_tokens += num
-            completion_cost += cost
+            tokens, model_name = _collect_resp(item, collector, span_id, "stream")
+            completion_tokens += tokens
 
+        logger.info(f"after iterator: obj: {obj} {dir(obj)}")
+        num = num_tokens_from_messages(completion_tokens)
+        cost = get_openai_token_cost_for_model(model_name, num)
         _end_collect(
             collector=collector,
             span_id=span_id,
             span_name=span_name,
-            completion_tokens=completion_tokens,
-            completion_cost=completion_cost,
+            model_name=model_name,
+            completion_tokens=num,
+            completion_cost=cost,
         )
 
-    setattr(stream, "__iter__", _iter)
+    stream.__iter__ = _iter  # type: ignore
+
+    # setattr(stream, "__iter__", _iter)
 
 
 def patch_astream_aiter(
     stream: AsyncStream, collector: Collector, span_id: str, span_name: str
 ):
     async def _aiter(obj) -> AsyncIterator[Any]:
-        completion_tokens, completion_cost = 0, 0.0
+        completion_tokens = ""
+        model_name = ""
         async for item in obj._iterator:
             yield item
 
-            num, cost = _collect_resp(
-                item, collector, span_id, span_name, "async_stream"
-            )
-            completion_tokens += num
-            completion_cost += cost
+            tokens, model_name = _collect_resp(item, collector, span_id, "stream")
+            completion_tokens += tokens
+
+        num = num_tokens_from_messages(completion_tokens)
+        cost = get_openai_token_cost_for_model(model_name, num)
 
         _end_collect(
             collector=collector,
             span_id=span_id,
             span_name=span_name,
-            completion_tokens=completion_tokens,
-            completion_cost=completion_cost,
+            model_name=model_name,
+            completion_tokens=num,
+            completion_cost=cost,
         )
 
-    setattr(stream, "__aiter__", _aiter)
+    stream.__aiter__ = _aiter  # type: ignore
+
+    # setattr(stream, "__aiter__", _aiter)
