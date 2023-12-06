@@ -144,6 +144,7 @@ class _OpenaiPatcher(Patcher):
                         collector=self.collector,
                         span_id=span_id,
                         span_name=span_name,
+                        start=start,
                         model_name=extraction.get_model_name(),
                     )
                 else:
@@ -180,6 +181,7 @@ class _OpenaiPatcher(Patcher):
                         collector=self.collector,
                         span_id=span_id,
                         span_name=span_name,
+                        start=start,
                         model_name=extraction.get_model_name(),
                     )
                 else:

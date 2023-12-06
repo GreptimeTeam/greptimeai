@@ -1,3 +1,4 @@
+import time
 from typing import Any, AsyncIterator, Dict, Iterator, Optional, Tuple, Union
 
 from openai import AsyncStream, Stream
@@ -91,6 +92,7 @@ def _end_collect(
     span_id: str,
     span_name: str,
     model_name: str,
+    start: float,
     completion_tokens: int,
     completion_cost: float,
 ):
@@ -105,7 +107,12 @@ def _end_collect(
         _STREAM_LABEL: True,
     }
 
+    latency = 1000 * (time.time() - start)
+
     collector.collect_metrics(span_attrs=span_attrs, attrs=attrs)
+
+    collector._collector.record_latency(latency, attributes=attrs)
+
     collector.end_span(
         span_id=span_id,
         span_name=span_name,
@@ -121,12 +128,14 @@ class Stream_(Stream):
         collector: Collector,
         span_id: str,
         span_name: str,
+        start: float,
         model_name: Optional[str],
     ):
         self.stream = stream
         self.collector = collector
         self.span_id = span_id
         self.span_name = span_name
+        self.start = start
         self.model_name = model_name or ""
 
     def __iter__(self) -> Iterator[Any]:
@@ -149,6 +158,7 @@ class Stream_(Stream):
             span_id=self.span_id,
             span_name=self.span_name,
             model_name=self.model_name,
+            start=self.start,
             completion_tokens=num,
             completion_cost=cost,
         )
@@ -161,12 +171,14 @@ class AsyncStream_(AsyncStream):
         collector: Collector,
         span_id: str,
         span_name: str,
+        start: float,
         model_name: Optional[str],
     ):
         self.astream = astream
         self.collector = collector
         self.span_id = span_id
         self.span_name = span_name
+        self.start = start
         self.model_name = model_name or ""
 
     async def __aiter__(self) -> AsyncIterator[Any]:
@@ -189,6 +201,7 @@ class AsyncStream_(AsyncStream):
             span_id=self.span_id,
             span_name=self.span_name,
             model_name=self.model_name,
+            start=self.start,
             completion_tokens=num,
             completion_cost=cost,
         )
