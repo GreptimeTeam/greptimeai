@@ -21,10 +21,7 @@ from greptimeai.patchee.openai_patchee.image import ImagePatchees
 from greptimeai.patchee.openai_patchee.model import ModelPatchees
 from greptimeai.patchee.openai_patchee.moderation import ModerationPatchees
 from greptimeai.patcher import Patcher
-from greptimeai.patcher.openai_patcher.stream import (
-    patch_astream_aiter,
-    patch_stream_iter,
-)
+from greptimeai.patcher.openai_patcher.stream import AsyncStream_, Stream_
 
 
 class _OpenaiPatcher(Patcher):
@@ -103,15 +100,16 @@ class _OpenaiPatcher(Patcher):
                 ex = e
                 raise e
             finally:
-                logger.info(f"before: resp: {resp} {type(resp)} {dir(resp)}")
+                logger.info(f"before: resp: {resp} {dir(resp)}")
                 if isinstance(resp, Stream):
-                    patch_stream_iter(
+                    resp = Stream_(
                         stream=resp,
                         collector=self.collector,
                         span_id=span_id,
                         span_name=span_name,
+                        model_name=extraction.get_model_name(),
                     )
-                    logger.info(f"after: resp: {resp} {type(resp)} {dir(resp)}")
+                    logger.info(f"after: resp: {resp} {dir(resp)}")
                 else:
                     self._post_patch(
                         span_id=span_id,
@@ -141,11 +139,12 @@ class _OpenaiPatcher(Patcher):
                 raise e
             finally:
                 if isinstance(resp, AsyncStream):
-                    patch_astream_aiter(
-                        stream=resp,
+                    resp = AsyncStream_(
+                        astream=resp,
                         collector=self.collector,
                         span_id=span_id,
                         span_name=span_name,
+                        model_name=extraction.get_model_name(),
                     )
                 else:
                     self._post_patch(

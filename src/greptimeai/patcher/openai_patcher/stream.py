@@ -1,4 +1,4 @@
-from typing import Any, AsyncIterator, Dict, Iterator, Tuple
+from typing import Any, AsyncIterator, Dict, Iterator, Optional, Tuple
 
 from openai import AsyncStream, Stream
 from openai.types.chat import ChatCompletionChunk
@@ -103,64 +103,81 @@ def _end_collect(
     )
 
 
-def patch_stream_iter(
-    stream: Stream, collector: Collector, span_id: str, span_name: str
-):
-    logger.info(f"stream: {stream} {dir(stream)}")
+class Stream_(Stream):
+    def __init__(
+        self,
+        stream: Stream,
+        collector: Collector,
+        span_id: str,
+        span_name: str,
+        model_name: Optional[str],
+    ):
+        self.stream = stream
+        self.collector = collector
+        self.span_id = span_id
+        self.span_name = span_name
+        self.model_name = model_name or ""
 
-    def _iter(obj) -> Iterator[Any]:
+    def __iter__(self) -> Iterator[Any]:
         completion_tokens = ""
-        model_name = ""
 
-        logger.info(f"before iterator: obj: {obj} {dir(obj)}")
-        for item in obj._iterator:
-            logger.info(f"item: {item} {dir(item)}")
+        for item in self.stream:
             yield item
 
-            tokens, model_name = _collect_resp(item, collector, span_id, "stream")
+            tokens, model_name = _collect_resp(
+                item, self.collector, self.span_id, "stream"
+            )
             completion_tokens += tokens
+            if model_name:
+                self.model_name = model_name
 
-        logger.info(f"after iterator: obj: {obj} {dir(obj)}")
         num = num_tokens_from_messages(completion_tokens)
-        cost = get_openai_token_cost_for_model(model_name, num)
+        cost = get_openai_token_cost_for_model(self.model_name, num)
         _end_collect(
-            collector=collector,
-            span_id=span_id,
-            span_name=span_name,
-            model_name=model_name,
+            collector=self.collector,
+            span_id=self.span_id,
+            span_name=self.span_name,
+            model_name=self.model_name,
             completion_tokens=num,
             completion_cost=cost,
         )
 
-    stream.__iter__ = _iter  # type: ignore
 
-    # setattr(stream, "__iter__", _iter)
+class AsyncStream_(AsyncStream):
+    def __init__(
+        self,
+        astream: AsyncStream,
+        collector: Collector,
+        span_id: str,
+        span_name: str,
+        model_name: Optional[str],
+    ):
+        self.astream = astream
+        self.collector = collector
+        self.span_id = span_id
+        self.span_name = span_name
+        self.model_name = model_name or ""
 
-
-def patch_astream_aiter(
-    stream: AsyncStream, collector: Collector, span_id: str, span_name: str
-):
-    async def _aiter(obj) -> AsyncIterator[Any]:
+    async def __aiter__(self) -> AsyncIterator[Any]:
         completion_tokens = ""
-        model_name = ""
-        async for item in obj._iterator:
+
+        async for item in self.astream:
             yield item
 
-            tokens, model_name = _collect_resp(item, collector, span_id, "stream")
+            tokens, model_name = _collect_resp(
+                item, self.collector, self.span_id, "stream"
+            )
             completion_tokens += tokens
+            if model_name:
+                self.model_name = model_name
 
         num = num_tokens_from_messages(completion_tokens)
-        cost = get_openai_token_cost_for_model(model_name, num)
-
+        cost = get_openai_token_cost_for_model(self.model_name, num)
         _end_collect(
-            collector=collector,
-            span_id=span_id,
-            span_name=span_name,
-            model_name=model_name,
+            collector=self.collector,
+            span_id=self.span_id,
+            span_name=self.span_name,
+            model_name=self.model_name,
             completion_tokens=num,
             completion_cost=cost,
         )
-
-    stream.__aiter__ = _aiter  # type: ignore
-
-    # setattr(stream, "__aiter__", _aiter)
