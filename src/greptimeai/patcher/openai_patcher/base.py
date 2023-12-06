@@ -54,7 +54,7 @@ class _OpenaiPatcher(Patcher):
     ):
         model_name = model_name or ""
         attrs = {
-            _SPAN_NAME_LABEL: span_name,
+            _SPAN_NAME_LABEL: f"{span_name}[stream]",
             _MODEL_LABEL: model_name,
         }
 

@@ -5,7 +5,6 @@ _CLASS_TYPE_LABEL = "type"
 _SPAN_NAME_LABEL = "span_name"
 _USER_ID_LABEL = "user_id"
 _MODEL_LABEL = "model"
-_STREAM_LABEL = "stream"
 
 
 _PROMPT_TOKENS_LABEl = "prompt_tokens"

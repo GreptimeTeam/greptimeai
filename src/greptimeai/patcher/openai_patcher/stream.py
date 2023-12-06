@@ -12,7 +12,6 @@ from greptimeai.labels import (
     _COMPLETION_TOKENS_LABEL,
     _MODEL_LABEL,
     _SPAN_NAME_LABEL,
-    _STREAM_LABEL,
 )
 from greptimeai.utils.openai.token import (
     get_openai_token_cost_for_model,
@@ -102,9 +101,8 @@ def _end_collect(
     }
 
     attrs: Dict[str, Union[str, bool]] = {
-        _SPAN_NAME_LABEL: span_name,
+        _SPAN_NAME_LABEL: f"{span_name}[stream]",
         _MODEL_LABEL: model_name,
-        _STREAM_LABEL: True,
     }
 
     latency = 1000 * (time.time() - start)
