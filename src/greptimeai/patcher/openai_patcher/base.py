@@ -8,7 +8,12 @@ from typing_extensions import override
 from greptimeai.collector import Collector
 from greptimeai.extractor import Extraction
 from greptimeai.extractor.openai_extractor import OpenaiExtractor
-from greptimeai.labels import _MODEL_LABEL, _SPAN_NAME_LABEL
+from greptimeai.labels import (
+    _MODEL_LABEL,
+    _SPAN_NAME_LABEL,
+    _PROMPT_COST_LABEl,
+    _PROMPT_TOKENS_LABEl,
+)
 from greptimeai.patchee import Patchee
 from greptimeai.patchee.openai_patchee import OpenaiPatchees
 from greptimeai.patchee.openai_patchee.audio import AudioPatchees
@@ -21,6 +26,10 @@ from greptimeai.patchee.openai_patchee.model import ModelPatchees
 from greptimeai.patchee.openai_patchee.moderation import ModerationPatchees
 from greptimeai.patcher import Patcher
 from greptimeai.patcher.openai_patcher.stream import AsyncStream_, Stream_
+from greptimeai.utils.openai.token import (
+    get_openai_token_cost_for_model,
+    num_tokens_from_messages,
+)
 
 
 class _OpenaiPatcher(Patcher):
@@ -40,6 +49,25 @@ class _OpenaiPatcher(Patcher):
 
         self.patchees = patchees
 
+    def _collect_req_metrics_for_stream(
+        self, model_name: Optional[str], span_name: str, tokens: Optional[str]
+    ):
+        model_name = model_name or ""
+        attrs = {
+            _SPAN_NAME_LABEL: span_name,
+            _MODEL_LABEL: model_name,
+        }
+
+        num = num_tokens_from_messages(tokens or "")
+        cost = get_openai_token_cost_for_model(model_name, num)
+
+        span_attrs = {
+            _PROMPT_TOKENS_LABEl: num,
+            _PROMPT_COST_LABEl: cost,
+        }
+
+        self.collector.collect_metrics(span_attrs=span_attrs, attrs=attrs)
+
     def _pre_patch(
         self,
         span_name: str,
@@ -53,6 +81,17 @@ class _OpenaiPatcher(Patcher):
             event_attrs=extraction.event_attributes,
         )
         OpenaiExtractor.update_trace_info(kwargs, trace_id, span_id)
+
+        # if stream, the usage won't be included in the resp,
+        # so we need to extract and collect it from req for best.
+        if OpenaiExtractor.is_stream(**kwargs):
+            tokens = OpenaiExtractor.extract_req_tokens(**kwargs)
+            self._collect_req_metrics_for_stream(
+                model_name=extraction.get_model_name(),
+                span_name=span_name,
+                tokens=tokens,
+            )
+
         start = time.time()
         return (extraction, span_id, start, kwargs)
 
