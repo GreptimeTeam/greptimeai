@@ -36,9 +36,13 @@ def _extract_chat_completion_chunk_tokens(chunk: ChatCompletionChunk) -> str:
         return ""
 
     tokens = ""
-    for choice in chunk.choices:
-        if choice.delta.content:
-            tokens += choice.delta.content
+    try:
+        for choice in chunk.choices:
+            if choice.delta.content:
+                tokens += "\n" + choice.delta.content
+    except Exception as e:
+        logger.error(f"Failed to extract chat completion chunk tokens: {e}")
+
     return tokens
 
 
@@ -47,8 +51,13 @@ def _extract_completion_tokens(completion: Completion) -> str:
         return ""
 
     tokens = ""
-    for choice in completion.choices:
-        tokens += choice.text
+
+    try:
+        for choice in completion.choices:
+            tokens += "\n" + choice.text
+    except Exception as e:
+        logger.error(f"Failed to extract completion tokens: {e}")
+
     return tokens
 
 
