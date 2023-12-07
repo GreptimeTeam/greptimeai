@@ -69,6 +69,17 @@ class Collector:
         self._collector.collect_error_count(attributes=attributes)
 
     def collect_metrics(self, span_attrs: Dict[str, Any], attrs: Optional[Attributes]):
+        """
+        Collects metrics for the given span attributes and optional attributes.
+
+        Args:
+            span_attrs (Dict[str, Any]): The span attributes containing the metrics data.
+            attrs (Optional[Attributes]): Optional additional attributes.
+
+        Notes:
+            The `attrs` for metrics should be small enough to keep the series small.
+            Detailed information should be stored in traces instead of metrics.
+        """
         prompt_tokens = span_attrs.get(_PROMPT_TOKENS_LABEl, 0)
         prompt_cost = span_attrs.get(_PROMPT_COST_LABEl, 0)
         completion_tokens = span_attrs.get(_COMPLETION_TOKENS_LABEL, 0)

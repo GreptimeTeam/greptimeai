@@ -1,3 +1,4 @@
+import json
 from typing import Any, Dict, Optional, Tuple, Union
 
 from openai._response import APIResponse
@@ -27,6 +28,35 @@ _X_SPAN_ID_KEY = "x-span-id"
 
 
 class OpenaiExtractor(BaseExtractor):
+    @staticmethod
+    def is_stream(**kwargs) -> bool:
+        return bool(kwargs.get("stream"))
+
+    @staticmethod
+    def extract_req_tokens(**kwargs) -> Optional[str]:
+        """
+        NOTE: only for completion and chat completion so far.
+        TODO(ynanbohan): better way to extract req tokens
+        """
+        if kwargs.get("prompt"):
+            prompt = kwargs["prompt"]
+            if isinstance(prompt, str):
+                return prompt
+            elif isinstance(prompt, list) and all(isinstance(p, str) for p in prompt):
+                return " ".join(prompt)
+            else:
+                logger.warning(f"Failed to extract req tokens from {prompt=}")
+                return None
+        elif kwargs.get("messages"):
+            try:
+                return json.dumps(kwargs["messages"])
+            except Exception as e:
+                logger.warning(f"Failed to extract req tokens from {kwargs=}: {e}")
+                return None
+        else:
+            logger.warning(f"Failed to extract req tokens from {kwargs=}")
+            return None
+
     @staticmethod
     def update_trace_info(kwargs: Dict[str, Any], trace_id: str, span_id: str):
         attrs = {_X_TRACE_ID_KEY: trace_id, _X_SPAN_ID_KEY: span_id}

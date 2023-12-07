@@ -171,7 +171,7 @@ def num_tokens_from_messages(messages: str, model="gpt-3.5-turbo-0613") -> int:
     try:
         encoding = tiktoken.encoding_for_model(model)
     except Exception:
-        logger.warning("model not found. Using cl100k_base encoding.")
+        logger.warning(f"{model} not found. Using cl100k_base encoding.")
         encoding = tiktoken.get_encoding("cl100k_base")
 
     return len(encoding.encode(messages))
