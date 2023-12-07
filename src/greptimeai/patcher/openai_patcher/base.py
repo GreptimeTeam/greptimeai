@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 from openai import AsyncOpenAI, AsyncStream, OpenAI, Stream
 from typing_extensions import override
 
+from greptimeai import logger
 from greptimeai.collector import Collector
 from greptimeai.extractor import Extraction
 from greptimeai.extractor.openai_extractor import OpenaiExtractor
@@ -43,6 +44,9 @@ class _OpenaiPatcher(Patcher):
     ):
         self.collector = collector
         self.extractor = extractor or OpenaiExtractor()
+        self._is_async = False
+        if isinstance(client, AsyncOpenAI):
+            self._is_async = True
 
         prefix = "client" if client else "openai"
         for patchee in patchees.get_patchees():
@@ -159,6 +163,7 @@ class _OpenaiPatcher(Patcher):
             return resp
 
         patchee.wrap_func(wrapper)
+        logger.debug(f"patched '{span_name}'")
 
     def _patch_async(self, func: Callable, span_name: str, patchee: Patchee):
         @functools.wraps(func)
@@ -196,6 +201,7 @@ class _OpenaiPatcher(Patcher):
             return resp
 
         patchee.wrap_func(async_wrapper)
+        logger.debug(f"patched '{span_name}'")
 
     def patch_one(self, patchee: Patchee):
         """
@@ -212,8 +218,8 @@ class _OpenaiPatcher(Patcher):
             return
 
         span_name = patchee.get_span_name()
-        if patchee.is_async():
-            self._patch_async(func, span_name, patchee)
+        if self._is_async:
+            self._patch_async(func, span_name + "[async]", patchee)
         else:
             self._patch_sync(func, span_name, patchee)
 
