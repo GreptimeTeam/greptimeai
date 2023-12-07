@@ -2,8 +2,8 @@ import os
 import time
 import uuid
 
-from openai import OpenAI
 import pymysql
+from openai import OpenAI
 
 from greptimeai import openai_patcher
 
@@ -108,6 +108,9 @@ cursor = db.cursor()
 client = OpenAI()
 openai_patcher.setup(client=client)
 
+trace_sql = "SELECT model,prompt_tokens,completion_tokens FROM %s WHERE user_id = '%s'"
+metric_sql = "SELECT model,service_name,greptime_value FROM %s WHERE model = '%s'"
+
 
 def test_chat_completion():
     user_id = str(uuid.uuid4())
@@ -125,16 +128,23 @@ def test_chat_completion():
     assert resp.choices[0].message.content == "2"
 
     time.sleep(5)
-    sql = (
-        "select model,prompt_tokens,completion_tokens from %s where user_id = '%s'"
-        % (LlmTrace.table_name, user_id)
-    )
-    cursor.execute(sql)
-    result = cursor.fetchone()
+    cursor.execute(trace_sql % (LlmTrace.table_name, user_id))
+    trace = cursor.fetchone()
+    cursor.execute(metric_sql % (LlmPromptToken.table_name, resp.model))
+    prompt_token = cursor.fetchone()
+    cursor.execute(metric_sql % (LlmCompletionToken.table_name, resp.model))
+    completion_token = cursor.fetchone()
 
-    assert resp.model == result[0]
-    assert resp.usage.prompt_tokens == result[1]
-    assert resp.usage.completion_tokens == result[2]
+    assert resp.model == trace[0]
+
+    assert resp.usage.prompt_tokens == trace[1]
+    assert resp.usage.prompt_tokens == prompt_token[2]
+
+    assert resp.usage.completion_tokens == trace[2]
+    assert resp.usage.completion_tokens == completion_token[2]
+
+    assert "openai" == prompt_token[1]
+    assert "openai" == completion_token[1]
 
 
 def test_embedding():
@@ -146,12 +156,14 @@ def test_embedding():
     )
 
     time.sleep(5)
-    sql = "select model,prompt_tokens from %s where user_id = '%s'" % (
-        LlmTrace.table_name,
-        user_id,
-    )
-    cursor.execute(sql)
-    result = cursor.fetchone()
+    cursor.execute(trace_sql % (LlmTrace.table_name, user_id))
+    trace = cursor.fetchone()
+    cursor.execute(metric_sql % (LlmPromptToken.table_name, resp.model))
+    prompt_token = cursor.fetchone()
 
-    assert resp.model == result[0]
-    assert resp.usage.prompt_tokens == result[1]
+    assert resp.model == trace[0]
+
+    assert resp.usage.prompt_tokens == trace[1]
+    assert resp.usage.prompt_tokens == prompt_token[2]
+
+    assert "openai" == prompt_token[1]

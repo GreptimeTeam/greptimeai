@@ -367,7 +367,7 @@ class _Collector:
             timeout=5,
         )
         self._metric_reader = PeriodicExportingMetricReader(
-            metrics_exporter, export_interval_millis=3000
+            metrics_exporter, export_interval_millis=1000
         )
         metre_provider = MeterProvider(
             resource=resource, metric_readers=[self._metric_reader]
