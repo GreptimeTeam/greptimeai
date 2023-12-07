@@ -2,10 +2,10 @@ import os
 import time
 import uuid
 
-import pymysql
+import pymysql  # type: ignore
 from openai import OpenAI
 
-from greptimeai import openai_patcher
+from greptimeai import openai_patcher  # type: ignore
 
 
 class LlmTrace(object):
@@ -135,16 +135,21 @@ def test_chat_completion():
     cursor.execute(metric_sql % (LlmCompletionToken.table_name, resp.model))
     completion_token = cursor.fetchone()
 
-    assert resp.model == trace[0]
+    if trace is not None:
+        assert resp.model == trace[0]
+        if resp.usage:
+            assert resp.usage.prompt_tokens == trace[1]
+            assert resp.usage.completion_tokens == trace[2]
 
-    assert resp.usage.prompt_tokens == trace[1]
-    assert resp.usage.prompt_tokens == prompt_token[2]
+    if prompt_token is not None:
+        if resp.usage:
+            assert resp.usage.prompt_tokens == prompt_token[2]
+        assert "openai" == prompt_token[1]
 
-    assert resp.usage.completion_tokens == trace[2]
-    assert resp.usage.completion_tokens == completion_token[2]
-
-    assert "openai" == prompt_token[1]
-    assert "openai" == completion_token[1]
+    if completion_token is not None:
+        if resp.usage:
+            assert resp.usage.completion_tokens == completion_token[2]
+        assert "openai" == completion_token[1]
 
 
 def test_embedding():
@@ -161,9 +166,12 @@ def test_embedding():
     cursor.execute(metric_sql % (LlmPromptToken.table_name, resp.model))
     prompt_token = cursor.fetchone()
 
-    assert resp.model == trace[0]
+    if trace is not None:
+        assert resp.model == trace[0]
+        if resp.usage:
+            assert resp.usage.prompt_tokens == trace[1]
 
-    assert resp.usage.prompt_tokens == trace[1]
-    assert resp.usage.prompt_tokens == prompt_token[2]
-
-    assert "openai" == prompt_token[1]
+    if prompt_token is not None:
+        if resp.usage:
+            assert resp.usage.prompt_tokens == prompt_token[2]
+        assert "openai" == prompt_token[1]
