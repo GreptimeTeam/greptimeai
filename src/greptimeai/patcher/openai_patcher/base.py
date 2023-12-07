@@ -19,6 +19,7 @@ from greptimeai.patchee.openai_patchee import OpenaiPatchees
 from greptimeai.patchee.openai_patchee.audio import AudioPatchees
 from greptimeai.patchee.openai_patchee.chat_completion import ChatCompletionPatchees
 from greptimeai.patchee.openai_patchee.completion import CompletionPatchees
+from greptimeai.patchee.openai_patchee.embedding import EmbeddingPatchees
 from greptimeai.patchee.openai_patchee.file import FilePatchees
 from greptimeai.patchee.openai_patchee.fine_tuning import FineTuningPatchees
 from greptimeai.patchee.openai_patchee.image import ImagePatchees
@@ -249,6 +250,16 @@ class _CompletionPatcher(_OpenaiPatcher):
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = CompletionPatchees(client=client)
+        super().__init__(collector=collector, patchees=patchees, client=client)
+
+
+class _EmbeddingPatcher(_OpenaiPatcher):
+    def __init__(
+        self,
+        collector: Collector,
+        client: Union[OpenAI, AsyncOpenAI, None] = None,
+    ):
+        patchees = EmbeddingPatchees(client=client)
         super().__init__(collector=collector, patchees=patchees, client=client)
 
 
