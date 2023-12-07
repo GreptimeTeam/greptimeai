@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 from openai import AsyncOpenAI, AsyncStream, OpenAI, Stream
 from typing_extensions import override
 
+from greptimeai import logger
 from greptimeai.collector import Collector
 from greptimeai.extractor import Extraction
 from greptimeai.extractor.openai_extractor import OpenaiExtractor
@@ -162,6 +163,7 @@ class _OpenaiPatcher(Patcher):
             return resp
 
         patchee.wrap_func(wrapper)
+        logger.debug(f"patched '{span_name}'")
 
     def _patch_async(self, func: Callable, span_name: str, patchee: Patchee):
         @functools.wraps(func)
@@ -199,6 +201,7 @@ class _OpenaiPatcher(Patcher):
             return resp
 
         patchee.wrap_func(async_wrapper)
+        logger.debug(f"patched '{span_name}'")
 
     def patch_one(self, patchee: Patchee):
         """

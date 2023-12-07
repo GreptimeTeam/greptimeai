@@ -40,4 +40,3 @@ class Patchee:
     def wrap_func(self, func: Callable):
         setattr(func, _GREPTIMEAI_WRAPPED, True)
         setattr(self.obj, self.method_name, func)
-        logger.debug(f"patched '{self.span_name}'")
