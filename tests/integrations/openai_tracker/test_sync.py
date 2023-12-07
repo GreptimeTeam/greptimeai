@@ -96,19 +96,10 @@ class Number(object):
     number: int
 
 
-token = os.getenv("GREPTIMEAI_TOKEN")
-user = os.getenv("GREPTIMEAI_USERNAME")
-passwd = os.getenv("GREPTIMEAI_PASSWORD")
-if token:
-    list_str = token.split(":")
-    if len(list_str) == 2:
-        user = list_str[0]
-        passwd = list_str[1]
-
 db = pymysql.connect(
     host=os.getenv("GREPTIMEAI_HOST"),
-    user=user,
-    passwd=passwd,
+    user=os.getenv("GREPTIMEAI_USERNAME"),
+    passwd=os.getenv("GREPTIMEAI_PASSWORD"),
     port=4002,
     db=os.getenv("GREPTIMEAI_DATABASE"),
 )
@@ -144,3 +135,23 @@ def test_chat_completion():
     assert resp.model == result[0]
     assert resp.usage.prompt_tokens == result[1]
     assert resp.usage.completion_tokens == result[2]
+
+
+def test_embedding():
+    user_id = str(uuid.uuid4())
+    resp = client.embeddings.create(
+        input="hello world",
+        model="text-embedding-ada-002",
+        user=user_id,
+    )
+
+    time.sleep(5)
+    sql = "select model,prompt_tokens from %s where user_id = '%s'" % (
+        LlmTrace.table_name,
+        user_id,
+    )
+    cursor.execute(sql)
+    result = cursor.fetchone()
+
+    assert resp.model == result[0]
+    assert resp.usage.prompt_tokens == result[1]
