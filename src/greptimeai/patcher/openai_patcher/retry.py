@@ -20,6 +20,9 @@ class _RetryPatcher(_OpenaiPatcher):
         collector: Collector,
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
+        self._is_async = False
+        if isinstance(client, AsyncOpenAI):
+            self._is_async = True
         patchees = RetryPatchees(client=client)
         super().__init__(collector=collector, patchees=patchees, client=client)
 
@@ -41,7 +44,7 @@ class _RetryPatcher(_OpenaiPatcher):
         if not func:
             return
 
-        if patchee.is_async():
+        if self._is_async:
 
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):

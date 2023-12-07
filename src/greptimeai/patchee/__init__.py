@@ -12,14 +12,8 @@ class Patchee:
         self.method_name = method_name
         self.span_name = span_name
 
-        if self.is_async():
-            self.span_name += "[async]"
-
     def __repr__(self):
         return self.span_name
-
-    def is_async(self) -> bool:
-        return inspect.iscoroutinefunction(self._get_func())
 
     def get_func_name(self) -> str:
         return self.method_name

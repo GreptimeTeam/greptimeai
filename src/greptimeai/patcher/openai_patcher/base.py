@@ -43,6 +43,9 @@ class _OpenaiPatcher(Patcher):
     ):
         self.collector = collector
         self.extractor = extractor or OpenaiExtractor()
+        self._is_async = False
+        if isinstance(client, AsyncOpenAI):
+            self._is_async = True
 
         prefix = "client" if client else "openai"
         for patchee in patchees.get_patchees():
@@ -212,8 +215,8 @@ class _OpenaiPatcher(Patcher):
             return
 
         span_name = patchee.get_span_name()
-        if patchee.is_async():
-            self._patch_async(func, span_name, patchee)
+        if self._is_async:
+            self._patch_async(func, span_name + "[async]", patchee)
         else:
             self._patch_sync(func, span_name, patchee)
 
