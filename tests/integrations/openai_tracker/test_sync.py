@@ -96,10 +96,19 @@ class Number(object):
     number: int
 
 
+token = os.getenv("GREPTIMEAI_TOKEN")
+user = os.getenv("GREPTIMEAI_USERNAME")
+passwd = os.getenv("GREPTIMEAI_PASSWORD")
+if token:
+    list_str = token.split(":")
+    if len(list_str) == 2:
+        user = list_str[0]
+        passwd = list_str[1]
+
 db = pymysql.connect(
     host=os.getenv("GREPTIMEAI_HOST"),
-    user=os.getenv("GREPTIMEAI_USERNAME"),
-    passwd=os.getenv("GREPTIMEAI_PASSWORD"),
+    user=user,
+    passwd=passwd,
     port=4002,
     db=os.getenv("GREPTIMEAI_DATABASE"),
 )
@@ -126,8 +135,8 @@ def test_chat_completion():
 
     time.sleep(5)
     sql = (
-            "select model,prompt_tokens,completion_tokens from %s where user_id = '%s'"
-            % (LlmTrace.table_name, user_id)
+        "select model,prompt_tokens,completion_tokens from %s where user_id = '%s'"
+        % (LlmTrace.table_name, user_id)
     )
     cursor.execute(sql)
     result = cursor.fetchone()
@@ -135,5 +144,3 @@ def test_chat_completion():
     assert resp.model == result[0]
     assert resp.usage.prompt_tokens == result[1]
     assert resp.usage.completion_tokens == result[2]
-
-
