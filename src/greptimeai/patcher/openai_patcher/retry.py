@@ -56,7 +56,7 @@ class _RetryPatcher(_OpenaiPatcher):
                 return resp
 
             patchee.wrap_func(async_wrapper)
-            logger.debug(f"patched 'retry[async]'")
+            logger.debug("patched 'retry[async]'")
         else:
 
             @functools.wraps(func)
@@ -69,4 +69,4 @@ class _RetryPatcher(_OpenaiPatcher):
                 return resp
 
             patchee.wrap_func(wrapper)
-            logger.debug(f"patched 'retry'")
+            logger.debug("patched 'retry'")

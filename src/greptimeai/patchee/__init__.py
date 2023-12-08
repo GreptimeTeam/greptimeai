@@ -1,4 +1,3 @@
-import inspect
 from typing import Any, Callable, Optional
 
 from greptimeai import logger
