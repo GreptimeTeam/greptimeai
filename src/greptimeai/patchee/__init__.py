@@ -6,19 +6,17 @@ _GREPTIMEAI_WRAPPED = "__GREPTIMEAI_WRAPPED__"
 
 
 class Patchee:
-    def __init__(self, obj: Any, method_name: str, span_name: str):
+    def __init__(self, obj: Any, method_name: str, span_name: str, event_name: str):
         self.obj = obj
         self.method_name = method_name
         self.span_name = span_name
+        self.event_name = event_name
 
     def __repr__(self):
-        return self.span_name
+        return f"<{self.span_name}> with event name <{self.event_name}>"
 
     def get_func_name(self) -> str:
         return self.method_name
-
-    def get_span_name(self) -> str:
-        return self.span_name
 
     def _get_func(self) -> Optional[Callable]:
         return getattr(self.obj, self.method_name)

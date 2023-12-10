@@ -28,13 +28,17 @@ class Collector:
         )
 
     def start_span(
-        self, span_name: str, span_attrs: Dict[str, Any], event_attrs: Dict[str, Any]
+        self,
+        span_name: str,
+        span_attrs: Dict[str, Any],
+        event_name: str,
+        event_attrs: Dict[str, Any],
     ) -> Tuple[str, str]:
         return self._collector.start_span(
             span_id=None,
             parent_id=None,
             span_name=span_name,
-            event_name="start",
+            event_name=event_name,
             span_attrs=span_attrs,
             event_attrs=event_attrs,
         )

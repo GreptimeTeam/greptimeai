@@ -13,7 +13,8 @@ class _FineTuningPatchees:
         fine_tuning_jobs = Patchee(
             obj=client.fine_tuning.jobs if client else openai.fine_tuning.jobs,
             method_name=method_name,
-            span_name=f"fine_tuning.jobs.{method_name}",
+            span_name="openai_fine_tuning",
+            event_name=f"fine_tuning.jobs.{method_name}",
         )
 
         fine_tuning_raw_jobs = Patchee(
@@ -21,7 +22,8 @@ class _FineTuningPatchees:
             if client
             else openai.fine_tuning.with_raw_response.jobs,
             method_name=method_name,
-            span_name=f"fine_tuning.with_raw_response.jobs.{method_name}",
+            span_name="openai_fine_tuning",
+            event_name=f"fine_tuning.with_raw_response.jobs.{method_name}",
         )
 
         fine_tuning_jobs_raw = Patchee(
@@ -29,7 +31,8 @@ class _FineTuningPatchees:
             if client
             else openai.fine_tuning.jobs.with_raw_response,
             method_name=method_name,
-            span_name=f"fine_tuning.jobs.with_raw_response.{method_name}",
+            span_name="openai_fine_tuning",
+            event_name=f"fine_tuning.jobs.with_raw_response.{method_name}",
         )
 
         self.patchees = [
@@ -42,7 +45,8 @@ class _FineTuningPatchees:
             raw_fine_tuning = Patchee(
                 obj=client.with_raw_response.fine_tuning.jobs,
                 method_name=method_name,
-                span_name=f"with_raw_response.fine_tuning.jobs.{method_name}",
+                span_name="openai_fine_tuning",
+                event_name=f"with_raw_response.fine_tuning.jobs.{method_name}",
             )
             self.patchees.append(raw_fine_tuning)
 

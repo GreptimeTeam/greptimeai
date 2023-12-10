@@ -13,7 +13,8 @@ class ModerationPatchees(OpenaiPatchees):
         moderations_create = Patchee(
             obj=client.moderations if client else openai.moderations,
             method_name="create",
-            span_name="moderations.create",
+            span_name="openai_moderation",
+            event_name="moderations.create",
         )
 
         moderations_raw_create = Patchee(
@@ -21,7 +22,8 @@ class ModerationPatchees(OpenaiPatchees):
             if client
             else openai.moderations.with_raw_response,
             method_name="create",
-            span_name="moderations.with_raw_response.create",
+            span_name="openai_moderation",
+            event_name="moderations.with_raw_response.create",
         )
 
         patchees = [moderations_create, moderations_raw_create]
@@ -30,7 +32,8 @@ class ModerationPatchees(OpenaiPatchees):
             raw_moderations_create = Patchee(
                 obj=client.with_raw_response.moderations,
                 method_name="create",
-                span_name="with_raw_response.moderations.create",
+                span_name="openai_moderation",
+                event_name="with_raw_response.moderations.create",
             )
             patchees.append(raw_moderations_create)
 

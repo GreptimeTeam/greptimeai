@@ -1,5 +1,5 @@
 import functools
-from typing import Union
+from typing import Callable, Optional, Union
 
 from openai import AsyncOpenAI, OpenAI
 from openai._models import FinalRequestOptions
@@ -8,7 +8,6 @@ from typing_extensions import override
 from greptimeai import logger
 from greptimeai.collector import Collector
 from greptimeai.extractor.openai_extractor import _X_SPAN_ID_KEY
-from greptimeai.patchee import Patchee
 from greptimeai.patchee.openai_patchee.retry import RetryPatchees
 
 from .base import _OpenaiPatcher
@@ -39,34 +38,35 @@ class _RetryPatcher(_OpenaiPatcher):
                 )
 
     @override
-    def patch_one(self, patchee: Patchee):
-        func = patchee.get_unwrapped_func()
-        if not func:
-            return
+    def patch(self):
+        for patchee in self.patchees.get_patchees():
+            func: Optional[Callable] = patchee.get_unwrapped_func()
+            if func is None:
+                return
 
-        if self._is_async:
+            if self._is_async:
 
-            @functools.wraps(func)
-            async def async_wrapper(*args, **kwargs):
-                try:
-                    self._add_retry_event(*args)
-                    resp = await func(*args, **kwargs)
-                except Exception as e:
-                    raise e
-                return resp
+                @functools.wraps(func)
+                async def async_wrapper(*args, **kwargs):
+                    try:
+                        self._add_retry_event(*args)
+                        resp = await func(*args, **kwargs)
+                    except Exception as e:
+                        raise e
+                    return resp
 
-            patchee.wrap_func(async_wrapper)
-            logger.debug("patched 'retry[async]'")
-        else:
+                patchee.wrap_func(async_wrapper)
+                logger.debug("patched 'retry[async]'")
+            else:
 
-            @functools.wraps(func)
-            def wrapper(*args, **kwargs):
-                try:
-                    self._add_retry_event(*args)
-                    resp = func(*args, **kwargs)
-                except Exception as e:
-                    raise e
-                return resp
+                @functools.wraps(func)
+                def wrapper(*args, **kwargs):
+                    try:
+                        self._add_retry_event(*args)
+                        resp = func(*args, **kwargs)
+                    except Exception as e:
+                        raise e
+                    return resp
 
-            patchee.wrap_func(wrapper)
-            logger.debug("patched 'retry'")
+                patchee.wrap_func(wrapper)
+                logger.debug("patched 'retry'")

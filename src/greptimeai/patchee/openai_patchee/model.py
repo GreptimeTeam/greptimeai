@@ -13,7 +13,8 @@ class _ModelPatchees:
         models = Patchee(
             obj=client.models if client else openai.models,
             method_name=method_name,
-            span_name=f"models.{method_name}",
+            span_name="openai_model",
+            event_name=f"models.{method_name}",
         )
 
         models_raw = Patchee(
@@ -21,7 +22,8 @@ class _ModelPatchees:
             if client
             else openai.models.with_raw_response,
             method_name=method_name,
-            span_name=f"models.with_raw_response.{method_name}",
+            span_name="openai_model",
+            event_name=f"models.with_raw_response.{method_name}",
         )
 
         self.patchees = [models, models_raw]
@@ -30,7 +32,8 @@ class _ModelPatchees:
             raw_models = Patchee(
                 obj=client.with_raw_response.models,
                 method_name=method_name,
-                span_name=f"with_raw_response.models.{method_name}",
+                span_name="openai_model",
+                event_name=f"with_raw_response.models.{method_name}",
             )
             self.patchees.append(raw_models)
 
