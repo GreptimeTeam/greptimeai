@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Tuple
 
@@ -63,5 +64,6 @@ def truncate_tables():
     try:
         cursor.executemany(truncate_sql, tables)
         db.commit()
-    except:
+    except Exception as e:
+        logging.error(e)
         db.rollback()
