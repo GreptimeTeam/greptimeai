@@ -1,3 +1,6 @@
+import sys
+
+
 class LlmTrace(object):
     table_name = "llm_traces_preview_v01"
 
@@ -78,12 +81,6 @@ class LlmCompletionTokenCost(object):
     model: str
     greptime_value: str
     greptime_timestamp: float
-
-
-class Number(object):
-    table_name = "number"
-
-    number: int
 
 
 class Tables(object):
