@@ -5,7 +5,12 @@ from openai import AsyncOpenAI, OpenAI
 
 from greptimeai.patchee import Patchee
 
-from . import OpenaiPatchees
+from . import (
+    _SPAN_NAME_SPEECH,
+    _SPAN_NAME_TRANSCRIPTION,
+    _SPAN_NAME_TRANSLATION,
+    OpenaiPatchees,
+)
 
 
 class _SpeechPatchees:
@@ -13,7 +18,7 @@ class _SpeechPatchees:
         audio_speech_create = Patchee(
             obj=client.audio.speech if client else openai.audio.speech,
             method_name="create",
-            span_name="openai_speech",
+            span_name=_SPAN_NAME_SPEECH,
             event_name="audio.speech.create",
         )
 
@@ -22,7 +27,7 @@ class _SpeechPatchees:
             if client
             else openai.audio.with_raw_response.speech,
             method_name="create",
-            span_name="openai_speech",
+            span_name=_SPAN_NAME_SPEECH,
             event_name="audio.with_raw_response.speech.create",
         )
 
@@ -31,7 +36,7 @@ class _SpeechPatchees:
             if client
             else openai.audio.speech.with_raw_response,
             method_name="create",
-            span_name="openai_speech",
+            span_name=_SPAN_NAME_SPEECH,
             event_name="audio.speech.with_raw_response.create",
         )
 
@@ -45,7 +50,7 @@ class _SpeechPatchees:
             raw_audio_speech_create = Patchee(
                 obj=client.with_raw_response.audio.speech,
                 method_name="create",
-                span_name="openai_speech",
+                span_name=_SPAN_NAME_SPEECH,
                 event_name="with_raw_response.audio.speech.create",
             )
             self.patchees.append(raw_audio_speech_create)
@@ -56,7 +61,7 @@ class _TranscriptionPatchees:
         audio_transcriptions_create = Patchee(
             obj=client.audio.transcriptions if client else openai.audio.transcriptions,
             method_name="create",
-            span_name="openai_transcription",
+            span_name=_SPAN_NAME_TRANSCRIPTION,
             event_name="audio.transcriptions.create",
         )
 
@@ -65,7 +70,7 @@ class _TranscriptionPatchees:
             if client
             else openai.audio.with_raw_response.transcriptions,
             method_name="create",
-            span_name="openai_transcription",
+            span_name=_SPAN_NAME_TRANSCRIPTION,
             event_name="audio.with_raw_response.transcriptions.create",
         )
 
@@ -74,7 +79,7 @@ class _TranscriptionPatchees:
             if client
             else openai.audio.transcriptions.with_raw_response,
             method_name="create",
-            span_name="openai_transcription",
+            span_name=_SPAN_NAME_TRANSCRIPTION,
             event_name="audio.transcriptions.with_raw_response.create",
         )
 
@@ -88,7 +93,7 @@ class _TranscriptionPatchees:
             raw_audio_transcriptions_create = Patchee(
                 obj=client.with_raw_response.audio.transcriptions,
                 method_name="create",
-                span_name="openai_transcription",
+                span_name=_SPAN_NAME_TRANSCRIPTION,
                 event_name="with_raw_response.audio.transcriptions.create",
             )
             self.patchees.append(raw_audio_transcriptions_create)
@@ -99,7 +104,7 @@ class _TranslationPatchees:
         audio_translations_create = Patchee(
             obj=client.audio.translations if client else openai.audio.translations,
             method_name="create",
-            span_name="openai_translation",
+            span_name=_SPAN_NAME_TRANSLATION,
             event_name="audio.translations.create",
         )
 
@@ -108,7 +113,7 @@ class _TranslationPatchees:
             if client
             else openai.audio.with_raw_response.translations,
             method_name="create",
-            span_name="openai_translation",
+            span_name=_SPAN_NAME_TRANSLATION,
             event_name="audio.with_raw_response.translations.create",
         )
 
@@ -117,7 +122,7 @@ class _TranslationPatchees:
             if client
             else openai.audio.translations.with_raw_response,
             method_name="create",
-            span_name="openai_translation",
+            span_name=_SPAN_NAME_TRANSLATION,
             event_name="audio.translations.with_raw_response.create",
         )
 
@@ -131,7 +136,7 @@ class _TranslationPatchees:
             raw_audio_translations_create = Patchee(
                 obj=client.with_raw_response.audio.translations,
                 method_name="create",
-                span_name="openai_translation",
+                span_name=_SPAN_NAME_TRANSLATION,
                 event_name="with_raw_response.audio.translations.create",
             )
             self.patchees.append(raw_audio_translations_create)

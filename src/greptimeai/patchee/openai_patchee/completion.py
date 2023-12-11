@@ -5,7 +5,7 @@ from openai import AsyncOpenAI, OpenAI
 
 from greptimeai.patchee import Patchee
 
-from . import OpenaiPatchees
+from . import _SPAN_NAME_COMPLETION, OpenaiPatchees
 
 
 class CompletionPatchees(OpenaiPatchees):
@@ -13,7 +13,7 @@ class CompletionPatchees(OpenaiPatchees):
         completion_create = Patchee(
             obj=client.completions if client else openai.completions,
             method_name="create",
-            span_name="openai_completion",
+            span_name=_SPAN_NAME_COMPLETION,
             event_name="completions.create",
         )
 
@@ -22,7 +22,7 @@ class CompletionPatchees(OpenaiPatchees):
             if client
             else openai.completions.with_raw_response,
             method_name="create",
-            span_name="openai_completion",
+            span_name=_SPAN_NAME_COMPLETION,
             event_name="completions.with_raw_response.create",
         )
 
@@ -35,7 +35,7 @@ class CompletionPatchees(OpenaiPatchees):
             raw_completion_create = Patchee(
                 obj=client.with_raw_response.completions,
                 method_name="create",
-                span_name="openai_completion",
+                span_name=_SPAN_NAME_COMPLETION,
                 event_name="with_raw_response.completions.create",
             )
             patchees.append(raw_completion_create)

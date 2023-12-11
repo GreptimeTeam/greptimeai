@@ -5,7 +5,7 @@ from openai import AsyncOpenAI, OpenAI
 
 from greptimeai.patchee import Patchee
 
-from . import OpenaiPatchees
+from . import _SPAN_NAME_FINE_TUNNING, OpenaiPatchees
 
 
 class _FineTuningPatchees:
@@ -13,7 +13,7 @@ class _FineTuningPatchees:
         fine_tuning_jobs = Patchee(
             obj=client.fine_tuning.jobs if client else openai.fine_tuning.jobs,
             method_name=method_name,
-            span_name="openai_fine_tuning",
+            span_name=_SPAN_NAME_FINE_TUNNING,
             event_name=f"fine_tuning.jobs.{method_name}",
         )
 
@@ -22,7 +22,7 @@ class _FineTuningPatchees:
             if client
             else openai.fine_tuning.with_raw_response.jobs,
             method_name=method_name,
-            span_name="openai_fine_tuning",
+            span_name=_SPAN_NAME_FINE_TUNNING,
             event_name=f"fine_tuning.with_raw_response.jobs.{method_name}",
         )
 
@@ -31,7 +31,7 @@ class _FineTuningPatchees:
             if client
             else openai.fine_tuning.jobs.with_raw_response,
             method_name=method_name,
-            span_name="openai_fine_tuning",
+            span_name=_SPAN_NAME_FINE_TUNNING,
             event_name=f"fine_tuning.jobs.with_raw_response.{method_name}",
         )
 
@@ -45,7 +45,7 @@ class _FineTuningPatchees:
             raw_fine_tuning = Patchee(
                 obj=client.with_raw_response.fine_tuning.jobs,
                 method_name=method_name,
-                span_name="openai_fine_tuning",
+                span_name=_SPAN_NAME_FINE_TUNNING,
                 event_name=f"with_raw_response.fine_tuning.jobs.{method_name}",
             )
             self.patchees.append(raw_fine_tuning)

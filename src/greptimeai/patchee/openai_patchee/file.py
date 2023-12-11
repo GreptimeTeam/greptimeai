@@ -5,7 +5,7 @@ from openai import AsyncOpenAI, OpenAI
 
 from greptimeai.patchee import Patchee
 
-from . import OpenaiPatchees
+from . import _SPAN_NAME_FILE, OpenaiPatchees
 
 
 class _FilePatchees:
@@ -13,7 +13,7 @@ class _FilePatchees:
         files = Patchee(
             obj=client.files if client else openai.files,
             method_name=method_name,
-            span_name="openai_file",
+            span_name=_SPAN_NAME_FILE,
             event_name=f"files.{method_name}",
         )
 
@@ -22,7 +22,7 @@ class _FilePatchees:
             if client
             else openai.files.with_raw_response,
             method_name=method_name,
-            span_name="openai_file",
+            span_name=_SPAN_NAME_FILE,
             event_name=f"files.with_raw_response.{method_name}",
         )
 
@@ -32,7 +32,7 @@ class _FilePatchees:
             raw_files = Patchee(
                 obj=client.with_raw_response.files,
                 method_name=method_name,
-                span_name="openai_file",
+                span_name=_SPAN_NAME_FILE,
                 event_name=f"with_raw_response.files.{method_name}",
             )
             self.patchees.append(raw_files)

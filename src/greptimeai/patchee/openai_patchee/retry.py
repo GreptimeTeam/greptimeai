@@ -13,7 +13,7 @@ class RetryPatchees(OpenaiPatchees):
         retry = Patchee(
             obj=client or openai._client,
             method_name="_retry_request",
-            span_name="openai_retry",
+            span_name="",  # retry is only event, so span_name won't be used
             event_name="retry_request",
         )
 

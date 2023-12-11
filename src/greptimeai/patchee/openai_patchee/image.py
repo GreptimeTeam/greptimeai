@@ -5,7 +5,7 @@ from openai import AsyncOpenAI, OpenAI
 
 from greptimeai.patchee import Patchee
 
-from . import OpenaiPatchees
+from . import _SPAN_NAME_IMAGE, OpenaiPatchees
 
 
 class _ImagePatchees:
@@ -13,7 +13,7 @@ class _ImagePatchees:
         images = Patchee(
             obj=client.images if client else openai.images,
             method_name=method_name,
-            span_name="openai_image",
+            span_name=_SPAN_NAME_IMAGE,
             event_name=f"images.{method_name}",
         )
 
@@ -22,7 +22,7 @@ class _ImagePatchees:
             if client
             else openai.images.with_raw_response,
             method_name=method_name,
-            span_name="openai_image",
+            span_name=_SPAN_NAME_IMAGE,
             event_name=f"images.with_raw_response.{method_name}",
         )
 
@@ -32,7 +32,7 @@ class _ImagePatchees:
             raw_images = Patchee(
                 obj=client.with_raw_response.images,
                 method_name=method_name,
-                span_name="openai_image",
+                span_name=_SPAN_NAME_IMAGE,
                 event_name=f"with_raw_response.images.{method_name}",
             )
             self.patchees.append(raw_images)

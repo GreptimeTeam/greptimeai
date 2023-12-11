@@ -5,7 +5,7 @@ from openai import AsyncOpenAI, OpenAI
 
 from greptimeai.patchee import Patchee
 
-from . import OpenaiPatchees
+from . import _SPAN_NAME_MODERATION, OpenaiPatchees
 
 
 class ModerationPatchees(OpenaiPatchees):
@@ -13,7 +13,7 @@ class ModerationPatchees(OpenaiPatchees):
         moderations_create = Patchee(
             obj=client.moderations if client else openai.moderations,
             method_name="create",
-            span_name="openai_moderation",
+            span_name=_SPAN_NAME_MODERATION,
             event_name="moderations.create",
         )
 
@@ -22,7 +22,7 @@ class ModerationPatchees(OpenaiPatchees):
             if client
             else openai.moderations.with_raw_response,
             method_name="create",
-            span_name="openai_moderation",
+            span_name=_SPAN_NAME_MODERATION,
             event_name="moderations.with_raw_response.create",
         )
 
@@ -32,7 +32,7 @@ class ModerationPatchees(OpenaiPatchees):
             raw_moderations_create = Patchee(
                 obj=client.with_raw_response.moderations,
                 method_name="create",
-                span_name="openai_moderation",
+                span_name=_SPAN_NAME_MODERATION,
                 event_name="with_raw_response.moderations.create",
             )
             patchees.append(raw_moderations_create)
