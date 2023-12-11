@@ -1,6 +1,3 @@
-import sys
-
-
 class LlmTrace(object):
     table_name = "llm_traces_preview_v01"
 
