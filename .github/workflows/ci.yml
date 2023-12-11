@@ -45,7 +45,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Run shared steps
-        uses: ./.github/actions/action.yml
+        uses: ./.github/actions/
 
   ci-3-10:
     runs-on: ubuntu-latest
