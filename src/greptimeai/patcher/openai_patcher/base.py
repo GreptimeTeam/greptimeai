@@ -49,8 +49,9 @@ class _OpenaiPatcher(Patcher):
             self._is_async = True
 
         prefix = "client" if client else "openai"
+        suffix = "[async]" if self._is_async else ""
         for patchee in patchees.get_patchees():
-            patchee.span_name = f"{prefix}.{patchee.span_name}"
+            patchee.event_name = f"{prefix}.{patchee.event_name}{suffix}"
 
         self.patchees = patchees
 
@@ -75,13 +76,14 @@ class _OpenaiPatcher(Patcher):
 
     def _pre_patch(
         self,
-        span_name: str,
+        patchee: Patchee,
         *args,
         **kwargs,
     ) -> Tuple[Extraction, str, float, Dict[str, Any]]:
         extraction = self.extractor.pre_extract(*args, **kwargs)
         trace_id, span_id = self.collector.start_span(
-            span_name=span_name,
+            span_name=patchee.span_name,
+            event_name=patchee.event_name,
             span_attrs=extraction.span_attributes,
             event_attrs=extraction.event_attributes,
         )
@@ -93,7 +95,7 @@ class _OpenaiPatcher(Patcher):
             tokens = OpenaiExtractor.extract_req_tokens(**kwargs)
             self._collect_req_metrics_for_stream(
                 model_name=extraction.get_model_name(),
-                span_name=span_name,
+                span_name=patchee.span_name,
                 tokens=tokens,
             )
 
@@ -127,18 +129,18 @@ class _OpenaiPatcher(Patcher):
             span_attrs=extraction.span_attributes, attrs=attrs
         )
 
-    def _patch_sync(self, func: Callable, span_name: str, patchee: Patchee):
+    def _patch_sync(self, func: Callable, patchee: Patchee):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             extraction, span_id, start, kwargs = self._pre_patch(
-                span_name, *args, **kwargs
+                patchee, *args, **kwargs
             )
             resp, ex = None, None
             try:
                 resp = func(*args, **kwargs)
             except Exception as e:
                 self.collector.collect_error_count(
-                    extraction.get_model_name(), span_name, e
+                    extraction.get_model_name(), patchee.span_name, e
                 )
                 ex = e
                 raise e
@@ -148,7 +150,7 @@ class _OpenaiPatcher(Patcher):
                         stream=resp,
                         collector=self.collector,
                         span_id=span_id,
-                        span_name=span_name,
+                        span_name=patchee.span_name,
                         start=start,
                         model_name=extraction.get_model_name(),
                     )
@@ -156,27 +158,31 @@ class _OpenaiPatcher(Patcher):
                     self._post_patch(
                         span_id=span_id,
                         start=start,
-                        span_name=span_name,
+                        span_name=patchee.span_name,
                         resp=resp,
                         ex=ex,
                     )
             return resp
 
         patchee.wrap_func(wrapper)
-        logger.debug(f"patched '{span_name}'")
+        logger.debug(f"patched '{patchee}'")
 
-    def _patch_async(self, func: Callable, span_name: str, patchee: Patchee):
+    def _patch_async(self, func: Callable, patchee: Patchee):
+        """
+        NOTE: this is exactly the same as _patch_sync, but with async/await
+        """
+
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs):
             extraction, span_id, start, kwargs = self._pre_patch(
-                span_name, *args, **kwargs
+                patchee, *args, **kwargs
             )
             resp, ex = None, None
             try:
                 resp = await func(*args, **kwargs)
             except Exception as e:
                 self.collector.collect_error_count(
-                    extraction.get_model_name(), span_name, e
+                    extraction.get_model_name(), patchee.span_name, e
                 )
                 ex = e
                 raise e
@@ -186,7 +192,7 @@ class _OpenaiPatcher(Patcher):
                         astream=resp,
                         collector=self.collector,
                         span_id=span_id,
-                        span_name=span_name,
+                        span_name=patchee.span_name,
                         start=start,
                         model_name=extraction.get_model_name(),
                     )
@@ -194,39 +200,26 @@ class _OpenaiPatcher(Patcher):
                     self._post_patch(
                         span_id=span_id,
                         start=start,
-                        span_name=span_name,
+                        span_name=patchee.span_name,
                         resp=resp,
                         ex=ex,
                     )
             return resp
 
         patchee.wrap_func(async_wrapper)
-        logger.debug(f"patched '{span_name}'")
-
-    def patch_one(self, patchee: Patchee):
-        """
-        TODO(yuanbohan): to support:
-          - [x] stream
-          - [x] async
-          - [x] with_raw_response
-          - [x] retry
-          - [ ] page
-        """
-
-        func = patchee.get_unwrapped_func()
-        if not func:
-            return
-
-        span_name = patchee.get_span_name()
-        if self._is_async:
-            self._patch_async(func, span_name + "[async]", patchee)
-        else:
-            self._patch_sync(func, span_name, patchee)
+        logger.debug(f"patched '{patchee}'")
 
     @override
     def patch(self):
         for patchee in self.patchees.get_patchees():
-            self.patch_one(patchee)
+            func = patchee.get_unwrapped_func()
+            if not func:
+                return
+
+            if self._is_async:
+                self._patch_async(func, patchee)
+            else:
+                self._patch_sync(func, patchee)
 
 
 class _AudioPatcher(_OpenaiPatcher):

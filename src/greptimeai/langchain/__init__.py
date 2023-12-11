@@ -4,11 +4,11 @@ from langchain.schema import ChatGeneration, Generation
 from langchain.schema.document import Document
 from langchain.schema.messages import BaseMessage
 
-_SPAN_NAME_CHAIN = "chain"
-_SPAN_NAME_AGENT = "agent"
-_SPAN_NAME_LLM = "llm"
-_SPAN_NAME_TOOL = "tool"
-_SPAN_NAME_RETRIEVER = "retriever"
+_SPAN_NAME_CHAIN = "langchain_chain"
+_SPAN_NAME_AGENT = "langchain_agent"
+_SPAN_NAME_LLM = "langchain_llm"
+_SPAN_NAME_TOOL = "langchain_tool"
+_SPAN_NAME_RETRIEVER = "langchain_retriever"
 
 
 def _get_user_id(metadata: Optional[Dict[str, Any]]) -> str:
