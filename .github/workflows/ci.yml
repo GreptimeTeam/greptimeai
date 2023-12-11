@@ -17,6 +17,14 @@ on:
       - 'examples/**'
       - '.gitignore'
 
+env:
+  GREPTIMEAI_HOST: ${{ secrets.GREPTIMEAI_HOST }}
+  GREPTIMEAI_USERNAME: ${{ secrets.GREPTIMEAI_USERNAME }}
+  GREPTIMEAI_PASSWORD: ${{ secrets.GREPTIMEAI_PASSWORD }}
+  GREPTIMEAI_DATABASE: ${{ secrets.GREPTIMEAI_DATABASE }}
+  GREPTIMEAI_TOKEN: ${{ secrets.GREPTIMEAI_TOKEN }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
 jobs:
   ci-3-8:
     runs-on: ubuntu-latest
