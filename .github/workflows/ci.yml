@@ -26,7 +26,7 @@ jobs:
       - name: Set up Python 3.8
         uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: "3.8"
 
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
@@ -70,7 +70,7 @@ jobs:
       - name: Set up Python 3.9
         uses: actions/setup-python@v4
         with:
-          python-version: 3.9
+          python-version: "3.9"
 
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
@@ -114,7 +114,7 @@ jobs:
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
-          python-version: 3.10
+          python-version: "3.10"
 
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
@@ -158,7 +158,7 @@ jobs:
       - name: Set up Python 3.11
         uses: actions/setup-python@v4
         with:
-          python-version: 3.11
+          python-version: "3.11"
 
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
