@@ -11,8 +11,7 @@ from ..database.db import (
     truncate_tables,
 )
 from ..database.model import (
-    LlmPromptToken,
-    LlmCompletionToken,
+    Tables,
 )
 
 client = OpenAI()
@@ -42,8 +41,8 @@ def test_chat_completion(_truncate_tables):
 
     time.sleep(6)
     trace = get_trace_data(user_id)
-    prompt_token = get_metric_data(LlmPromptToken.table_name, resp.model)
-    completion_token = get_metric_data(LlmCompletionToken.table_name, resp.model)
+    prompt_token = get_metric_data(Tables.llm_prompt_tokens, resp.model)
+    completion_token = get_metric_data(Tables.llm_completion_tokens, resp.model)
 
     assert resp.model == trace[0]
     assert "openai" == prompt_token[0]

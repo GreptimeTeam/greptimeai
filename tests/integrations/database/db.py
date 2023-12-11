@@ -4,7 +4,7 @@ from typing import Tuple
 
 import pymysql  # type: ignore
 
-from .model import LlmTrace
+from .model import Tables
 
 db = pymysql.connect(
     host=os.getenv("GREPTIMEAI_HOST"),
@@ -13,7 +13,6 @@ db = pymysql.connect(
     port=4002,
     db=os.getenv("GREPTIMEAI_DATABASE"),
 )
-
 cursor = db.cursor()
 
 trace_sql = "SELECT model,prompt_tokens,completion_tokens FROM %s WHERE user_id = '%s'"
@@ -27,7 +26,7 @@ def get_trace_data(user_id: str) -> Tuple:
     :param user_id:
     :return: model, prompt_tokens, completion_tokens
     """
-    cursor.execute(trace_sql % (LlmTrace.table_name, user_id))
+    cursor.execute(trace_sql % (Tables.llm_trace, user_id))
     trace = cursor.fetchone()
     if trace is None:
         raise Exception("trace data is None")
@@ -49,6 +48,10 @@ def get_metric_data(table: str, model: str) -> Tuple:
 
 
 def truncate_tables():
+    """
+    truncate all tables
+    :return:
+    """
     tables = [
         "llm_completion_tokens",
         "llm_completion_tokens_cost",

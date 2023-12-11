@@ -84,3 +84,11 @@ class Number(object):
     table_name = "number"
 
     number: int
+
+
+class Tables(object):
+    llm_trace = "llm_traces_preview_v01"
+    llm_prompt_tokens = "llm_prompt_tokens"
+    llm_prompt_tokens_cost = "llm_prompt_tokens_cost"
+    llm_completion_tokens = "llm_completion_tokens"
+    llm_completion_tokens_cost = "llm_completion_tokens_cost"
