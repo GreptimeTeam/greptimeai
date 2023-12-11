@@ -63,3 +63,7 @@ jobs:
       - name: Static Type Checking with mypy
         run: |
           mypy $(git ls-files '*.py') --check-untyped-defs
+
+concurrency:
+  group: ${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
