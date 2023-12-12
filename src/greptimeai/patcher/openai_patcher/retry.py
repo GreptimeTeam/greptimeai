@@ -7,7 +7,7 @@ from typing_extensions import override
 
 from greptimeai import logger
 from greptimeai.collector import Collector
-from greptimeai.extractor.openai_extractor import _X_SPAN_ID_KEY
+from greptimeai.extractor.openai_extractor import _EXTRA_HEADERS_X_SPAN_ID_KEY
 from greptimeai.patchee.openai_patchee.retry import RetryPatchees
 
 from .base import _OpenaiPatcher
@@ -28,7 +28,7 @@ class _RetryPatcher(_OpenaiPatcher):
     def _add_retry_event(self, *args):
         if len(args) > 0 and isinstance(args[0], FinalRequestOptions):
             dict = args[0].model_dump(exclude_unset=True)
-            span_id = dict.get("headers", {}).get(_X_SPAN_ID_KEY)
+            span_id = dict.get("headers", {}).get(_EXTRA_HEADERS_X_SPAN_ID_KEY)
             if span_id:
                 logger.debug(f"in retry_patcher {span_id=}")
                 self.collector._collector.add_span_event(

@@ -17,20 +17,28 @@ from greptimeai.labels import (
 )
 from greptimeai.utils.openai.token import get_openai_token_cost_for_model
 
-_OPENAI_EXTRA_HEADERS_KEY = "extra_headers"
-_OPENAI_USER_KEY = "user"
-_GREPTIMEAI_USER_KEY = "user_id"
+_EXTRA_HEADERS_KEY = "extra_headers"  # this is the original openai parameter
+_EXTRA_HEADERS_X_USER_ID_KEY = "x-user-id"
+_EXTRA_HEADERS_X_TRACE_ID_KEY = "x-trace-id"
+_EXTRA_HEADERS_X_SPAN_ID_KEY = "x-span-id"
 
-# the followings are from extra_headers
-_X_USER_ID_KEY = "x-user-id"
-_X_TRACE_ID_KEY = "x-trace-id"
-_X_SPAN_ID_KEY = "x-span-id"
+_GREPTIMEAI_USER_KEY = "user_id"
+_GREPTIMEAI_TRACE_KEY = "trace_id"
+_GREPTIMEAI_SPAN_KEY = "span_id"
+
+_OPENAI_USER_KEY = "user"  # this is the original openai parameter
 
 
 class OpenaiExtractor(BaseExtractor):
     @staticmethod
     def is_stream(**kwargs) -> bool:
-        return bool(kwargs.get("stream"))
+        stream = kwargs.get("stream")
+        if isinstance(stream, bool):
+            return stream
+        elif isinstance(stream, str):
+            return stream.lower() == "true"
+        else:
+            return False
 
     @staticmethod
     def extract_req_tokens(**kwargs) -> Optional[str]:
@@ -59,21 +67,28 @@ class OpenaiExtractor(BaseExtractor):
 
     @staticmethod
     def update_trace_info(kwargs: Dict[str, Any], trace_id: str, span_id: str):
-        attrs = {_X_TRACE_ID_KEY: trace_id, _X_SPAN_ID_KEY: span_id}
+        attrs = {
+            _EXTRA_HEADERS_X_TRACE_ID_KEY: trace_id,
+            _EXTRA_HEADERS_X_SPAN_ID_KEY: span_id,
+        }
 
-        extra_headers: Dict[str, Any] = kwargs.get(_OPENAI_EXTRA_HEADERS_KEY, {})
+        extra_headers: Dict[str, Any] = kwargs.get(_EXTRA_HEADERS_KEY, {})
         extra_headers.update(attrs)
 
-        kwargs[_OPENAI_EXTRA_HEADERS_KEY] = extra_headers
+        kwargs[_EXTRA_HEADERS_KEY] = extra_headers
 
     @staticmethod
     def get_trace_info(**kwargs) -> Optional[Tuple[str, str]]:
-        extra_headers = kwargs.get(_OPENAI_EXTRA_HEADERS_KEY)
-        if not extra_headers:
-            return None
+        """
+        NOTE: key in headers has higher priority than the key in kwargs
+        """
+        trace_id = kwargs.get(_GREPTIMEAI_TRACE_KEY, "")
+        span_id = kwargs.get(_GREPTIMEAI_SPAN_KEY, "")
 
-        trace_id = extra_headers.get(_X_TRACE_ID_KEY)
-        span_id = extra_headers.get(_X_SPAN_ID_KEY)
+        extra_headers = kwargs.get(_EXTRA_HEADERS_KEY)
+        if extra_headers:
+            trace_id = extra_headers.get(_EXTRA_HEADERS_X_TRACE_ID_KEY, "")
+            span_id = extra_headers.get(_EXTRA_HEADERS_X_SPAN_ID_KEY, "")
 
         if trace_id or span_id:
             return trace_id, span_id
@@ -111,9 +126,9 @@ class OpenaiExtractor(BaseExtractor):
         - _OPENAI_USER_KEY in kwargs
         """
         user_id = kwargs.get(_GREPTIMEAI_USER_KEY) or kwargs.get(_OPENAI_USER_KEY)
-        extra_headers = kwargs.get(_OPENAI_EXTRA_HEADERS_KEY)
-        if extra_headers and _X_USER_ID_KEY in extra_headers:
-            user_id = extra_headers[_X_USER_ID_KEY]
+        extra_headers = kwargs.get(_EXTRA_HEADERS_KEY)
+        if extra_headers and _EXTRA_HEADERS_X_USER_ID_KEY in extra_headers:
+            user_id = extra_headers[_EXTRA_HEADERS_X_USER_ID_KEY]
         return user_id
 
     @staticmethod
