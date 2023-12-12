@@ -597,6 +597,9 @@ class _Collector:
                 f"latency won't be recorded for None value. attribute is: { attributes }"
             )
 
+    def discard_latency(self, span_id: Union[UUID, str], span_name: Optional[str]):
+        self._duration_tables.latency_in_ms(span_id, span_name)
+
     def collect_error_count(self, attributes: Dict[str, Any]):
         self._llm_error_count.add(1, attributes)
 
