@@ -4,7 +4,6 @@ import uuid
 
 import pytest
 
-from greptimeai import openai_patcher  # type: ignore
 from ..database.db import (
     get_trace_data,
     truncate_tables,
