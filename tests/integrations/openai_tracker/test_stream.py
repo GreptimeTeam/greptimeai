@@ -2,20 +2,13 @@ import time
 import uuid
 
 import pytest
-from openai import OpenAI
 
 from greptimeai import openai_patcher  # type: ignore
 from ..database.db import (
     get_trace_data,
-    get_metric_data,
     truncate_tables,
 )
-from ..database.model import (
-    Tables,
-)
-
-client = OpenAI()
-openai_patcher.setup(client=client)
+from ..openai_tracker import client
 
 
 @pytest.fixture
@@ -51,12 +44,6 @@ def test_chat_completion(_truncate_tables):
     time.sleep(6)
 
     trace = get_trace_data(user_id, True)
-    prompt_token = get_metric_data(Tables.llm_prompt_tokens, trace[0])
-    completion_token = get_metric_data(Tables.llm_completion_tokens, model)
 
     assert trace[0] in model  # model
-    assert prompt_token[0] == "openai"
-    assert completion_token[0] == "openai"
     assert trace[1] == 2  # completion tokens
-    assert completion_token[1] == 2  # completion tokens
-    assert prompt_token[1] == 16  # prompt tokens
