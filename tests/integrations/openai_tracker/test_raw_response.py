@@ -31,14 +31,14 @@ def test_chat_completion(_truncate_tables):
         seed=1,
     )
 
-    resp = json.loads(resp.content)
-    assert resp["choices"][0]["message"]["content"] == "2"
+    data = json.loads(resp.content)
+    assert data["choices"][0]["message"]["content"] == "2"
 
     time.sleep(6)
     trace = get_trace_data(user_id, False)
 
-    assert resp["model"] == trace[0]
+    assert data["model"] == trace[0]
 
-    if "usage" in resp:
-        assert resp["usage"]["prompt_tokens"] == trace[1]
-        assert resp["usage"]["completion_tokens"] == trace[2]
+    if "usage" in data:
+        assert data["usage"]["prompt_tokens"] == trace[1]
+        assert data["usage"]["completion_tokens"] == trace[2]
