@@ -16,17 +16,21 @@ db = pymysql.connect(
 cursor = db.cursor()
 
 trace_sql = "SELECT model,prompt_tokens,completion_tokens FROM %s WHERE user_id = '%s'"
+trace_stream_sql = "SELECT model,completion_tokens FROM %s WHERE user_id = '%s'"
 metric_sql = "SELECT service_name,greptime_value FROM %s WHERE model = '%s'"
 truncate_sql = "TRUNCATE %s"
 
 
-def get_trace_data(user_id: str) -> Tuple:
+def get_trace_data(user_id: str, is_stream: bool) -> Tuple:
     """
     get trace data for llm trace by user_id
     :param user_id:
     :return: model, prompt_tokens, completion_tokens
     """
-    cursor.execute(trace_sql % (Tables.llm_trace, user_id))
+    if is_stream:
+        cursor.execute(trace_stream_sql % (Tables.llm_trace, user_id))
+    else:
+        cursor.execute(trace_sql % (Tables.llm_trace, user_id))
     trace = cursor.fetchone()
     if trace is None:
         raise Exception("trace data is None")
@@ -62,7 +66,6 @@ def truncate_tables():
         "llm_request_duration_ms_count",
         "llm_request_duration_ms_sum",
         "llm_traces_preview_v01",
-        "numbers",
     ]
     try:
         cursor.executemany(truncate_sql, tables)

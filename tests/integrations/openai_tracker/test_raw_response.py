@@ -1,3 +1,4 @@
+import json
 import time
 import uuid
 
@@ -26,7 +27,7 @@ def _truncate_tables():
 
 def test_chat_completion(_truncate_tables):
     user_id = str(uuid.uuid4())
-    resp = client.chat.completions.create(
+    resp = client.with_raw_response.chat.completions.create(
         messages=[
             {
                 "role": "user",
@@ -37,18 +38,20 @@ def test_chat_completion(_truncate_tables):
         user=user_id,
         seed=1,
     )
-    assert resp.choices[0].message.content == "2"
+
+    resp = json.loads(resp.content)
+    assert resp["choices"][0]["message"]["content"] == "2"
 
     time.sleep(6)
     trace = get_trace_data(user_id, False)
-    prompt_token = get_metric_data(Tables.llm_prompt_tokens, resp.model)
-    completion_token = get_metric_data(Tables.llm_completion_tokens, resp.model)
+    prompt_token = get_metric_data(Tables.llm_prompt_tokens, resp["model"])
+    completion_token = get_metric_data(Tables.llm_completion_tokens, resp["model"])
 
-    assert resp.model == trace[0]
+    assert resp["model"] == trace[0]
     assert "openai" == prompt_token[0]
     assert "openai" == completion_token[0]
-    if resp.usage:
-        assert resp.usage.prompt_tokens == trace[1]
-        assert resp.usage.completion_tokens == trace[2]
-        assert resp.usage.completion_tokens == completion_token[1]
-        assert resp.usage.prompt_tokens == prompt_token[1]
+    if "usage" in resp:
+        assert resp["usage"]["prompt_tokens"] == trace[1]
+        assert resp["usage"]["completion_tokens"] == trace[2]
+        assert resp["usage"]["completion_tokens"] == completion_token[1]
+        assert resp["usage"]["prompt_tokens"] == prompt_token[1]

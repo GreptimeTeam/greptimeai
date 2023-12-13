@@ -2,7 +2,7 @@ import time
 import uuid
 
 import pytest
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 from greptimeai import openai_patcher  # type: ignore
 from ..database.db import (
@@ -14,7 +14,7 @@ from ..database.model import (
     Tables,
 )
 
-client = OpenAI()
+client = AsyncOpenAI()
 openai_patcher.setup(client=client)
 
 
@@ -24,9 +24,10 @@ def _truncate_tables():
     yield
 
 
-def test_chat_completion(_truncate_tables):
+@pytest.mark.asyncio
+async def test_chat_completion(_truncate_tables):
     user_id = str(uuid.uuid4())
-    resp = client.chat.completions.create(
+    resp = await client.chat.completions.create(
         messages=[
             {
                 "role": "user",
@@ -37,9 +38,10 @@ def test_chat_completion(_truncate_tables):
         user=user_id,
         seed=1,
     )
+    print("---------------------------------------", resp)
     assert resp.choices[0].message.content == "2"
 
-    time.sleep(6)
+    time.sleep(8)
     trace = get_trace_data(user_id, False)
     prompt_token = get_metric_data(Tables.llm_prompt_tokens, resp.model)
     completion_token = get_metric_data(Tables.llm_completion_tokens, resp.model)
