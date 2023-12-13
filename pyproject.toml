@@ -1,6 +1,6 @@
 [project]
 name = "greptimeai"
-version = "0.1.13" # update greptimeai._VERSION at the same time
+version = "0.1.14" # update greptimeai._VERSION at the same time
 description = "Observability tool for LLM application"
 authors = [
     { name = "Greptime", email = "info@greptime.com" },
