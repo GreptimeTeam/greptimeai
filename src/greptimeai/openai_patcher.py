@@ -18,6 +18,8 @@ from greptimeai.patcher.openai_patcher.base import (
 )
 from greptimeai.patcher.openai_patcher.retry import _RetryPatcher
 
+_collector: Collector = None  # type: ignore
+
 
 def setup(
     host: str = "",
@@ -37,20 +39,21 @@ def setup(
         token: if None or empty string, GREPTIMEAI_TOKEN environment variable will be used.
         client: if None, then openai module-level client will be patched.
     """
-    collector = Collector(
+    global _collector
+    _collector = Collector(
         service_name="openai", host=host, database=database, token=token
     )
     patchers: List[Patcher] = [
-        _AudioPatcher(collector=collector, client=client),
-        _ChatCompletionPatcher(collector=collector, client=client),
-        _CompletionPatcher(collector=collector, client=client),
-        _EmbeddingPatcher(collector=collector, client=client),
-        _FilePatcher(collector=collector, client=client),
-        _FineTuningPatcher(collector=collector, client=client),
-        _ImagePatcher(collector=collector, client=client),
-        _ModelPatcher(collector=collector, client=client),
-        _ModerationPatcher(collector=collector, client=client),
-        _RetryPatcher(collector=collector, client=client),
+        _AudioPatcher(collector=_collector, client=client),
+        _ChatCompletionPatcher(collector=_collector, client=client),
+        _CompletionPatcher(collector=_collector, client=client),
+        _EmbeddingPatcher(collector=_collector, client=client),
+        _FilePatcher(collector=_collector, client=client),
+        _FineTuningPatcher(collector=_collector, client=client),
+        _ImagePatcher(collector=_collector, client=client),
+        _ModelPatcher(collector=_collector, client=client),
+        _ModerationPatcher(collector=_collector, client=client),
+        _RetryPatcher(collector=_collector, client=client),
     ]
 
     for patcher in patchers:

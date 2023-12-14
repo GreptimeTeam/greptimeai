@@ -21,6 +21,7 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     strategy:
+      max-parallel: 1
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11"]
 
@@ -41,10 +42,17 @@ jobs:
 
       - name: Install Dev dependencies
         run: |
-          pip install langchain openai pytest ruff mypy
+          pip install langchain openai pytest ruff mypy pymysql pytest-asyncio types-PyMySQL
 
       # TODO(yuanbohan): code coverage with pytest-cov
       - name: Test with pytest
+        env:
+          GREPTIMEAI_HOST: ${{ secrets.GREPTIMEAI_HOST }}
+          GREPTIMEAI_USERNAME: ${{ secrets.GREPTIMEAI_USERNAME }}
+          GREPTIMEAI_PASSWORD: ${{ secrets.GREPTIMEAI_PASSWORD }}
+          GREPTIMEAI_DATABASE: ${{ secrets.GREPTIMEAI_DATABASE }}
+          GREPTIMEAI_TOKEN: ${{ secrets.GREPTIMEAI_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           pytest tests/ -v
 
@@ -56,3 +64,7 @@ jobs:
       - name: Static Type Checking with mypy
         run: |
           mypy $(git ls-files '*.py') --check-untyped-defs
+
+concurrency:
+  group: ${{ github.repository }}
+  cancel-in-progress: true
