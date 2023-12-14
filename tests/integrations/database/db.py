@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Union, List
 
-import pymysql  # type: ignore
+import pymysql
 
 from .model import Tables
 
@@ -16,21 +16,18 @@ db = pymysql.connect(
 cursor = db.cursor()
 
 trace_sql = "SELECT model,prompt_tokens,completion_tokens FROM %s WHERE user_id = '%s'"
-trace_stream_sql = "SELECT model,completion_tokens FROM %s WHERE user_id = '%s'"
 truncate_sql = "TRUNCATE %s"
 
 
-def get_trace_data(user_id: str, is_stream: bool) -> List[Union[str, int]]:
+def get_trace_data(user_id: str) -> List[Union[str, int]]:
     """
     get trace data for llm trace by user_id
     :param is_stream:
     :param user_id:
     :return: model, prompt_tokens, completion_tokens
     """
-    if is_stream:
-        cursor.execute(trace_stream_sql % (Tables.llm_trace, user_id))
-    else:
-        cursor.execute(trace_sql % (Tables.llm_trace, user_id))
+
+    cursor.execute(trace_sql % (Tables.llm_trace, user_id))
     trace = cursor.fetchone()
     if trace is None:
         raise Exception("trace data is None")

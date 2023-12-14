@@ -34,7 +34,7 @@ def test_chat_completion(_truncate_tables):
 
     _collector._collector._force_flush()
     time.sleep(6)
-    trace = get_trace_data(user_id, False)
+    trace = get_trace_data(user_id)
 
     assert resp.model == trace[0]
 
