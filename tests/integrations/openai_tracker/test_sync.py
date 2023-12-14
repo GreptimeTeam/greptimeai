@@ -17,6 +17,7 @@ def _truncate_tables():
 
 def test_chat_completion(_truncate_tables):
     user_id = str(uuid.uuid4())
+    model = "gpt-3.5-turbo"
     resp = client.chat.completions.create(
         messages=[
             {
@@ -24,25 +25,33 @@ def test_chat_completion(_truncate_tables):
                 "content": "1+1=",
             }
         ],
-        model="gpt-3.5-turbo",
+        model=model,
         user=user_id,
         seed=1,
     )
     assert resp.choices[0].message.content == "2"
 
     _collector._collector._force_flush()
-    time.sleep(3)
+
     trace = get_trace_data(user_id)
+    retry = 0
+    while retry < 3 and not trace:
+        retry += 1
+        time.sleep(2)
+        trace = get_trace_data(user_id)
 
     assert trace is not None
 
     assert "openai" == trace.get("resource_attributes", {}).get("service.name")
     assert "openai_completion" == trace.get("span_name")
+
     assert ["client.chat.completions.create", "end"] == [
         event.get("name") for event in trace.get("span_events", [])
     ]
 
     assert resp.model == trace.get("model")
+    assert resp.model.startswith(model)
+
     assert resp.usage
     assert resp.usage.prompt_tokens == trace.get("prompt_tokens")
     assert resp.usage.completion_tokens == trace.get("completion_tokens")
