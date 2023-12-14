@@ -1,4 +1,5 @@
 import json
+import time
 import uuid
 
 import pytest
@@ -35,6 +36,7 @@ def test_chat_completion(_truncate_tables):
     assert data["choices"][0]["message"]["content"] == "2"
 
     _collector._collector._force_flush()
+    time.sleep(5)
     trace = get_trace_data(user_id, False)
 
     assert data["model"] == trace[0]

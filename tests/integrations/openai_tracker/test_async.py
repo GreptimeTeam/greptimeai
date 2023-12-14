@@ -1,3 +1,4 @@
+import time
 import uuid
 
 import pytest
@@ -33,6 +34,7 @@ async def test_chat_completion(_truncate_tables):
     assert resp.choices[0].message.content == "2"
 
     _collector._collector._force_flush()
+    time.sleep(5)
     trace = get_trace_data(user_id, False)
 
     assert resp.model == trace[0]

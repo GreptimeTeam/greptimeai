@@ -1,3 +1,4 @@
+import time
 import uuid
 
 import pytest
@@ -40,8 +41,9 @@ def test_chat_completion(_truncate_tables):
                 ans += choice.delta.content
 
     assert ans == "2"
-    _collector._collector._force_flush()
 
+    _collector._collector._force_flush()
+    time.sleep(5)
     trace = get_trace_data(user_id, True)
 
     assert trace[0] in model  # model
