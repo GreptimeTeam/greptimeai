@@ -81,6 +81,18 @@ class _OpenaiPatcher(Patcher):
         **kwargs,
     ) -> Tuple[Extraction, str, float, Dict[str, Any]]:
         extraction = self.extractor.pre_extract(*args, **kwargs)
+
+        # if stream, the usage won't be included in the resp,
+        # so we need to extract and collect it from req for best.
+        if OpenaiExtractor.is_stream(**kwargs):
+            tokens = OpenaiExtractor.extract_req_tokens(**kwargs)
+            extraction = OpenaiExtractor.supplement_stream_prompt(extraction, tokens)
+            self._collect_req_metrics_for_stream(
+                model_name=extraction.get_model_name(),
+                span_name=patchee.span_name,
+                tokens=tokens,
+            )
+
         trace_id, span_id = self.collector.start_span(
             span_name=patchee.span_name,
             event_name=patchee.event_name,
@@ -88,16 +100,6 @@ class _OpenaiPatcher(Patcher):
             event_attrs=extraction.event_attributes,
         )
         OpenaiExtractor.update_trace_info(kwargs, trace_id, span_id)
-
-        # if stream, the usage won't be included in the resp,
-        # so we need to extract and collect it from req for best.
-        if OpenaiExtractor.is_stream(**kwargs):
-            tokens = OpenaiExtractor.extract_req_tokens(**kwargs)
-            self._collect_req_metrics_for_stream(
-                model_name=extraction.get_model_name(),
-                span_name=patchee.span_name,
-                tokens=tokens,
-            )
 
         start = time.time()
         return (extraction, span_id, start, kwargs)
