@@ -56,19 +56,15 @@ class _OpenaiPatcher(Patcher):
         self.patchees = patchees
 
     def _collect_req_metrics_for_stream(
-        self, model_name: Optional[str], span_name: str, tokens: Optional[str]
+        self, model_name: str, span_name: str, tokens_num: int, cost: float
     ):
-        model_name = model_name or ""
         attrs = {
             _SPAN_NAME_LABEL: f"{span_name}[stream]",
             _MODEL_LABEL: model_name,
         }
 
-        num = num_tokens_from_messages(tokens or "")
-        cost = get_openai_token_cost_for_model(model_name, num)
-
         span_attrs = {
-            _PROMPT_TOKENS_LABEl: num,
+            _PROMPT_TOKENS_LABEl: tokens_num,
             _PROMPT_COST_LABEl: cost,
         }
 
@@ -86,11 +82,19 @@ class _OpenaiPatcher(Patcher):
         # so we need to extract and collect it from req for best.
         if OpenaiExtractor.is_stream(**kwargs):
             tokens = OpenaiExtractor.extract_req_tokens(**kwargs)
-            extraction = OpenaiExtractor.supplement_stream_prompt(extraction, tokens)
+            model_name = extraction.get_model_name() or ""
+            tokens_num = num_tokens_from_messages(tokens or "")
+            cost = get_openai_token_cost_for_model(model_name, tokens_num, False)
+
+            extraction = OpenaiExtractor.supplement_stream_prompt(
+                extraction, tokens_num, cost
+            )
+
             self._collect_req_metrics_for_stream(
-                model_name=extraction.get_model_name(),
+                model_name=model_name,
                 span_name=patchee.span_name,
-                tokens=tokens,
+                tokens_num=tokens_num,
+                cost=cost,
             )
 
         trace_id, span_id = self.collector.start_span(

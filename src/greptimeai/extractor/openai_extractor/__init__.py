@@ -222,14 +222,11 @@ class OpenaiExtractor(BaseExtractor):
         return Extraction(span_attributes=span_attrs, event_attributes=data)
 
     @staticmethod
-    def supplement_stream_prompt(extraction: Extraction, tokens: int) -> Extraction:
-        cost = get_openai_token_cost_for_model(
-            extraction.get_model_name(),
-            tokens,
-            False,
-        )
-        extraction.span_attributes[_PROMPT_TOKENS_LABEl] = tokens
+    def supplement_stream_prompt(
+        extraction: Extraction, tokens_num: int, cost: float
+    ) -> Extraction:
+        extraction.span_attributes[_PROMPT_TOKENS_LABEl] = tokens_num
         extraction.span_attributes[_PROMPT_COST_LABEl] = cost
-        extraction.event_attributes[_PROMPT_TOKENS_LABEl] = tokens
-        extraction.event_attributes[_PROMPT_COST_LABEl] = tokens
+        extraction.event_attributes[_PROMPT_TOKENS_LABEl] = tokens_num
+        extraction.event_attributes[_PROMPT_COST_LABEl] = cost
         return extraction
