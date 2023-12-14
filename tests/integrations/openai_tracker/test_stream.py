@@ -46,5 +46,5 @@ def test_chat_completion(_truncate_tables):
     time.sleep(5)
     trace = get_trace_data(user_id, True)
 
-    assert trace[0] in model  # model
+    assert str(trace[0]) in model  # model
     assert trace[1] == 2  # completion tokens

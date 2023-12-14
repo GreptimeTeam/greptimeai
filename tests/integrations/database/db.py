@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Tuple, Union
+from typing import Tuple, Union, List
 
 import pymysql  # type: ignore
 
@@ -21,9 +21,10 @@ metric_sql = "SELECT service_name,greptime_value FROM %s WHERE model = '%s'"
 truncate_sql = "TRUNCATE %s"
 
 
-def get_trace_data(user_id: str, is_stream: bool) -> Tuple[Union[str, int]]:
+def get_trace_data(user_id: str, is_stream: bool) -> List[Union[str, int]]:
     """
     get trace data for llm trace by user_id
+    :param is_stream:
     :param user_id:
     :return: model, prompt_tokens, completion_tokens
     """
@@ -34,10 +35,10 @@ def get_trace_data(user_id: str, is_stream: bool) -> Tuple[Union[str, int]]:
     trace = cursor.fetchone()
     if trace is None:
         raise Exception("trace data is None")
-    return trace
+    return list(trace)
 
 
-def get_metric_data(table: str, model: str) -> Tuple[str]:
+def get_metric_data(table: str, model: str) -> List[str]:
     """
     get metric data by table and model
     :param table:
@@ -48,7 +49,7 @@ def get_metric_data(table: str, model: str) -> Tuple[str]:
     metric = cursor.fetchone()
     if metric is None:
         raise Exception("metric data is None")
-    return metric
+    return list(metric)
 
 
 def truncate_tables():
