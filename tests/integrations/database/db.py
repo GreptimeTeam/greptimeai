@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Tuple
+from typing import Tuple, Union
 
 import pymysql  # type: ignore
 
@@ -21,7 +21,7 @@ metric_sql = "SELECT service_name,greptime_value FROM %s WHERE model = '%s'"
 truncate_sql = "TRUNCATE %s"
 
 
-def get_trace_data(user_id: str, is_stream: bool) -> Tuple:
+def get_trace_data(user_id: str, is_stream: bool) -> Tuple[Union[str, int]]:
     """
     get trace data for llm trace by user_id
     :param user_id:
@@ -37,7 +37,7 @@ def get_trace_data(user_id: str, is_stream: bool) -> Tuple:
     return trace
 
 
-def get_metric_data(table: str, model: str) -> Tuple:
+def get_metric_data(table: str, model: str) -> Tuple[str]:
     """
     get metric data by table and model
     :param table:

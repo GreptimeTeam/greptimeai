@@ -1,5 +1,4 @@
 import json
-import time
 import uuid
 
 import pytest
@@ -8,7 +7,7 @@ from ..database.db import (
     get_trace_data,
     truncate_tables,
 )
-from ..openai_tracker import client
+from ..openai_tracker import client, force_flush
 
 
 @pytest.fixture
@@ -34,7 +33,7 @@ def test_chat_completion(_truncate_tables):
     data = json.loads(resp.content)
     assert data["choices"][0]["message"]["content"] == "2"
 
-    time.sleep(6)
+    force_flush()
     trace = get_trace_data(user_id, False)
 
     assert data["model"] == trace[0]
