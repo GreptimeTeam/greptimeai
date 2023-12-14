@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Tuple, Union, List
+from typing import Union, List
 
 import pymysql  # type: ignore
 

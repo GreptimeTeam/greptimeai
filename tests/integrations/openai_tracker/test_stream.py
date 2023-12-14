@@ -43,7 +43,7 @@ def test_chat_completion(_truncate_tables):
     assert ans == "2"
 
     _collector._collector._force_flush()
-    time.sleep(5)
+    time.sleep(6)
     trace = get_trace_data(user_id, True)
 
     assert str(trace[0]) in model  # model
