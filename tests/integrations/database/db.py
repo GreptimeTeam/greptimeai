@@ -17,7 +17,6 @@ cursor = db.cursor()
 
 trace_sql = "SELECT model,prompt_tokens,completion_tokens FROM %s WHERE user_id = '%s'"
 trace_stream_sql = "SELECT model,completion_tokens FROM %s WHERE user_id = '%s'"
-metric_sql = "SELECT service_name,greptime_value FROM %s WHERE model = '%s'"
 truncate_sql = "TRUNCATE %s"
 
 
@@ -36,20 +35,6 @@ def get_trace_data(user_id: str, is_stream: bool) -> List[Union[str, int]]:
     if trace is None:
         raise Exception("trace data is None")
     return list(trace)
-
-
-def get_metric_data(table: str, model: str) -> List[str]:
-    """
-    get metric data by table and model
-    :param table:
-    :param model:
-    :return: service_name, greptime_value
-    """
-    cursor.execute(metric_sql % (table, model))
-    metric = cursor.fetchone()
-    if metric is None:
-        raise Exception("metric data is None")
-    return list(metric)
 
 
 def truncate_tables():
