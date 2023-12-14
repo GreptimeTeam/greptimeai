@@ -6,8 +6,7 @@ from ..database.db import (
     get_trace_data,
     truncate_tables,
 )
-from ..openai_tracker import client
-from greptimeai.openai_patcher import _collector  # type: ignore
+from ..openai_tracker import client, force_flush
 
 
 @pytest.fixture
@@ -40,7 +39,7 @@ def test_chat_completion(_truncate_tables):
                 ans += choice.delta.content
 
     assert ans == "2"
-    _collector._collector._force_flush()
+    force_flush()
 
     trace = get_trace_data(user_id, True)
 
