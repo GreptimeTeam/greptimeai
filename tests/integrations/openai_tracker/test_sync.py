@@ -3,12 +3,10 @@ import uuid
 
 import pytest
 
-from ..database.db import (
-    get_trace_data,
-    truncate_tables,
-)
+from greptimeai.openai_patcher import _collector
+
+from ..database.db import get_trace_data, truncate_tables
 from ..openai_tracker import client
-from greptimeai.openai_patcher import _collector  # type: ignore
 
 
 @pytest.fixture
@@ -33,11 +31,11 @@ def test_chat_completion(_truncate_tables):
     assert resp.choices[0].message.content == "2"
 
     _collector._collector._force_flush()
-    time.sleep(6)
+    time.sleep(2)
     trace = get_trace_data(user_id)
 
     assert resp.model == trace[0]
 
-    if resp.usage:
-        assert resp.usage.prompt_tokens == trace[1]
-        assert resp.usage.completion_tokens == trace[2]
+    assert resp.usage
+    assert resp.usage.prompt_tokens == trace[1]
+    assert resp.usage.completion_tokens == trace[2]
