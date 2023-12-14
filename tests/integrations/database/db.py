@@ -1,5 +1,6 @@
+import json
 import os
-from typing import List, Union
+from typing import Any, Dict, Optional
 
 import pymysql
 
@@ -15,28 +16,32 @@ connection = pymysql.connect(
     db=os.getenv("GREPTIMEAI_DATABASE"),
 )
 
-trace_sql = f"SELECT model, prompt_tokens, completion_tokens FROM {Tables.llm_trace} WHERE user_id = '%s'"
 
-
-def get_trace_data(user_id: str) -> List[Union[str, int]]:
+def get_trace_data(user_id: str) -> Optional[Dict[str, Any]]:
+    sql = f"""
+    SELECT
+    resource_attributes,
+    span_name,
+    span_events,
+    model,
+    prompt_tokens,
+    completion_tokens
+    FROM {Tables.llm_trace}
+    WHERE user_id = '{user_id}'
     """
-    get trace data for llm trace by user_id
-    :param user_id:
-    :return: model, prompt_tokens, completion_tokens
-    """
-
     with connection.cursor() as cursor:
-        cursor.execute("select * from llm_traces_preview_v01 limit 1")
+        cursor.execute(sql)
         trace = cursor.fetchone()
-        print(f" {type(trace)=} {trace=}")
-
-    with connection.cursor() as cursor:
-        cursor.execute(trace_sql % (user_id))
-        trace = cursor.fetchone()
-        print(f"{type(trace)=} {trace=}")
-        if trace is None:
-            raise Exception("trace data is None")
-        return list(trace)
+        if not trace:
+            return None
+        return {
+            "resource_attributes": json.loads(trace[0]),
+            "span_name": trace[1],
+            "span_events": json.loads(trace[2]),
+            "model": trace[3],
+            "prompt_tokens": trace[4],
+            "completion_tokens": trace[5],
+        }
 
 
 def truncate_tables():
