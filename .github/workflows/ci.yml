@@ -42,7 +42,7 @@ jobs:
 
       - name: Install Dev dependencies
         run: |
-          pip install langchain openai pytest ruff mypy pymysql pytest-asyncio
+          pip install langchain openai pytest ruff mypy pymysql pytest-asyncio types-PyMySQL
 
       # TODO(yuanbohan): code coverage with pytest-cov
       - name: Test with pytest
