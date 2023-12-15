@@ -197,26 +197,36 @@ class OpenaiExtractor(BaseExtractor):
             resp: inherit from the BaseModel class, or instance of APIResponse class
         """
         try:
-            dict: Dict[str, Any] = {}
+            data: Dict[str, Any] = {}
             if isinstance(resp, APIResponse):
-                dict = OpenaiExtractor.parse_raw_response(resp)
-                logger.debug(f"after parse_raw_response: {dict=}")
+                data = OpenaiExtractor.parse_raw_response(resp)
+                logger.debug(f"after parse_raw_response: {data=}")
             else:
-                dict = resp.model_dump(exclude_unset=True)
+                data = resp.model_dump(exclude_unset=True)
         except Exception as e:
             logger.error(f"Failed to extract response {resp}: {e}")
-            dict = {}
+            data = {}
 
         span_attrs = {}
 
-        model = dict.get("model")
+        model = data.get("model")
         if model:
             span_attrs[_MODEL_LABEL] = model
 
-            usage = dict.get("usage", {})
+            usage = data.get("usage", {})
             if usage:
                 usage = OpenaiExtractor.extract_usage(model, usage)
                 span_attrs.update(usage)
-                dict["usage"] = usage
+                data["usage"] = usage
 
-        return Extraction(span_attributes=span_attrs, event_attributes=dict)
+        return Extraction(span_attributes=span_attrs, event_attributes=data)
+
+    @staticmethod
+    def supplement_stream_prompt(
+        extraction: Extraction, tokens_num: int, cost: float
+    ) -> Extraction:
+        extraction.span_attributes[_PROMPT_TOKENS_LABEl] = tokens_num
+        extraction.span_attributes[_PROMPT_COST_LABEl] = cost
+        extraction.event_attributes[_PROMPT_TOKENS_LABEl] = tokens_num
+        extraction.event_attributes[_PROMPT_COST_LABEl] = cost
+        return extraction
