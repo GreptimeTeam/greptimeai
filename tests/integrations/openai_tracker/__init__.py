@@ -1,7 +1,6 @@
-from openai import AsyncOpenAI
-from openai import OpenAI
+from openai import AsyncOpenAI, OpenAI
 
-from greptimeai import openai_patcher  # type: ignore
+from greptimeai import openai_patcher
 
 async_client = AsyncOpenAI()
 openai_patcher.setup(client=async_client)

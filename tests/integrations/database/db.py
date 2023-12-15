@@ -1,37 +1,47 @@
-import logging
+import json
 import os
-from typing import Union, List
+from typing import Any, Dict, Optional
 
 import pymysql
 
+from greptimeai import logger
+
 from .model import Tables
 
-db = pymysql.connect(
+connection = pymysql.connect(
     host=os.getenv("GREPTIMEAI_HOST"),
     user=os.getenv("GREPTIMEAI_USERNAME"),
     passwd=os.getenv("GREPTIMEAI_PASSWORD"),
     port=4002,
     db=os.getenv("GREPTIMEAI_DATABASE"),
 )
-cursor = db.cursor()
-
-trace_sql = "SELECT model,prompt_tokens,completion_tokens FROM %s WHERE user_id = '%s'"
-truncate_sql = "TRUNCATE %s"
 
 
-def get_trace_data(user_id: str) -> List[Union[str, int]]:
+def get_trace_data(user_id: str) -> Optional[Dict[str, Any]]:
+    sql = f"""
+    SELECT
+    resource_attributes,
+    span_name,
+    span_events,
+    model,
+    prompt_tokens,
+    completion_tokens
+    FROM {Tables.llm_trace}
+    WHERE user_id = '{user_id}'
     """
-    get trace data for llm trace by user_id
-    :param is_stream:
-    :param user_id:
-    :return: model, prompt_tokens, completion_tokens
-    """
-
-    cursor.execute(trace_sql % (Tables.llm_trace, user_id))
-    trace = cursor.fetchone()
-    if trace is None:
-        raise Exception("trace data is None")
-    return list(trace)
+    with connection.cursor() as cursor:
+        cursor.execute(sql)
+        trace = cursor.fetchone()
+        if not trace:
+            return None
+        return {
+            "resource_attributes": json.loads(trace[0]),
+            "span_name": trace[1],
+            "span_events": json.loads(trace[2]),
+            "model": trace[3],
+            "prompt_tokens": trace[4],
+            "completion_tokens": trace[5],
+        }
 
 
 def truncate_tables():
@@ -51,8 +61,9 @@ def truncate_tables():
         "llm_traces_preview_v01",
     ]
     try:
-        cursor.executemany(truncate_sql, tables)
-        db.commit()
+        with connection.cursor() as cursor:
+            cursor.executemany("TRUNCATE %s", tables)
+            connection.commit()
     except Exception as e:
-        logging.error(e)
-        db.rollback()
+        logger.error(e)
+        connection.rollback()

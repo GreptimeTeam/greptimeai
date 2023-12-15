@@ -54,7 +54,7 @@ jobs:
           GREPTIMEAI_TOKEN: ${{ secrets.GREPTIMEAI_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          pytest tests/ -v
+          pytest -s -v tests/
 
       - name: Lint & Format with Ruff
         run: |
