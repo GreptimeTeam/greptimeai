@@ -206,6 +206,7 @@ def num_tokens_from_messages(
         )
         return num_tokens_from_messages(messages, model="gpt-4-0613")
     else:
+        logger.warning(f"greptimeai doesn't support the computation of tokens for {model} at this time.")
         return 0
     num_tokens = 0
     for message in messages:
