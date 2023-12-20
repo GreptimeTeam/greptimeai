@@ -98,6 +98,7 @@ def _end_collect(
     span_attrs = {
         _COMPLETION_TOKENS_LABEL: completion_tokens,
         _COMPLETION_COST_LABEL: completion_cost,
+        _MODEL_LABEL: model_name,
     }
 
     attrs: Dict[str, Union[str, bool]] = {
