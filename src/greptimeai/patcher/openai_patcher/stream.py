@@ -39,7 +39,7 @@ def _extract_chat_completion_chunk_tokens(chunk: ChatCompletionChunk) -> str:
     try:
         for choice in chunk.choices:
             if choice.delta.content:
-                tokens += "\n" + choice.delta.content
+                tokens += choice.delta.content
     except Exception as e:
         logger.error(f"Failed to extract chat completion chunk tokens: {e}")
 
@@ -54,7 +54,7 @@ def _extract_completion_tokens(completion: Completion) -> str:
 
     try:
         for choice in completion.choices:
-            tokens += "\n" + choice.text
+            tokens += choice.text
     except Exception as e:
         logger.error(f"Failed to extract completion tokens: {e}")
 
@@ -98,6 +98,7 @@ def _end_collect(
     span_attrs = {
         _COMPLETION_TOKENS_LABEL: completion_tokens,
         _COMPLETION_COST_LABEL: completion_cost,
+        _MODEL_LABEL: model_name,
     }
 
     attrs: Dict[str, Union[str, bool]] = {

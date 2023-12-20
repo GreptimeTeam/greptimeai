@@ -1,3 +1,5 @@
+from typing import Union, List, Any
+
 from greptimeai import logger
 
 # from https://github.com/langchain-ai/langchain/blob/master/libs/langchain/langchain/callbacks/openai_info.py
@@ -154,7 +156,9 @@ def get_openai_token_cost_for_model(
     return round(cost, 6)
 
 
-def num_tokens_from_messages(messages: str, model="gpt-3.5-turbo-0613") -> int:
+def num_tokens_from_messages(
+    messages: Union[str, List[Any]], model="gpt-3.5-turbo-0613"
+) -> int:
     """
     Return the number of tokens used the messages.
 
@@ -173,8 +177,46 @@ def num_tokens_from_messages(messages: str, model="gpt-3.5-turbo-0613") -> int:
     except Exception:
         logger.warning(f"{model} not found. Using cl100k_base encoding.")
         encoding = tiktoken.get_encoding("cl100k_base")
+    if isinstance(messages, str):
+        return len(encoding.encode(messages))
 
-    return len(encoding.encode(messages))
+    if model in {
+        "gpt-3.5-turbo-0613",
+        "gpt-3.5-turbo-16k-0613",
+        "gpt-4-0314",
+        "gpt-4-32k-0314",
+        "gpt-4-0613",
+        "gpt-4-32k-0613",
+    }:
+        tokens_per_message = 3
+        tokens_per_name = 1
+    elif model == "gpt-3.5-turbo-0301":
+        tokens_per_message = (
+            4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
+        )
+        tokens_per_name = -1  # if there's a name, the role is omitted
+    elif "gpt-3.5-turbo" in model:
+        logger.warning(
+            "gpt-3.5-turbo may update over time. Returning num tokens assuming gpt-3.5-turbo-0613."
+        )
+        return num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613")
+    elif "gpt-4" in model:
+        logger.warning(
+            "gpt-4 may update over time. Returning num tokens assuming gpt-4-0613."
+        )
+        return num_tokens_from_messages(messages, model="gpt-4-0613")
+    else:
+        logger.warning(f"greptimeai doesn't support the computation of tokens for {model} at this time.")
+        return 0
+    num_tokens = 0
+    for message in messages:
+        num_tokens += tokens_per_message
+        for key, value in message.items():
+            num_tokens += len(encoding.encode(value))
+            if key == "name":
+                num_tokens += tokens_per_name
+    num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
+    return num_tokens
 
 
 AUDIO_MODEL_COST_PER_1K_CHARS = {

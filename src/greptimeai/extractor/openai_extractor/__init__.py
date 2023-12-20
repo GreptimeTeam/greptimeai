@@ -1,4 +1,3 @@
-import json
 from typing import Any, Dict, Optional, Tuple, Union
 
 from openai._response import APIResponse
@@ -41,7 +40,7 @@ class OpenaiExtractor(BaseExtractor):
             return False
 
     @staticmethod
-    def extract_req_tokens(**kwargs) -> Optional[str]:
+    def extract_req_tokens(**kwargs) -> Optional[Union[str, list]]:
         """
         NOTE: only for completion and chat completion so far.
         TODO(ynanbohan): better way to extract req tokens
@@ -56,11 +55,7 @@ class OpenaiExtractor(BaseExtractor):
                 logger.warning(f"Failed to extract req tokens from {prompt=}")
                 return None
         elif kwargs.get("messages"):
-            try:
-                return json.dumps(kwargs["messages"])
-            except Exception as e:
-                logger.warning(f"Failed to extract req tokens from {kwargs=}: {e}")
-                return None
+            return kwargs["messages"]
         else:
             logger.warning(f"Failed to extract req tokens from {kwargs=}")
             return None
