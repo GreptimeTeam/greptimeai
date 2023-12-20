@@ -2,6 +2,7 @@ import time
 import uuid
 
 import pytest
+from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 
 from greptimeai.openai_patcher import _collector
 from greptimeai.utils.openai.token import num_tokens_from_messages
@@ -23,8 +24,9 @@ def test_chat_completion(_truncate_tables):
             "content": "1+1=",
         }
     ]
+
     resp = client.chat.completions.create(
-        messages=msg,
+        messages=msg,  # type: ignore
         model="gpt-3.5-turbo",
         user=user_id,
         seed=1,
@@ -36,10 +38,11 @@ def test_chat_completion(_truncate_tables):
     ans = ""
     model = ""
     for item in resp:
-        model = item.model
-        for choice in item.choices:
-            if choice.delta.content:
-                ans += choice.delta.content
+        if isinstance(item, ChatCompletionChunk):
+            model = item.model
+            for choice in item.choices:
+                if choice.delta.content:
+                    ans += choice.delta.content
 
     assert ans == "2"
 
