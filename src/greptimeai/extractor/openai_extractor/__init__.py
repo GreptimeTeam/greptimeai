@@ -41,7 +41,7 @@ class OpenaiExtractor(BaseExtractor):
             return False
 
     @staticmethod
-    def extract_req_tokens(**kwargs) -> Optional[str]:
+    def extract_req_tokens(**kwargs) -> Optional[Union[str, list]]:
         """
         NOTE: only for completion and chat completion so far.
         TODO(ynanbohan): better way to extract req tokens
@@ -56,12 +56,7 @@ class OpenaiExtractor(BaseExtractor):
                 logger.warning(f"Failed to extract req tokens from {prompt=}")
                 return None
         elif kwargs.get("messages"):
-            try:
-                content = [message["content"] for message in kwargs["messages"]]
-                return " ".join(content)
-            except Exception as e:
-                logger.warning(f"Failed to extract req tokens from {kwargs=}: {e}")
-                return None
+            return kwargs["messages"]
         else:
             logger.warning(f"Failed to extract req tokens from {kwargs=}")
             return None
