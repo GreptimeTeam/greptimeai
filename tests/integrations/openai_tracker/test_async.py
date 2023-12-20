@@ -6,7 +6,7 @@ import pytest
 from greptimeai.openai_patcher import _collector
 
 from ..database.db import get_trace_data, truncate_tables
-from ..openai_tracker import client
+from ..openai_tracker import async_client
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def _truncate_tables():
 async def test_chat_completion(_truncate_tables):
     user_id = str(uuid.uuid4())
     model = "gpt-3.5-turbo"
-    resp = client.chat.completions.create(
+    resp = await async_client.chat.completions.create(
         messages=[
             {
                 "role": "user",
@@ -46,7 +46,7 @@ async def test_chat_completion(_truncate_tables):
     assert "openai" == trace.get("resource_attributes", {}).get("service.name")
     assert "openai_completion" == trace.get("span_name")
 
-    assert ["client.chat.completions.create", "end"] == [
+    assert ["client.chat.completions.create[async]", "end"] == [
         event.get("name") for event in trace.get("span_events", [])
     ]
 
