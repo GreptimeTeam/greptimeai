@@ -1,8 +1,10 @@
 import time
 import uuid
+from typing import List
 
 import pytest
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
+from openai.types.chat import ChatCompletionMessageParam
 
 from greptimeai.openai_patcher import _collector
 from greptimeai.utils.openai.token import num_tokens_from_messages
@@ -18,15 +20,14 @@ def _truncate_tables():
 
 def test_chat_completion(_truncate_tables):
     user_id = str(uuid.uuid4())
-    msg = [
+    msg: List[ChatCompletionMessageParam] = [
         {
             "role": "user",
             "content": "1+1=",
         }
     ]
-
     resp = client.chat.completions.create(
-        messages=msg,  # type: ignore
+        messages=msg,
         model="gpt-3.5-turbo",
         user=user_id,
         seed=1,
@@ -62,9 +63,9 @@ def test_chat_completion(_truncate_tables):
     assert "openai" == trace.get("resource_attributes", {}).get("service.name")
     assert "openai_completion" == trace.get("span_name")
 
-    event_names = ["client.chat.completions.create", "stream", "end"]
-    for event in trace.get("span_events", []):
-        assert event.get("name") in event_names
+    assert {"client.chat.completions.create", "stream", "end"} == {
+        event.get("name") for event in trace.get("span_events", [])
+    }
 
     assert model == trace.get("model")
 
