@@ -18,6 +18,7 @@ from greptimeai.labels import (
 )
 from greptimeai.utils.openai.token import (
     extract_chat_inputs,
+    extract_chat_outputs,
     get_openai_token_cost_for_model,
 )
 
@@ -222,6 +223,10 @@ class OpenaiExtractor(BaseExtractor):
                 usage = OpenaiExtractor.extract_usage(model, usage)
                 span_attrs.update(usage)
                 data["usage"] = usage
+
+        outputs = extract_chat_outputs(data)
+        if outputs:
+            span_attrs[_OUTPUT_DISPLAY_LABEL] = outputs
 
         return Extraction(span_attributes=span_attrs, event_attributes=data)
 
