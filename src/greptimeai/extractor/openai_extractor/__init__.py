@@ -1,4 +1,3 @@
-import json
 from typing import Any, Dict, Optional, Tuple, Union
 
 from openai._response import APIResponse
