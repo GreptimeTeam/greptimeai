@@ -57,7 +57,8 @@ class OpenaiExtractor(BaseExtractor):
                 return None
         elif kwargs.get("messages"):
             try:
-                return json.dumps(kwargs["messages"])
+                content = [message["content"] for message in kwargs["messages"]]
+                return " ".join(content)
             except Exception as e:
                 logger.warning(f"Failed to extract req tokens from {kwargs=}: {e}")
                 return None
