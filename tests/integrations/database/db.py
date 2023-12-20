@@ -65,5 +65,8 @@ def truncate_tables():
             cursor.executemany("TRUNCATE %s", tables)
             connection.commit()
     except Exception as e:
-        logger.error(e)
-        connection.rollback()
+        if "Table not found" in str(e):
+            logger.warning("Table not found.")
+        else:
+            logger.error(e)
+            connection.rollback()
