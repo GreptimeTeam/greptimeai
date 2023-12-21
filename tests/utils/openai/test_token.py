@@ -77,12 +77,14 @@ def test_extract_chat_outputs():
                 message=ChatCompletionMessage(
                     role="assistant", content="Here is the answer:"
                 ),
+                logprobs=None,
                 finish_reason="stop",
                 index=0,
             ),
             Choice(
                 message=ChatCompletionMessage(role="assistant", content="Beijing"),
                 finish_reason="stop",
+                logprobs=None,
                 index=1,
             ),
         ],
