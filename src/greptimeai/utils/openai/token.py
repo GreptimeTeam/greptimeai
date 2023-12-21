@@ -1,7 +1,6 @@
 from typing import Any, List, Union
 
 from openai.types.chat import ChatCompletionMessageParam
-from openai.types.chat.chat_completion import ChatCompletion, Choice
 
 from greptimeai import logger
 
