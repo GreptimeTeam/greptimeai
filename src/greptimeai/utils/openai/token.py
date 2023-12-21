@@ -1,4 +1,6 @@
-from typing import Union, List, Any
+from typing import Any, List, Union
+
+from openai.types.chat import ChatCompletionMessageParam
 
 from greptimeai import logger
 
@@ -206,7 +208,9 @@ def num_tokens_from_messages(
         )
         return num_tokens_from_messages(messages, model="gpt-4-0613")
     else:
-        logger.warning(f"greptimeai doesn't support the computation of tokens for {model} at this time.")
+        logger.warning(
+            f"greptimeai doesn't support the computation of tokens for {model} at this time."
+        )
         return 0
     num_tokens = 0
     for message in messages:
@@ -258,3 +262,46 @@ def get_openai_audio_cost_for_whisper(seconds: int) -> float:
     """
     cost = 0.006 * (seconds / 60)
     return round(cost, 6)
+
+
+def extract_chat_inputs(messages: List[ChatCompletionMessageParam]) -> str:
+    """
+    this is for display the inputs in the UI.
+
+    NOTE: DO NOT support completion, which will be shut off on January 4th, 2024.
+    """
+
+    if not isinstance(messages, list):
+        logger.warning(f"failed to extract chat inputs for {messages} is not a list")
+        return ""
+
+    if not all(isinstance(message, dict) for message in messages):
+        logger.warning(
+            f"failed to extract chat inputs for {messages} is not a list of dict"
+        )
+        return ""
+
+    def extract_input(message: ChatCompletionMessageParam) -> str:
+        role = message.get("role", "")
+        content = message.get("content", "")
+        return f"{role}: {str(content)}"  # content may not be a str
+
+    return "\n".join([extract_input(message) for message in messages])
+
+
+def extract_chat_outputs(completion: dict) -> str:
+    """
+    this is for display the outputs in the UI
+
+    NOTE: DO NOT support completion, which will be shut off on January 4th, 2024.
+    """
+
+    def extract_choice(choice: dict) -> str:
+        message = choice.get("message", {})
+        role = message.get("role", "")
+        content = message.get("content", "")
+        return f"{role}: {str(content)}"  # content may not be a str
+
+    return "\n".join(
+        [extract_choice(choice) for choice in completion.get("choices", [])]
+    )

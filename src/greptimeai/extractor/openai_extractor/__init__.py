@@ -9,12 +9,18 @@ from greptimeai.extractor import BaseExtractor, Extraction
 from greptimeai.labels import (
     _COMPLETION_COST_LABEL,
     _COMPLETION_TOKENS_LABEL,
+    _INPUT_DISPLAY_LABEL,
     _MODEL_LABEL,
+    _OUTPUT_DISPLAY_LABEL,
     _USER_ID_LABEL,
     _PROMPT_COST_LABEl,
     _PROMPT_TOKENS_LABEl,
 )
-from greptimeai.utils.openai.token import get_openai_token_cost_for_model
+from greptimeai.utils.openai.token import (
+    extract_chat_inputs,
+    extract_chat_outputs,
+    get_openai_token_cost_for_model,
+)
 
 _EXTRA_HEADERS_KEY = "extra_headers"  # this is the original openai parameter
 _EXTRA_HEADERS_X_USER_ID_KEY = "x-user-id"
@@ -169,6 +175,9 @@ class OpenaiExtractor(BaseExtractor):
         if user_id:
             span_attrs[_USER_ID_LABEL] = user_id
 
+        if "messages" in kwargs:
+            span_attrs[_INPUT_DISPLAY_LABEL] = extract_chat_inputs(kwargs["messages"])
+
         event_attrs = {**kwargs}
         if len(args) > 0:
             event_attrs["args"] = args
@@ -184,6 +193,7 @@ class OpenaiExtractor(BaseExtractor):
           - _COMPLETION_TOKENS_LABEL
           - _PROMPT_COST_LABEl
           - _PROMPT_TOKENS_LABEl
+          - _OUTPUT_DISPLAY_LABEL
 
         merge usage into resp as event attributes
 
@@ -213,6 +223,10 @@ class OpenaiExtractor(BaseExtractor):
                 usage = OpenaiExtractor.extract_usage(model, usage)
                 span_attrs.update(usage)
                 data["usage"] = usage
+
+        outputs = extract_chat_outputs(data)
+        if outputs:
+            span_attrs[_OUTPUT_DISPLAY_LABEL] = outputs
 
         return Extraction(span_attributes=span_attrs, event_attributes=data)
 

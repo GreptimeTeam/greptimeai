@@ -11,6 +11,7 @@ from greptimeai.labels import (
     _COMPLETION_COST_LABEL,
     _COMPLETION_TOKENS_LABEL,
     _MODEL_LABEL,
+    _OUTPUT_DISPLAY_LABEL,
     _SPAN_NAME_LABEL,
 )
 from greptimeai.utils.openai.token import (
@@ -92,13 +93,16 @@ def _end_collect(
     span_name: str,
     model_name: str,
     start: float,
-    completion_tokens: int,
-    completion_cost: float,
+    tokens: str,
 ):
+    num = num_tokens_from_messages(tokens)
+    cost = get_openai_token_cost_for_model(model_name, num)
+
     span_attrs = {
-        _COMPLETION_TOKENS_LABEL: completion_tokens,
-        _COMPLETION_COST_LABEL: completion_cost,
+        _COMPLETION_TOKENS_LABEL: num,
+        _COMPLETION_COST_LABEL: cost,
         _MODEL_LABEL: model_name,
+        _OUTPUT_DISPLAY_LABEL: tokens,
     }
 
     attrs: Dict[str, Union[str, bool]] = {
@@ -150,16 +154,13 @@ class Stream_(Stream):
             if model_name:
                 self.model_name = model_name
 
-        num = num_tokens_from_messages(completion_tokens)
-        cost = get_openai_token_cost_for_model(self.model_name, num)
         _end_collect(
             collector=self.collector,
             span_id=self.span_id,
             span_name=self.span_name,
             model_name=self.model_name,
             start=self.start,
-            completion_tokens=num,
-            completion_cost=cost,
+            tokens=completion_tokens,
         )
 
 
@@ -193,14 +194,11 @@ class AsyncStream_(AsyncStream):
             if model_name:
                 self.model_name = model_name
 
-        num = num_tokens_from_messages(completion_tokens)
-        cost = get_openai_token_cost_for_model(self.model_name, num)
         _end_collect(
             collector=self.collector,
             span_id=self.span_id,
             span_name=self.span_name,
             model_name=self.model_name,
             start=self.start,
-            completion_tokens=num,
-            completion_cost=cost,
+            tokens=completion_tokens,
         )
