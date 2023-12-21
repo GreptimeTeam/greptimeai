@@ -1,9 +1,8 @@
-from typing import List
+from typing import Any, List
 
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionMessage,
-    ChatCompletionMessageParam,
     ChatCompletionUserMessageParam,
 )
 from openai.types.chat.chat_completion import ChatCompletion, Choice
@@ -52,7 +51,7 @@ def test_cal_openai_token_cost_for_model():
 
 
 def test_extract_chat_inputs():
-    messages: List[ChatCompletionMessageParam] = [
+    messages: List[Any] = [
         ChatCompletionUserMessageParam(role="user", content="Hello"),
         ChatCompletionAssistantMessageParam(
             role="assistant", content="Hi, how can I help you?"

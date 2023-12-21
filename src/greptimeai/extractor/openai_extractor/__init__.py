@@ -200,8 +200,8 @@ class OpenaiExtractor(BaseExtractor):
 
             resp: inherit from the BaseModel class, or instance of APIResponse class
         """
+        data: Dict[str, Any] = {}
         try:
-            data: Dict[str, Any] = {}
             if hasattr(resp, "parse"):
                 data = OpenaiExtractor.parse_raw_response(resp)
                 logger.debug(f"after parse_raw_response: {data=}")
@@ -209,7 +209,6 @@ class OpenaiExtractor(BaseExtractor):
                 data = resp.model_dump(exclude_unset=True)
         except Exception as e:
             logger.error(f"Failed to extract response {resp}: {e}")
-            data = {}
 
         span_attrs = {}
 

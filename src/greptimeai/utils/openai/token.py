@@ -262,9 +262,9 @@ def get_openai_audio_cost_for_whisper(seconds: int) -> float:
     return round(cost, 6)
 
 
-def extract_chat_inputs(messages: List[Dict]) -> str:
+def extract_chat_inputs(messages: List) -> str:
     """
-    this is for display the inputs in the UI.
+    this is for display the inputs in the UI for messages parameter in chat.completion.create
 
     NOTE: DO NOT support completion, which will be shut off on January 4th, 2024.
     """
@@ -287,9 +287,10 @@ def extract_chat_inputs(messages: List[Dict]) -> str:
     return "\n".join([extract_input(message) for message in messages])
 
 
-def extract_chat_outputs(completion: dict) -> str:
+def extract_chat_outputs(resp: dict) -> str:
     """
-    this is for display the outputs in the UI
+    this is for display the outputs in the UI.
+    the is the result model_dump() of the ChatCompletion object
 
     NOTE: DO NOT support completion, which will be shut off on January 4th, 2024.
     """
@@ -300,6 +301,4 @@ def extract_chat_outputs(completion: dict) -> str:
         content = message.get("content", "")
         return f"{role}: {str(content)}"  # content may not be a str
 
-    return "\n".join(
-        [extract_choice(choice) for choice in completion.get("choices", [])]
-    )
+    return "\n".join([extract_choice(choice) for choice in resp.get("choices", [])])

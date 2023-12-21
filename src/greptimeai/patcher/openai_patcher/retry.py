@@ -2,7 +2,6 @@ import functools
 from typing import Callable, Optional, Union
 
 from openai import AsyncOpenAI, OpenAI
-from pydantic import BaseModel
 from typing_extensions import override
 
 from greptimeai import logger
@@ -26,7 +25,7 @@ class _RetryPatcher(_OpenaiPatcher):
         super().__init__(collector=collector, patchees=patchees, client=client)
 
     def _add_retry_event(self, *args):
-        if len(args) > 0 and isinstance(args[0], BaseModel):
+        if len(args) > 0 and hasattr(args[0], "model_dump"):
             dict = args[0].model_dump(exclude_unset=True)
             span_id = dict.get("headers", {}).get(_EXTRA_HEADERS_X_SPAN_ID_KEY)
             if span_id:
