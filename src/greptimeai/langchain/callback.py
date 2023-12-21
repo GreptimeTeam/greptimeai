@@ -20,7 +20,9 @@ from greptimeai.labels import (
     _COMPLETION_COST_LABEL,
     _COMPLETION_TOKENS_LABEL,
     _ERROR_TYPE_LABEL,
+    _INPUT_DISPLAY_LABEL,
     _MODEL_LABEL,
+    _OUTPUT_DISPLAY_LABEL,
     _SPAN_NAME_LABEL,
     _USER_ID_LABEL,
     _PROMPT_COST_LABEl,
@@ -166,15 +168,16 @@ class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
             f"on_llm_start. { run_id =} { parent_run_id =} { kwargs = } { serialized = }"
         )
 
+        inputs = " ".join(prompts)
         span_attrs: Dict[str, Any] = {
             _USER_ID_LABEL: _get_user_id(metadata),
+            _INPUT_DISPLAY_LABEL: inputs,
         }
 
         streaming = _get_serialized_streaming(serialized)
         if streaming and invocation_params:
-            str_messages = " ".join(prompts)
             model_name: str = invocation_params.get("model_name", "")
-            prompt_tokens = num_tokens_from_messages(str_messages, model_name)
+            prompt_tokens = num_tokens_from_messages(inputs, model_name)
             prompt_cost = get_openai_token_cost_for_model(model_name, prompt_tokens)
             span_attrs[_MODEL_LABEL] = model_name
             span_attrs[_PROMPT_TOKENS_LABEl] = prompt_tokens
@@ -215,15 +218,17 @@ class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
             f"on_chat_model_start. { run_id =} { parent_run_id =} { kwargs = } { serialized = }"
         )
 
-        str_messages = get_buffer_string(messages[0])
+        inputs = get_buffer_string(messages[0])
         span_attrs: Dict[str, Any] = {
             _USER_ID_LABEL: _get_user_id(metadata),
         }
+        if self._verbose:
+            span_attrs[_INPUT_DISPLAY_LABEL] = inputs
 
         streaming = _get_serialized_streaming(serialized)
         if streaming and invocation_params:
             model_name: str = invocation_params.get("model_name", "")
-            prompt_tokens = num_tokens_from_messages(str_messages, model_name)
+            prompt_tokens = num_tokens_from_messages(inputs, model_name)
             prompt_cost = get_openai_token_cost_for_model(model_name, prompt_tokens)
             span_attrs[_MODEL_LABEL] = model_name
             span_attrs[_PROMPT_TOKENS_LABEl] = prompt_tokens
@@ -236,7 +241,7 @@ class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
             "params": invocation_params,
         }
         if self._verbose:
-            event_attrs["messages"] = str_messages
+            event_attrs["messages"] = inputs
 
         self._collector.start_latency(run_id, _SPAN_NAME_LLM)
         self._collector.start_span(
@@ -264,6 +269,9 @@ class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
             if response and len(response.generations) > 0
             else []
         )
+        texts = [generation.text for generation in generations]
+        outputs = " ".join(texts)
+
         output = response.llm_output or {}
         model_name: Optional[str] = output.get("model_name")
         if model_name is None:
@@ -283,9 +291,7 @@ class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
                     model_name, completion_tokens, is_completion=True
                 )
             else:  # streaming
-                texts = [generation.text for generation in generations]
-                str_messages = " ".join(texts)
-                completion_tokens = num_tokens_from_messages(str_messages, model_name)
+                completion_tokens = num_tokens_from_messages(outputs, model_name)
                 completion_cost = get_openai_token_cost_for_model(
                     model_name, completion_tokens, is_completion=True
                 )
@@ -299,20 +305,25 @@ class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
             attrs=attributes,
         )
 
-        attrs: Dict[str, Any] = {}
+        common_attrs: Dict[str, Any] = {}
 
         if model_name.strip() != "":
-            attrs[_MODEL_LABEL] = model_name
+            common_attrs[_MODEL_LABEL] = model_name
         if prompt_tokens > 0:
-            attrs[_PROMPT_TOKENS_LABEl] = prompt_tokens
+            common_attrs[_PROMPT_TOKENS_LABEl] = prompt_tokens
         if prompt_cost > 0:
-            attrs[_PROMPT_COST_LABEl] = prompt_cost
+            common_attrs[_PROMPT_COST_LABEl] = prompt_cost
         if completion_tokens > 0:
-            attrs[_COMPLETION_TOKENS_LABEL] = completion_tokens
+            common_attrs[_COMPLETION_TOKENS_LABEL] = completion_tokens
         if completion_cost > 0:
-            attrs[_COMPLETION_COST_LABEL] = completion_cost
+            common_attrs[_COMPLETION_COST_LABEL] = completion_cost
 
-        event_attrs = attrs.copy()
+        span_attrs = {
+            _OUTPUT_DISPLAY_LABEL: outputs,
+            **common_attrs,
+        }
+
+        event_attrs = common_attrs.copy()
         if self._verbose:
             event_attrs["outputs"] = _parse_generations(generations)
 
@@ -320,7 +331,7 @@ class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
         self._collector.end_span(
             span_id=run_id,
             span_name=_SPAN_NAME_LLM,
-            span_attrs=attrs,
+            span_attrs=span_attrs,
             event_name="llm_end",
             event_attrs=event_attrs,
         )

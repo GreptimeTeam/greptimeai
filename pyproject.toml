@@ -10,7 +10,6 @@ dependencies = [
     "opentelemetry-sdk>=1.20.0",
     "opentelemetry-exporter-otlp-proto-http>=1.20.0",
     "tiktoken>=0.5.1",
-    "openai>=1.6.0",
 ]
 keywords = [
     "greptime",
@@ -36,7 +35,7 @@ dev-dependencies = [
     "ruff>=0.1.3",
     "pytest>=7.4.3",
     "langchain>=0.0.27",
-    "openai>=1.3.5",
+    "openai>=1.6.0",
     "mypy>=1.7.1",
     "pymysql>=1.1.0",
     "pytest-asyncio>=0.23.2",
