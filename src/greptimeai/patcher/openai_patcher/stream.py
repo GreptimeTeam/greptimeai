@@ -2,8 +2,7 @@ import time
 from typing import Any, AsyncIterator, Dict, Iterator, Optional, Tuple, Union
 
 from openai import AsyncStream, Stream
-from openai.types.chat import ChatCompletionChunk
-from openai.types.completion import Completion
+from pydantic import BaseModel
 
 from greptimeai import logger
 from greptimeai.collector import Collector
@@ -32,44 +31,26 @@ def _extract_resp(resp: Any) -> Dict[str, Any]:
         return {}
 
 
-def _extract_chat_completion_chunk_tokens(chunk: ChatCompletionChunk) -> str:
+def _extract_tokens(chunk: BaseModel) -> str:
     if not chunk:
         return ""
 
     tokens = ""
     try:
-        for choice in chunk.choices:
-            if choice.delta.content:
-                tokens += choice.delta.content
+        dict_ = chunk.model_dump()
+        choices = dict_.get("choices", [])
+        for choice in choices:
+            content = choice.model_dump().get("delta", {}).get("content")
+            if content:
+                tokens += content
+            else:
+                text = choice.model_dump().get("text")
+                if text:
+                    tokens += text
     except Exception as e:
-        logger.error(f"Failed to extract chat completion chunk tokens: {e}")
+        logger.error(f"Failed to extract chunk tokens: {e}")
 
     return tokens
-
-
-def _extract_completion_tokens(completion: Completion) -> str:
-    if not completion:
-        return ""
-
-    tokens = ""
-
-    try:
-        for choice in completion.choices:
-            tokens += choice.text
-    except Exception as e:
-        logger.error(f"Failed to extract completion tokens: {e}")
-
-    return tokens
-
-
-def _extract_tokens(resp: Any) -> str:
-    if isinstance(resp, ChatCompletionChunk):
-        return _extract_chat_completion_chunk_tokens(resp)
-    elif isinstance(resp, Completion):
-        return _extract_completion_tokens(resp)
-    else:
-        logger.warning(f"Unsupported response stream type: {type(resp)}")
-        return ""
 
 
 def _collect_resp(

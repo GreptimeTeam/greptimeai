@@ -1,6 +1,4 @@
-from typing import Any, List, Union
-
-from openai.types.chat import ChatCompletionMessageParam
+from typing import Any, Dict, List, Union
 
 from greptimeai import logger
 
@@ -264,7 +262,7 @@ def get_openai_audio_cost_for_whisper(seconds: int) -> float:
     return round(cost, 6)
 
 
-def extract_chat_inputs(messages: List[ChatCompletionMessageParam]) -> str:
+def extract_chat_inputs(messages: List[Dict]) -> str:
     """
     this is for display the inputs in the UI.
 
@@ -281,7 +279,7 @@ def extract_chat_inputs(messages: List[ChatCompletionMessageParam]) -> str:
         )
         return ""
 
-    def extract_input(message: ChatCompletionMessageParam) -> str:
+    def extract_input(message: Dict) -> str:
         role = message.get("role", "")
         content = message.get("content", "")
         return f"{role}: {str(content)}"  # content may not be a str
