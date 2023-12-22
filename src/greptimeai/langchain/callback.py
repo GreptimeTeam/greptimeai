@@ -41,7 +41,6 @@ from . import (
     _SPAN_NAME_RETRIEVER,
     _SPAN_NAME_TOOL,
     _get_serialized_id,
-    _get_serialized_streaming,
     _get_user_id,
     _parse_documents,
     _parse_generations,
