@@ -22,6 +22,7 @@ from opentelemetry.util.types import Attributes, AttributeValue
 from typing_extensions import override
 
 from greptimeai import _NAME, _VERSION, logger
+from greptimeai.utils._socket import get_local_hostname_and_ip
 
 _JSON_KEYS_IN_OTLP_ATTRIBUTES = "otlp_json_keys"
 
@@ -349,7 +350,10 @@ class _Collector:
         self._setup_otel_metrics()
 
     def _setup_otel_exporter(self):
-        resource = Resource.create({SERVICE_NAME: self.service_name})
+        hostname, ip = get_local_hostname_and_ip()
+        resource = Resource.create(
+            {SERVICE_NAME: self.service_name, "host.name": hostname, "host.ip": ip}
+        )
         metrics_endpoint = f"{self.host}/v1/otlp/v1/metrics"
         trace_endpoint = f"{self.host}/v1/otlp/v1/traces"
 
