@@ -1,7 +1,6 @@
 # greptimeai
 
-Observability and analytics tool for LLM framework, service, etc. You can find more
-examples and guides on [greptimeai-cookbook][greptimeai-cookbook]
+Observability and analytics tool for LLM framework, service, etc.
 
 ## Installation
 
@@ -31,8 +30,10 @@ or you can pass them via parameters.
 
 ## Examples
 
-- [langchain](./examples/langchain.ipynb)
-- [openai](./examples/openai.ipynb)
+- [langchain][langchain-example]
+- [openai][openai-example]
+
+You can find complete guides on [greptimeai-cookbook][greptimeai-cookbook]
 
 ## Contributing
 
@@ -44,7 +45,10 @@ Pull requests that add support for or fix a bug in a feature will likely be acce
 
 All code in this repository is licensed under the [Apache License 2.0](LICENSE).
 
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be licensed as above, without any additional terms or conditions.
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you,
+as defined in the Apache-2.0 license, shall be licensed as above, without any additional terms or conditions.
 
 [greptimeai]: https://console.greptime.cloud/ai
+[langchain-example]: https://github.com/GreptimeTeam/greptimeai/blob/main/examples/langchain.ipynb
+[openai-example]: https://github.com/GreptimeTeam/greptimeai/blob/main/examples/openai.ipynb
 [greptimeai-cookbook]: https://github.com/GreptimeTeam/greptimeai-cookbook
