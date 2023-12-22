@@ -1,6 +1,5 @@
 from typing import Any, Dict, Optional, Tuple, Union
 
-from openai._response import APIResponse
 from pydantic import BaseModel
 from typing_extensions import override
 
@@ -97,7 +96,7 @@ class OpenaiExtractor(BaseExtractor):
         return None
 
     @staticmethod
-    def parse_raw_response(resp: APIResponse) -> Dict[str, Any]:
+    def parse_raw_response(resp) -> Dict[str, Any]:
         def _http_info() -> Dict[str, Any]:
             headers = {k: v for k, v in resp.headers.items()}
 
@@ -201,16 +200,15 @@ class OpenaiExtractor(BaseExtractor):
 
             resp: inherit from the BaseModel class, or instance of APIResponse class
         """
+        data: Dict[str, Any] = {}
         try:
-            data: Dict[str, Any] = {}
-            if isinstance(resp, APIResponse):
+            if hasattr(resp, "parse"):
                 data = OpenaiExtractor.parse_raw_response(resp)
                 logger.debug(f"after parse_raw_response: {data=}")
             else:
                 data = resp.model_dump(exclude_unset=True)
         except Exception as e:
             logger.error(f"Failed to extract response {resp}: {e}")
-            data = {}
 
         span_attrs = {}
 

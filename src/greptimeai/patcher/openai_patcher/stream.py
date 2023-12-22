@@ -2,8 +2,7 @@ import time
 from typing import Any, AsyncIterator, Dict, Iterator, Optional, Tuple, Union
 
 from openai import AsyncStream, Stream
-from openai.types.chat import ChatCompletionChunk
-from openai.types.completion import Completion
+from pydantic import BaseModel
 
 from greptimeai import logger
 from greptimeai.collector import Collector
@@ -20,64 +19,37 @@ from greptimeai.utils.openai.token import (
 )
 
 
-def _extract_resp(resp: Any) -> Dict[str, Any]:
-    try:
-        if hasattr(resp, "model_dump"):
-            return resp.model_dump()
-        else:
-            logger.warning(f"Unknown response stream type: {type(resp)}")
-            return {}
-    except Exception as e:
-        logger.error(f"Failed to extract response: {e}")
-        return {}
-
-
-def _extract_chat_completion_chunk_tokens(chunk: ChatCompletionChunk) -> str:
+def _extract_tokens(chunk: BaseModel) -> str:
     if not chunk:
         return ""
 
     tokens = ""
     try:
-        for choice in chunk.choices:
-            if choice.delta.content:
-                tokens += choice.delta.content
+        dict_ = chunk.model_dump()
+        choices = dict_.get("choices", [])
+        for choice in choices:
+            content = choice.get("delta", {}).get("content")
+            if content:  # chat completion
+                tokens += content
+            elif choice.get("text"):  # completion
+                tokens += choice.get("text")
     except Exception as e:
-        logger.error(f"Failed to extract chat completion chunk tokens: {e}")
+        logger.error(f"Failed to extract chunk tokens: {e}")
 
     return tokens
 
 
-def _extract_completion_tokens(completion: Completion) -> str:
-    if not completion:
-        return ""
-
-    tokens = ""
-
-    try:
-        for choice in completion.choices:
-            tokens += choice.text
-    except Exception as e:
-        logger.error(f"Failed to extract completion tokens: {e}")
-
-    return tokens
-
-
-def _extract_tokens(resp: Any) -> str:
-    if isinstance(resp, ChatCompletionChunk):
-        return _extract_chat_completion_chunk_tokens(resp)
-    elif isinstance(resp, Completion):
-        return _extract_completion_tokens(resp)
-    else:
-        logger.warning(f"Unsupported response stream type: {type(resp)}")
-        return ""
-
-
-def _collect_resp(
-    resp: Any, collector: Collector, span_id: str, event_name: str
+def _collect_stream_item(
+    item: Any, collector: Collector, span_id: str, event_name: str
 ) -> Tuple[str, str]:
-    event_attrs = _extract_resp(resp)
+    event_attrs = {}
+    if hasattr(item, "model_dump"):
+        event_attrs = item.model_dump()
+    else:
+        logger.warning(f"Unknown response stream type: {type(item)}")
+
     model_name = event_attrs.get("model", "")
-    tokens = _extract_tokens(resp)
+    tokens = _extract_tokens(item)
     collector._collector.add_span_event(
         span_id=span_id,
         event_name=event_name,
@@ -147,7 +119,7 @@ class Stream_(Stream):
         for item in self.stream:
             yield item
 
-            tokens, model_name = _collect_resp(
+            tokens, model_name = _collect_stream_item(
                 item, self.collector, self.span_id, "stream"
             )
             completion_tokens += tokens
@@ -187,7 +159,7 @@ class AsyncStream_(AsyncStream):
         async for item in self.astream:
             yield item
 
-            tokens, model_name = _collect_resp(
+            tokens, model_name = _collect_stream_item(
                 item, self.collector, self.span_id, "stream"
             )
             completion_tokens += tokens
