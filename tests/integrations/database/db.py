@@ -17,7 +17,7 @@ connection = pymysql.connect(
 )
 
 
-def get_trace_data(user_id: str) -> Optional[Dict[str, Any]]:
+def get_trace_data(user_id: str, span_name: str = "") -> Optional[Dict[str, Any]]:
     sql = f"""
     SELECT
     resource_attributes,
@@ -29,6 +29,9 @@ def get_trace_data(user_id: str) -> Optional[Dict[str, Any]]:
     FROM {Tables.llm_trace}
     WHERE user_id = '{user_id}'
     """
+    if span_name:
+        sql += f" AND span_name = '{span_name}'"
+
     with connection.cursor() as cursor:
         cursor.execute(sql)
         trace = cursor.fetchone()

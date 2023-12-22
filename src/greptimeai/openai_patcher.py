@@ -18,8 +18,6 @@ from greptimeai.patcher.openai_patcher.base import (
 )
 from greptimeai.patcher.openai_patcher.retry import _RetryPatcher
 
-_collector: Collector
-
 
 class Options(TypedDict, total=False):
     file: bool
@@ -48,7 +46,6 @@ def setup(
         token: if None or empty string, GREPTIMEAI_TOKEN environment variable will be used.
         client: if None, then openai module-level client will be patched.
     """
-    global _collector
     _collector = Collector(
         service_name="openai", host=host, database=database, token=token
     )
