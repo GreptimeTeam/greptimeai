@@ -28,10 +28,6 @@ from greptimeai.patchee.openai_patchee.model import ModelPatchees
 from greptimeai.patchee.openai_patchee.moderation import ModerationPatchees
 from greptimeai.patcher import Patcher
 from greptimeai.patcher.openai_patcher.stream import AsyncStream_, Stream_
-from greptimeai.utils.openai.token import (
-    get_openai_token_cost_for_model,
-    num_tokens_from_messages,
-)
 
 
 class _OpenaiPatcher(Patcher):
@@ -81,19 +77,14 @@ class _OpenaiPatcher(Patcher):
         # if stream, the usage won't be included in the resp,
         # so we need to extract and collect it from req for best.
         if OpenaiExtractor.is_stream(**kwargs):
-            tokens = OpenaiExtractor.extract_req_tokens(**kwargs)
             model_name = extraction.get_model_name() or ""
-            tokens_num = num_tokens_from_messages(tokens or "")
-            cost = get_openai_token_cost_for_model(model_name, tokens_num, False)
-
-            extraction = OpenaiExtractor.supplement_stream_prompt(
-                extraction, tokens_num, cost
-            )
+            num = extraction.span_attributes.get(_PROMPT_TOKENS_LABEl, 0)
+            cost = extraction.span_attributes.get(_PROMPT_COST_LABEl, 0.0)
 
             self._collect_req_metrics_for_stream(
                 model_name=model_name,
                 span_name=patchee.span_name,
-                tokens_num=tokens_num,
+                tokens_num=num,
                 cost=cost,
             )
 
@@ -116,6 +107,7 @@ class _OpenaiPatcher(Patcher):
         resp: Any,
         ex: Optional[Exception] = None,
     ):
+        logger.debug(f"_post_patch:\n{ex=}\n{resp=}")
         latency = 1000 * (time.time() - start)
         extraction = self.extractor.post_extract(resp)
         attrs = {_SPAN_NAME_LABEL: span_name}
