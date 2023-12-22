@@ -23,8 +23,8 @@ def _get_serialized_id(serialized: Dict[str, Any]) -> Optional[str]:
     get id if exist
     """
     ids = serialized.get("id")
-    if ids and isinstance(ids, list):
-        return ids[len(ids) - 1]
+    if ids and isinstance(ids, list) and len(ids) > 0:
+        return ids[-1]
     return None
 
 
