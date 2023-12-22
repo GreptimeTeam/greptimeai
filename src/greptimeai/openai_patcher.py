@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, TypedDict, Union
 
 from openai import AsyncOpenAI, OpenAI
 
@@ -18,7 +18,15 @@ from greptimeai.patcher.openai_patcher.base import (
 )
 from greptimeai.patcher.openai_patcher.retry import _RetryPatcher
 
-_collector: Collector = None  # type: ignore
+_collector: Collector
+
+
+class Options(TypedDict, total=False):
+    file: bool
+    fine_tuning: bool
+    embedding: bool
+    model: bool
+    moderation: bool
 
 
 def setup(
@@ -26,6 +34,7 @@ def setup(
     database: str = "",
     token: str = "",
     client: Union[OpenAI, AsyncOpenAI, None] = None,
+    options: Options = {},
 ):
     """
     patch openai functions automatically.
@@ -47,14 +56,24 @@ def setup(
         _AudioPatcher(collector=_collector, client=client),
         _ChatCompletionPatcher(collector=_collector, client=client),
         _CompletionPatcher(collector=_collector, client=client),
-        _EmbeddingPatcher(collector=_collector, client=client),
-        _FilePatcher(collector=_collector, client=client),
-        _FineTuningPatcher(collector=_collector, client=client),
         _ImagePatcher(collector=_collector, client=client),
-        _ModelPatcher(collector=_collector, client=client),
-        _ModerationPatcher(collector=_collector, client=client),
         _RetryPatcher(collector=_collector, client=client),
     ]
+
+    if options.get("file", False):
+        patchers.append(_FilePatcher(collector=_collector, client=client))
+
+    if options.get("fine_tuning", False):
+        patchers.append(_FineTuningPatcher(collector=_collector, client=client))
+
+    if options.get("model", False):
+        patchers.append(_ModelPatcher(collector=_collector, client=client))
+
+    if options.get("embedding", False):
+        patchers.append(_EmbeddingPatcher(collector=_collector, client=client))
+
+    if options.get("moderation", False):
+        patchers.append(_ModerationPatcher(collector=_collector, client=client))
 
     for patcher in patchers:
         patcher.patch()
