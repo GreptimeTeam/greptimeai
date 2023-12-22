@@ -19,6 +19,7 @@ from greptimeai.utils.openai.token import (
     extract_chat_inputs,
     extract_chat_outputs,
     get_openai_token_cost_for_model,
+    num_tokens_from_messages,
 )
 
 _EXTRA_HEADERS_KEY = "extra_headers"  # this is the original openai parameter
@@ -158,17 +159,29 @@ class OpenaiExtractor(BaseExtractor):
     @override
     def pre_extract(self, *args, **kwargs) -> Extraction:
         """
-        extract _MODEL_LABEL, _USER_ID_LABEL for span attributes
-        merge kwargs and args into event attributes
-        Args:
+        extract fields for span attributes:
+          - _MODEL_LABEL
+          - _USER_ID_LABEL
+          - _PROMPT_TOKENS_LABEl
+          - _PROMPT_COST_LABEl
+          - _INPUT_DISPLAY_LABEL
 
-            kwargs:
-                extra_headers in kwargs: _X_USER_ID is a custom header that is used to identify the user,
-                which has higher priority than the 'user' in the kwargs
+        put kwargs and args into event attributes
         """
+        event_attrs = {**kwargs}
+        if len(args) > 0:
+            event_attrs["args"] = args
+
         span_attrs = {}
         if "model" in kwargs:
-            span_attrs[_MODEL_LABEL] = kwargs["model"]
+            model_name = kwargs["model"]
+            tokens = OpenaiExtractor.extract_req_tokens(**kwargs)
+            num = num_tokens_from_messages(tokens or "")
+            cost = get_openai_token_cost_for_model(model_name, num, False)
+
+            span_attrs[_MODEL_LABEL] = model_name
+            span_attrs[_PROMPT_TOKENS_LABEl] = num
+            span_attrs[_PROMPT_COST_LABEl] = cost
 
         user_id = OpenaiExtractor.get_user_id(**kwargs)
         if user_id:
@@ -177,21 +190,17 @@ class OpenaiExtractor(BaseExtractor):
         if "messages" in kwargs:
             span_attrs[_INPUT_DISPLAY_LABEL] = extract_chat_inputs(kwargs["messages"])
 
-        event_attrs = {**kwargs}
-        if len(args) > 0:
-            event_attrs["args"] = args
-
         return Extraction(span_attributes=span_attrs, event_attributes=event_attrs)
 
     @override
     def post_extract(self, resp: Any) -> Extraction:
         """
-        extract for span attributes:
+        extract fields for span attributes:
           - _MODEL_LABEL
           - _COMPLETION_COST_LABEL
           - _COMPLETION_TOKENS_LABEL
-          - _PROMPT_COST_LABEl
-          - _PROMPT_TOKENS_LABEl
+          - _PROMPT_COST_LABEl (this will update the value from pre_extract)
+          - _PROMPT_TOKENS_LABEl (this will update the value from pre_extract)
           - _OUTPUT_DISPLAY_LABEL
 
         merge usage into resp as event attributes
@@ -227,13 +236,3 @@ class OpenaiExtractor(BaseExtractor):
             span_attrs[_OUTPUT_DISPLAY_LABEL] = outputs
 
         return Extraction(span_attributes=span_attrs, event_attributes=data)
-
-    @staticmethod
-    def supplement_stream_prompt(
-        extraction: Extraction, tokens_num: int, cost: float
-    ) -> Extraction:
-        extraction.span_attributes[_PROMPT_TOKENS_LABEl] = tokens_num
-        extraction.span_attributes[_PROMPT_COST_LABEl] = cost
-        extraction.event_attributes[_PROMPT_TOKENS_LABEl] = tokens_num
-        extraction.event_attributes[_PROMPT_COST_LABEl] = cost
-        return extraction

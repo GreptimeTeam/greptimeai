@@ -41,7 +41,6 @@ from . import (
     _SPAN_NAME_RETRIEVER,
     _SPAN_NAME_TOOL,
     _get_serialized_id,
-    _get_serialized_streaming,
     _get_user_id,
     _parse_documents,
     _parse_generations,
@@ -86,11 +85,14 @@ class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
             _USER_ID_LABEL: _get_user_id(metadata),
         }
 
-        event_attrs = {
+        event_attrs: Dict[str, Any] = {
             _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
-            "metadata": metadata,
-            "tags": tags,
         }
+        if metadata:
+            event_attrs["metadata"] = metadata
+        if tags:
+            event_attrs["tags"] = tags
+
         if self._verbose:
             event_attrs["inputs"] = _parse_input(inputs)
 
@@ -152,6 +154,53 @@ class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
             },
         )
 
+    def collect_llm(
+        self,
+        origin_inputs: Dict[str, Any],  # prompts or messages
+        inputs: str,
+        class_type: Optional[str],
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        tags: Union[List[str], None] = None,
+        metadata: Union[Dict[str, Any], None] = None,
+        invocation_params: Union[Dict[str, Any], None] = None,
+    ):
+        span_attrs: Dict[str, Any] = {
+            _USER_ID_LABEL: _get_user_id(metadata),
+        }
+        if self._verbose:
+            span_attrs[_INPUT_DISPLAY_LABEL] = inputs
+
+        if invocation_params:
+            model_name: str = invocation_params.get("model_name", "")
+            prompt_tokens = num_tokens_from_messages(inputs, model_name)
+            prompt_cost = get_openai_token_cost_for_model(model_name, prompt_tokens)
+            span_attrs[_MODEL_LABEL] = model_name
+            span_attrs[_PROMPT_TOKENS_LABEl] = prompt_tokens
+            span_attrs[_PROMPT_COST_LABEl] = prompt_cost
+
+        event_attrs: Dict[str, Any] = {
+            "params": invocation_params,
+        }
+        if class_type:
+            event_attrs[_CLASS_TYPE_LABEL] = class_type
+        if tags:
+            event_attrs["tags"] = tags
+        if metadata:
+            event_attrs["metadata"] = metadata
+        if self._verbose:
+            event_attrs.update(origin_inputs)
+
+        self._collector.start_latency(run_id, _SPAN_NAME_LLM)
+        self._collector.start_span(
+            span_id=run_id,
+            parent_id=parent_run_id,
+            span_name=_SPAN_NAME_LLM,
+            event_name="llm_start",
+            span_attrs=span_attrs,
+            event_attrs=event_attrs,
+        )
+
     def on_llm_start(
         self,
         serialized: Dict[str, Any],
@@ -167,39 +216,19 @@ class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
         logger.debug(
             f"on_llm_start. { run_id =} { parent_run_id =} { kwargs = } { serialized = }"
         )
-
+        origin_inputs = {"prompts": prompts}
         inputs = " ".join(prompts)
-        span_attrs: Dict[str, Any] = {
-            _USER_ID_LABEL: _get_user_id(metadata),
-            _INPUT_DISPLAY_LABEL: inputs,
-        }
+        class_type = _get_serialized_id(serialized)
 
-        streaming = _get_serialized_streaming(serialized)
-        if streaming and invocation_params:
-            model_name: str = invocation_params.get("model_name", "")
-            prompt_tokens = num_tokens_from_messages(inputs, model_name)
-            prompt_cost = get_openai_token_cost_for_model(model_name, prompt_tokens)
-            span_attrs[_MODEL_LABEL] = model_name
-            span_attrs[_PROMPT_TOKENS_LABEl] = prompt_tokens
-            span_attrs[_PROMPT_COST_LABEl] = prompt_cost
-
-        event_attrs = {
-            _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
-            "metadata": metadata,
-            "tags": tags,
-            "params": invocation_params,
-        }
-        if self._verbose:
-            event_attrs["prompts"] = prompts
-
-        self._collector.start_latency(run_id, _SPAN_NAME_LLM)
-        self._collector.start_span(
-            span_id=run_id,
-            parent_id=parent_run_id,
-            span_name=_SPAN_NAME_LLM,
-            event_name="llm_start",
-            span_attrs=span_attrs,
-            event_attrs=event_attrs,
+        self.collect_llm(
+            origin_inputs=origin_inputs,
+            inputs=inputs,
+            class_type=class_type,
+            run_id=run_id,
+            parent_run_id=parent_run_id,
+            tags=tags,
+            metadata=metadata,
+            invocation_params=invocation_params,
         )
 
     def on_chat_model_start(
@@ -217,40 +246,19 @@ class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
         logger.debug(
             f"on_chat_model_start. { run_id =} { parent_run_id =} { kwargs = } { serialized = }"
         )
-
         inputs = get_buffer_string(messages[0])
-        span_attrs: Dict[str, Any] = {
-            _USER_ID_LABEL: _get_user_id(metadata),
-        }
-        if self._verbose:
-            span_attrs[_INPUT_DISPLAY_LABEL] = inputs
+        origin_inputs = {"messages": messages}
+        class_type = _get_serialized_id(serialized)
 
-        streaming = _get_serialized_streaming(serialized)
-        if streaming and invocation_params:
-            model_name: str = invocation_params.get("model_name", "")
-            prompt_tokens = num_tokens_from_messages(inputs, model_name)
-            prompt_cost = get_openai_token_cost_for_model(model_name, prompt_tokens)
-            span_attrs[_MODEL_LABEL] = model_name
-            span_attrs[_PROMPT_TOKENS_LABEl] = prompt_tokens
-            span_attrs[_PROMPT_COST_LABEl] = prompt_cost
-
-        event_attrs = {
-            _CLASS_TYPE_LABEL: _get_serialized_id(serialized),
-            "metadata": metadata,
-            "tags": tags,
-            "params": invocation_params,
-        }
-        if self._verbose:
-            event_attrs["messages"] = inputs
-
-        self._collector.start_latency(run_id, _SPAN_NAME_LLM)
-        self._collector.start_span(
-            span_id=run_id,
-            parent_id=parent_run_id,
-            span_name=_SPAN_NAME_LLM,
-            event_name="chat_model_start",
-            span_attrs=span_attrs,
-            event_attrs=event_attrs,
+        self.collect_llm(
+            origin_inputs=origin_inputs,
+            inputs=inputs,
+            class_type=class_type,
+            run_id=run_id,
+            parent_run_id=parent_run_id,
+            tags=tags,
+            metadata=metadata,
+            invocation_params=invocation_params,
         )
 
     def on_llm_end(
@@ -282,7 +290,7 @@ class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
 
         # NOTE: only cost of OpenAI model will be calculated and collected so far
         prompt_tokens, prompt_cost, completion_tokens, completion_cost = 0, 0.0, 0, 0.0
-        if model_name.strip() != "":
+        if model_name:
             if len(token_usage) > 0:
                 prompt_tokens = token_usage.get("prompt_tokens", 0)
                 completion_tokens = token_usage.get("completion_tokens", 0)
@@ -307,7 +315,7 @@ class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
 
         common_attrs: Dict[str, Any] = {}
 
-        if model_name.strip() != "":
+        if model_name:
             common_attrs[_MODEL_LABEL] = model_name
         if prompt_tokens > 0:
             common_attrs[_PROMPT_TOKENS_LABEl] = prompt_tokens

@@ -23,22 +23,9 @@ def _get_serialized_id(serialized: Dict[str, Any]) -> Optional[str]:
     get id if exist
     """
     ids = serialized.get("id")
-    if ids and isinstance(ids, list):
-        return ids[len(ids) - 1]
+    if ids and isinstance(ids, list) and len(ids) > 0:
+        return ids[-1]
     return None
-
-
-def _get_serialized_streaming(serialized: Dict[str, Any]) -> bool:
-    """
-    get streaming if exist
-    """
-    id = _get_serialized_id(serialized)
-    if not id:
-        return False
-
-    if id == "OpenAI" or id == "ChatOpenAI":
-        return serialized.get("kwargs", {}).get("streaming")
-    return False
 
 
 def _parse(obj: Any) -> Union[Dict[str, Any], Sequence[Any], Any]:
