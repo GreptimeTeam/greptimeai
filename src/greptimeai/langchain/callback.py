@@ -147,12 +147,6 @@ class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
             event_attrs=event_attrs,
             ex=error,
         )
-        self._collector.collect_error_count(
-            {
-                _SPAN_NAME_LABEL: _SPAN_NAME_CHAIN,
-                **event_attrs,
-            },
-        )
 
     def collect_llm(
         self,
@@ -366,12 +360,6 @@ class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
             ex=error,
         )
         self._collector.discard_latency(run_id, _SPAN_NAME_LLM)
-        self._collector.collect_error_count(
-            {
-                _SPAN_NAME_LABEL: _SPAN_NAME_LLM,
-                **event_attrs,
-            },
-        )
 
     def on_llm_new_token(
         self,
@@ -474,12 +462,6 @@ class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
             event_name="tool_error",
             event_attrs=event_attrs,
             ex=error,
-        )
-        self._collector.collect_error_count(
-            {
-                _SPAN_NAME_LABEL: _SPAN_NAME_TOOL,
-                **event_attrs,
-            },
         )
 
     def on_agent_action(
@@ -596,12 +578,6 @@ class GreptimeCallbackHandler(Collector, BaseCallbackHandler):
             event_name="retriever_error",
             event_attrs=event_attrs,
             ex=error,
-        )
-        self._collector.collect_error_count(
-            {
-                _SPAN_NAME_LABEL: _SPAN_NAME_RETRIEVER,
-                **event_attrs,
-            },
         )
 
     def on_retriever_end(

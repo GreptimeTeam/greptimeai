@@ -5,9 +5,6 @@ from opentelemetry.util.types import Attributes
 from greptimeai.labels import (
     _COMPLETION_COST_LABEL,
     _COMPLETION_TOKENS_LABEL,
-    _ERROR_TYPE_LABEL,
-    _MODEL_LABEL,
-    _SPAN_NAME_LABEL,
     _PROMPT_COST_LABEl,
     _PROMPT_TOKENS_LABEl,
 )
@@ -59,18 +56,6 @@ class Collector:
             event_attrs=event_attrs,
             ex=ex,
         )
-
-    def collect_error_count(
-        self, model_name: Optional[str], span_name: str, ex: Exception
-    ):
-        attributes = {
-            _ERROR_TYPE_LABEL: ex.__class__.__name__,
-            _SPAN_NAME_LABEL: span_name,
-        }
-        if model_name:
-            attributes[_MODEL_LABEL] = model_name
-
-        self._collector.collect_error_count(attributes=attributes)
 
     def collect_metrics(self, span_attrs: Dict[str, Any], attrs: Optional[Attributes]):
         """

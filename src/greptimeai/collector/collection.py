@@ -16,7 +16,7 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.trace import Span, Status, StatusCode, Tracer, set_span_in_context
+from opentelemetry.trace import Span, Status, StatusCode, set_span_in_context
 from opentelemetry.trace.span import format_span_id, format_trace_id
 from opentelemetry.util.types import Attributes, AttributeValue
 from typing_extensions import override
@@ -406,11 +406,6 @@ class _Collector:
             description="counts the amount of llm completion token",
         )
 
-        self._llm_error_count = meter.create_counter(
-            "llm_errors",
-            description="counts the amount of llm errors",
-        )
-
         self._requests_duration_histogram = meter.create_histogram(
             name="llm_request_duration_ms",
             description="duration of requests of llm in milliseconds",
@@ -600,9 +595,6 @@ class _Collector:
     def discard_latency(self, span_id: Union[UUID, str], span_name: Optional[str]):
         self._duration_tables.latency_in_ms(span_id, span_name)
 
-    def collect_error_count(self, attributes: Dict[str, Any]):
-        self._llm_error_count.add(1, attributes)
-
     def get_model_in_context(self, span_id: Union[UUID, str]) -> Optional[str]:
         context = self._span_tables.get_span_context(str(span_id))
 
@@ -610,10 +602,6 @@ class _Collector:
             return context.model
 
         return None
-
-    @property
-    def tracer(self) -> Tracer:
-        return self._tracer
 
     def _force_flush(self):
         """
