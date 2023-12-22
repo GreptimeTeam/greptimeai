@@ -13,7 +13,7 @@ class Patchee:
         self.event_name = event_name
 
     def __repr__(self):
-        return f"<{self.span_name}> with event name <{self.event_name}>"
+        return f"<{self.event_name}>"
 
     def get_func_name(self) -> str:
         return self.method_name
