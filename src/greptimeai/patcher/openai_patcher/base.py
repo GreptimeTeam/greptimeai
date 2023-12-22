@@ -137,9 +137,6 @@ class _OpenaiPatcher(Patcher):
             try:
                 resp = func(*args, **kwargs)
             except Exception as e:
-                self.collector.collect_error_count(
-                    extraction.get_model_name(), patchee.span_name, e
-                )
                 ex = e
                 raise e
             finally:
@@ -179,9 +176,6 @@ class _OpenaiPatcher(Patcher):
             try:
                 resp = await func(*args, **kwargs)
             except Exception as e:
-                self.collector.collect_error_count(
-                    extraction.get_model_name(), patchee.span_name, e
-                )
                 ex = e
                 raise e
             finally:
