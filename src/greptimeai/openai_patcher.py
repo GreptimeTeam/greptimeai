@@ -27,6 +27,9 @@ class Options(TypedDict, total=False):
     moderation: bool
 
 
+_collector: Collector
+
+
 def setup(
     host: str = "",
     database: str = "",
@@ -46,6 +49,7 @@ def setup(
         token: if None or empty string, GREPTIMEAI_TOKEN environment variable will be used.
         client: if None, then openai module-level client will be patched.
     """
+    global _collector
     _collector = Collector(
         service_name="openai", host=host, database=database, token=token
     )

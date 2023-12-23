@@ -11,8 +11,6 @@ from greptimeai.labels import (
 
 from .collection import _Collector
 
-_collector: _Collector
-
 
 class Collector:
     """
@@ -22,8 +20,7 @@ class Collector:
     def __init__(
         self, service_name: str, host: str = "", database: str = "", token: str = ""
     ):
-        global _collector
-        _collector = _Collector(
+        self._collector = _Collector(
             service_name=service_name, host=host, database=database, token=token
         )
 
@@ -34,7 +31,7 @@ class Collector:
         event_name: str,
         event_attrs: Dict[str, Any],
     ) -> Tuple[str, str]:
-        return _collector.start_span(
+        return self._collector.start_span(
             span_id=None,
             parent_id=None,
             span_name=span_name,
@@ -51,7 +48,7 @@ class Collector:
         event_attrs: Dict[str, Any],
         ex: Optional[Exception] = None,
     ):
-        _collector.end_span(
+        self._collector.end_span(
             span_id=span_id,
             span_name=span_name,
             event_name="end",
@@ -77,7 +74,7 @@ class Collector:
         completion_tokens = span_attrs.get(_COMPLETION_TOKENS_LABEL, 0)
         completion_cost = span_attrs.get(_COMPLETION_COST_LABEL, 0)
 
-        _collector.collect_metrics(
+        self._collector.collect_metrics(
             prompt_tokens=prompt_tokens,
             prompt_cost=prompt_cost,
             completion_tokens=completion_tokens,
