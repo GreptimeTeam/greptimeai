@@ -1,6 +1,5 @@
 import base64
 import json
-import logging
 import os
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -102,6 +101,13 @@ def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Dict[str, Attribute
     if not attrs:
         return result
 
+    def _json_dumps(val: Any) -> str:
+        try:
+            return json.dumps(val)
+        except Exception as e:
+            logger.error(f"failed to json.dumps { val } with { e }")
+            return str(val)
+
     def _sanitate_list(lst: list) -> Union[list, str]:
         contains_any_invalid_value_type = False
         for item in lst:
@@ -109,7 +115,7 @@ def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Dict[str, Attribute
                 contains_any_invalid_value_type = True
                 break
         if contains_any_invalid_value_type:
-            return json.dumps(lst)
+            return _json_dumps(lst)
         else:
             return lst
 
@@ -126,7 +132,7 @@ def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Dict[str, Attribute
             if isinstance(sanitated_lst, str):
                 json_keys.append(key)
         else:
-            result[key] = json.dumps(val)
+            result[key] = _json_dumps(val)
             json_keys.append(key)
 
     if len(json_keys) > 0:
@@ -153,9 +159,11 @@ class _SpanContext:
     @override
     def __repr__(self) -> str:
         span_context = self.span.get_span_context()
-        return (
-            f"{self.name}.{self.model}.{span_context.trace_id}.{span_context.span_id}"
-        )
+        return f"""
+                <span_name={self.name}>
+                <model={self.model}>
+                <trace_id={span_context.trace_id}>
+                <span_id={span_context.span_id}>"""
 
 
 class _SpanTable:
@@ -179,15 +187,20 @@ class _SpanTable:
         self._spans[key] = context_list
 
     def get_span_context(
-        self, key: str, span_name: Optional[str] = None
+        self, key: Optional[str], span_name: Optional[str] = None
     ) -> Optional[_SpanContext]:
         """
         Args:
 
             span_name: if is None or empty, the last context will be returned
         """
+        if not key:
+            logger.warning(f"get_span_context: key is None for { span_name= }")
+            return None
+
         context_list = self._spans.get(key, [])
         if len(context_list) == 0:
+            logger.warning(f"get_span_context: { key } not found for { span_name= }")
             return None
 
         if not span_name:
@@ -197,10 +210,13 @@ class _SpanTable:
             if span_name == context.name:
                 return context
 
+        logger.warning(
+            f"get_span_context: { key } not matched for { span_name= }. {context_list}"
+        )
         return None
 
     def pop_span_context(
-        self, key: str, span_name: Optional[str] = None
+        self, key: Optional[str], span_name: Optional[str] = None
     ) -> Optional[_SpanContext]:
         """
         if there is only one span matched this span_id, then span_id key will be removed
@@ -209,9 +225,13 @@ class _SpanTable:
 
             span_name: if is None or empty, the last context will be returned
         """
-        context_list = self._spans.get(key, [])
+        if not key:
+            logger.warning(f"pop_span_context: key is None for { span_name= }")
+            return None
 
+        context_list = self._spans.get(key, [])
         if len(context_list) == 0:
+            logger.warning(f"pop_span_context: { key } not found for { span_name= }")
             return None
 
         target_context = None
@@ -232,7 +252,16 @@ class _SpanTable:
         else:
             self._spans[key] = rest_list
 
+        if not target_context:
+            logger.warning(
+                f"pop_span_context: { key } not matched for { span_name= }. {context_list}"
+            )
+
         return target_context
+
+    @override
+    def __repr__(self) -> str:
+        return f"{self._spans}"
 
 
 class _DurationTable:
@@ -269,6 +298,10 @@ class _DurationTable:
             return 1000 * (now - start)
         return None
 
+    @override
+    def __repr__(self) -> str:
+        return f"{self._tables}"
+
 
 class _Observation:
     """
@@ -297,7 +330,7 @@ class _Observation:
         if attrs is None or empty, nothing will happen
         """
         if attrs is None or len(attrs) == 0:
-            logging.info(f"None key for { attrs }")
+            logger.info(f"None key for { attrs }")
             return
 
         tuple_key = self._attrs_to_tuple(attrs)
@@ -456,9 +489,12 @@ class Collector:
         Returns:
 
             Tuple of trace_id and span_id.
+            And the returned span_id is to help retrieve the span_context from self._span_tables
 
         """
-        logger.debug(f"start span for {span_name} with {span_id=} or {parent_id=}")
+        span_id = str(span_id) if span_id else None
+        parent_id = str(parent_id) if parent_id else None
+        logger.debug(f"start span for {span_name=} with {span_id=} or {parent_id=}")
         span_attributes = _sanitate_attributes(span_attrs)
         event_attributes = _sanitate_attributes(event_attrs)
 
@@ -473,35 +509,34 @@ class Collector:
             )
 
             span_context = span.get_span_context()
-            str_trace_id, str_span_id = format_trace_id(
-                span_context.trace_id
-            ), format_span_id(span_context.span_id)
+            otel_trace_id = format_trace_id(span_context.trace_id)
+            otel_span_id = format_span_id(span_context.span_id)
 
-            # NOTE: if span_id is specified, then use it as key
-            span_key = str(span_id) if span_id else str_span_id
-            self._span_tables.put_span_context(span_key, trace_context)
-            return str_trace_id, str_span_id
+            final_span_id = str(span_id) if span_id else otel_span_id
+            self._span_tables.put_span_context(final_span_id, trace_context)
+            return otel_trace_id, final_span_id
 
-        if parent_id:
-            span_context = self._span_tables.get_span_context(str(parent_id))
+        # start span and let otel generate the trace id and span id
+        if not parent_id and not span_id:
+            return _do_start_span(None)
+
+        if parent_id:  # if parent_id, then start a child span
+            span_context = self._span_tables.get_span_context(parent_id)
             if span_context:
                 return _do_start_span(span_context.set_self_as_current())
             else:
-                logging.error(
+                logger.error(
                     f"Parent span of { parent_id } not found, will act as Root span."
                 )
                 return _do_start_span()
-
-        if span_id is None:
-            return _do_start_span()
-
-        # span_context may exist for the same run_id in LangChain. For Example:
-        # different Chain triggered in the same trace may have the same run_id.
-        span_context = self._span_tables.get_span_context(str(span_id))
-        if span_context:
-            return _do_start_span(span_context.set_self_as_current())
         else:
-            return _do_start_span()
+            # span_context may exist for the same run_id in LangChain. For Example:
+            # different Chain triggered in the same trace may have the same run_id.
+            span_context = self._span_tables.get_span_context(span_id)
+            if span_context:
+                return _do_start_span(span_context.set_self_as_current())
+            else:
+                return _do_start_span()
 
     def add_span_event(
         self, span_id: Union[UUID, str], event_name: str, event_attrs: Dict[str, Any]
@@ -515,23 +550,25 @@ class Collector:
         if context:
             context.span.add_event(event_name, attributes=attrs)
         else:
-            logging.error(f"{span_id} span not found for {event_name}")
+            logger.error(f"{span_id} span not found for {event_name}")
 
     def end_span(
         self,
-        span_id: Union[UUID, str],
+        span_id: Union[UUID, str, None],
         span_name: str,
         event_name: str,
         span_attrs: Dict[str, Any] = {},
         event_attrs: Dict[str, Any] = {},
         ex: Optional[BaseException] = None,
     ):
+        span_id = str(span_id) if span_id else None
         logger.debug(f"end span for {span_name} with {span_id=}")
 
         span_attributes = _sanitate_attributes(span_attrs)
         event_attributes = _sanitate_attributes(event_attrs)
 
-        context = self._span_tables.pop_span_context(str(span_id), span_name)
+        context = self._span_tables.pop_span_context(span_id, span_name)
+        logger.debug(f"end span for {span_id=} {span_name=} with {context=}")
         if context and context.span:
             span = context.span
             if ex:
@@ -543,7 +580,7 @@ class Collector:
             span.add_event(event_name, attributes=event_attributes)
             span.end()
         else:
-            logging.error(
+            logger.error(
                 f"unexpected behavior of end_span. context of { span_id } and { span_name } not found."
             )
 

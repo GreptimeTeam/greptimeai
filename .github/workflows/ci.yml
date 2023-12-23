@@ -48,10 +48,11 @@ jobs:
       - name: Test with pytest
         env:
           GREPTIMEAI_HOST: ${{ secrets.GREPTIMEAI_HOST }}
-          GREPTIMEAI_USERNAME: ${{ secrets.GREPTIMEAI_USERNAME }}
-          GREPTIMEAI_PASSWORD: ${{ secrets.GREPTIMEAI_PASSWORD }}
           GREPTIMEAI_DATABASE: ${{ secrets.GREPTIMEAI_DATABASE }}
           GREPTIMEAI_TOKEN: ${{ secrets.GREPTIMEAI_TOKEN }}
+          MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_USERNAME: ${{ secrets.MYSQL_USERNAME }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           pytest -s -v tests/

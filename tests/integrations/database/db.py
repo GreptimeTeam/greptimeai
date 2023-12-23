@@ -9,9 +9,9 @@ from greptimeai import logger
 from .model import Tables
 
 connection = pymysql.connect(
-    host=os.getenv("GREPTIMEAI_HOST"),
-    user=os.getenv("GREPTIMEAI_USERNAME"),
-    passwd=os.getenv("GREPTIMEAI_PASSWORD"),
+    host=os.getenv("MYSQL_HOST"),
+    user=os.getenv("MYSQL_USERNAME"),
+    passwd=os.getenv("MYSQL_PASSWORD"),
     port=4002,
     db=os.getenv("GREPTIMEAI_DATABASE"),
 )
@@ -55,7 +55,6 @@ def truncate_tables():
     tables = [
         "llm_completion_tokens",
         "llm_completion_tokens_cost",
-        "llm_errors",
         "llm_prompt_tokens",
         "llm_prompt_tokens_cost",
         "llm_request_duration_ms_bucket",

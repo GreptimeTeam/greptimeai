@@ -152,13 +152,15 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         self,
         origin_inputs: Dict[str, Any],  # prompts or messages
         inputs: str,
-        class_type: Optional[str],
+        serialized: Dict[str, Any],
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
         tags: Union[List[str], None] = None,
         metadata: Union[Dict[str, Any], None] = None,
         invocation_params: Union[Dict[str, Any], None] = None,
     ):
+        class_type = _get_serialized_id(serialized)
+
         span_attrs: Dict[str, Any] = {
             _USER_ID_LABEL: _get_user_id(metadata),
         }
@@ -202,22 +204,21 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
-        tags: Union[List[str], None] = None,
-        metadata: Union[Dict[str, Any], None] = None,
-        invocation_params: Union[Dict[str, Any], None] = None,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        invocation_params: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
         logger.debug(
-            f"on_llm_start. { run_id =} { parent_run_id =} { kwargs = } { serialized = }"
+            f"on_llm_start. { run_id =} { parent_run_id =} { kwargs = } { serialized = } {invocation_params=}"
         )
         origin_inputs = {"prompts": prompts}
         inputs = " ".join(prompts)
-        class_type = _get_serialized_id(serialized)
 
         self.collect_llm(
             origin_inputs=origin_inputs,
             inputs=inputs,
-            class_type=class_type,
+            serialized=serialized,
             run_id=run_id,
             parent_run_id=parent_run_id,
             tags=tags,
@@ -232,22 +233,21 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,
-        tags: Union[List[str], None] = None,
-        metadata: Union[Dict[str, Any], None] = None,
-        invocation_params: Union[Dict[str, Any], None] = None,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        invocation_params: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
         logger.debug(
-            f"on_chat_model_start. { run_id =} { parent_run_id =} { kwargs = } { serialized = }"
+            f"on_chat_model_start. { run_id =} { parent_run_id =} { kwargs = } { serialized = } {invocation_params=}"
         )
-        inputs = get_buffer_string(messages[0])
-        origin_inputs = {"messages": messages}
-        class_type = _get_serialized_id(serialized)
+        inputs = "\n".join([get_buffer_string(message) for message in messages])
+        origin_inputs = {"messages": inputs}  # BaseMessage can't be json dumped
 
         self.collect_llm(
             origin_inputs=origin_inputs,
             inputs=inputs,
-            class_type=class_type,
+            serialized=serialized,
             run_id=run_id,
             parent_run_id=parent_run_id,
             tags=tags,
@@ -346,7 +346,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         parent_run_id: Optional[UUID] = None,
         **kwargs: Any,
     ) -> Any:
-        logger.debug(f"on_llm_error. { run_id =} { parent_run_id =} { kwargs = }")
+        logger.debug(f"on_llm_error. { run_id =} { parent_run_id =} { kwargs =}")
         event_attrs = {
             _ERROR_TYPE_LABEL: error.__class__.__name__,
         }
