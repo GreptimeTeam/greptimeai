@@ -3,11 +3,12 @@ import uuid
 from typing import List
 
 import pytest
-from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat import ChatCompletionMessageParam
+from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 
 from greptimeai.openai_patcher import _collector
 from greptimeai.utils.openai.token import num_tokens_from_messages
+
 from ..database.db import get_trace_data, truncate_tables
 from ..openai_tracker import client
 
@@ -49,7 +50,7 @@ def test_chat_completion(_truncate_tables):
 
     completion_tokens_num = num_tokens_from_messages(ans or "")
 
-    _collector._collector._force_flush()
+    _collector._force_flush()
 
     trace = get_trace_data(user_id)
     retry = 0

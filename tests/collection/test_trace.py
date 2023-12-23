@@ -2,7 +2,7 @@ import uuid
 
 from opentelemetry.trace import NoOpTracer
 
-from greptimeai.collector.collection import _SpanContext, _SpanTable
+from greptimeai.collector import _SpanContext, _SpanTable
 
 
 class TestTrace:

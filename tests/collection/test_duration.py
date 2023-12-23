@@ -1,6 +1,6 @@
 import time
 
-from greptimeai.collector.collection import _DurationTable
+from greptimeai.collector import _DurationTable
 
 
 def test_without_name():

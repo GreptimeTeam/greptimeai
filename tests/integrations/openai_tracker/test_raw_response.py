@@ -33,7 +33,7 @@ def test_chat_completion(_truncate_tables):
     data = json.loads(resp.content)
     assert data["choices"][0]["message"]["content"] == "2"
 
-    _collector._collector._force_flush()
+    _collector._force_flush()
 
     trace = get_trace_data(user_id)
     retry = 0

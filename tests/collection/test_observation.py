@@ -1,6 +1,6 @@
 from opentelemetry.metrics import CallbackOptions
 
-from greptimeai.collector.collection import _Observation
+from greptimeai.collector import _Observation
 
 
 def test_cost():

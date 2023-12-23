@@ -30,7 +30,7 @@ class _RetryPatcher(_OpenaiPatcher):
             span_id = dict.get("headers", {}).get(_EXTRA_HEADERS_X_SPAN_ID_KEY)
             if span_id:
                 logger.debug(f"in retry_patcher {span_id=}")
-                self.collector._collector.add_span_event(
+                self.collector.add_span_event(
                     span_id=span_id,
                     event_name="retry",
                     event_attrs=dict,
