@@ -4,7 +4,7 @@ import uuid
 
 import pytest
 
-from greptimeai.collector import otel
+from greptimeai import collector
 
 from ..database.db import get_trace_data, truncate_tables
 from . import sync_client
@@ -33,7 +33,7 @@ def test_chat_completion(_truncate_tables):
     data = json.loads(resp.content)
     assert data["choices"][0]["message"]["content"] == "2"
 
-    otel._force_flush()
+    collector.otel._force_flush()
 
     trace = get_trace_data(user_id)
     retry = 0

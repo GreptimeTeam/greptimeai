@@ -355,12 +355,19 @@ class _Observation:
 
 
 class OTel:
-    def __init__(
+    def __init__(self) -> None:
+        self.is_setup = False
+
+    def setup(
         self,
         host: str = "",
         database: str = "",
         token: str = "",
     ):
+        if self.is_setup:
+            logger.warning("otel is already setup, skip")
+            return
+
         self.host = _prefix_with_scheme_if_not_found(
             _check_with_env("host", host, _GREPTIME_HOST_ENV_NAME, True)
         )
@@ -376,6 +383,8 @@ class OTel:
 
         self._setup_otel_exporter()
         self._setup_otel_metrics()
+
+        self.is_setup = True
 
     def _setup_otel_exporter(self):
         hostname, ip = get_local_hostname_and_ip()
@@ -469,7 +478,7 @@ class OTel:
         self._span_processor.force_flush()
 
 
-otel: OTel  # only one instance of OTel is allowed
+otel: OTel = OTel()  # only one instance of OTel is allowed
 
 
 class Collector:
@@ -491,10 +500,7 @@ class Collector:
         token: str = "",
     ):
         self.source = source
-
-        global otel
-        if not otel:
-            otel = OTel(host=host, database=database, token=token)
+        otel.setup(host=host, database=database, token=token)
 
     def start_span(
         self,
