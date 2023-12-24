@@ -27,7 +27,7 @@ def test_chat(_truncate_tables):
 
     chain = LLMChain(llm=chat, prompt=prompt, callbacks=[callback])
     result = chain.run(number=1, callbacks=[callback], metadata={"user_id": user_id})
-    print(f"{result=}")
+    assert result == "2"
 
     callback.collector._force_flush()
 
@@ -38,19 +38,14 @@ def test_chat(_truncate_tables):
         time.sleep(2)
         trace = get_trace_data(user_id=user_id, span_name="langchain_llm")
 
-    print(f"{trace=}")
+    assert trace is not None
 
-    # assert trace is not None
+    assert "langchain" == trace.get("resource_attributes", {}).get("service.name")
 
-    # assert "langchain" == trace.get("resource_attributes", {}).get("service.name")
+    assert ["llm_start", "llm_end"] == [
+        event.get("name") for event in trace.get("span_events", [])
+    ]
 
-    # assert ["client.chat.completions.create", "end"] == [
-    #     event.get("name") for event in trace.get("span_events", [])
-    # ]
-
-    # assert resp.model == trace.get("model")
-    # assert resp.model.startswith(model)
-
-    # assert resp.usage
-    # assert resp.usage.prompt_tokens == trace.get("prompt_tokens")
-    # assert resp.usage.completion_tokens == trace.get("completion_tokens")
+    assert trace.get("model", "").startswith(model)
+    assert trace.get("prompt_tokens", 0) > 10
+    assert trace.get("completion_tokens", 0) == 1

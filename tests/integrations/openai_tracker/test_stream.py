@@ -6,11 +6,10 @@ import pytest
 from openai.types.chat import ChatCompletionMessageParam
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 
-from greptimeai.openai_patcher import _collector
 from greptimeai.utils.openai.token import num_tokens_from_messages
 
 from ..database.db import get_trace_data, truncate_tables
-from ..openai_tracker import client
+from . import sync_client, sync_collector
 
 
 @pytest.fixture
@@ -27,7 +26,7 @@ def test_chat_completion(_truncate_tables):
             "content": "1+1=",
         }
     ]
-    resp = client.chat.completions.create(
+    resp = sync_client.chat.completions.create(
         messages=msg,
         model="gpt-3.5-turbo",
         user=user_id,
@@ -50,7 +49,7 @@ def test_chat_completion(_truncate_tables):
 
     completion_tokens_num = num_tokens_from_messages(ans or "")
 
-    _collector._force_flush()
+    sync_collector._force_flush()
 
     trace = get_trace_data(user_id)
     retry = 0

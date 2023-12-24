@@ -412,10 +412,10 @@ class Collector:
         self._metric_reader = PeriodicExportingMetricReader(
             metrics_exporter, export_interval_millis=15000
         )
-        metre_provider = MeterProvider(
+        meter_provider = MeterProvider(
             resource=resource, metric_readers=[self._metric_reader]
         )
-        metrics.set_meter_provider(metre_provider)
+        metrics.set_meter_provider(meter_provider)
 
         trace_provider = TracerProvider(resource=resource)
         self._span_processor = BatchSpanProcessor(
