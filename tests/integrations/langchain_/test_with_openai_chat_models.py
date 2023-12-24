@@ -6,6 +6,7 @@ from langchain.chains import LLMChain
 from langchain.chat_models.openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 
+from greptimeai.collector import otel
 from greptimeai.langchain.callback import GreptimeCallbackHandler
 
 from ..database.db import get_trace_data, truncate_tables
@@ -29,7 +30,7 @@ def test_chat(_truncate_tables):
     result = chain.run(number=1, callbacks=[callback], metadata={"user_id": user_id})
     assert result == "2"
 
-    callback.collector._force_flush()
+    otel._force_flush()
 
     trace = get_trace_data(user_id=user_id, span_name="langchain_llm")
     retry = 0
@@ -40,7 +41,8 @@ def test_chat(_truncate_tables):
 
     assert trace is not None
 
-    assert "langchain" == trace.get("resource_attributes", {}).get("service.name")
+    assert "greptimeai" == trace.get("resource_attributes", {}).get("service.name")
+    assert "langchain" == trace.get("span_attributes", {}).get("source")
 
     assert ["llm_start", "llm_end"] == [
         event.get("name") for event in trace.get("span_events", [])

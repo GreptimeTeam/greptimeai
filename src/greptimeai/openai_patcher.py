@@ -33,7 +33,7 @@ def setup(
     token: str = "",
     client: Union[OpenAI, AsyncOpenAI, None] = None,
     options: Options = {},
-) -> Collector:
+):
     """
     patch openai functions automatically.
 
@@ -46,9 +46,7 @@ def setup(
         token: if None or empty string, GREPTIMEAI_TOKEN environment variable will be used.
         client: if None, then openai module-level client will be patched.
     """
-    collector = Collector(
-        service_name="openai", host=host, database=database, token=token
-    )
+    collector = Collector(source="openai", host=host, database=database, token=token)
     patchers: List[Patcher] = [
         _AudioPatcher(collector=collector, client=client),
         _ChatCompletionPatcher(collector=collector, client=client),
@@ -76,4 +74,3 @@ def setup(
         patcher.patch()
 
     logger.info("ready to track openai metrics and traces.")
-    return collector

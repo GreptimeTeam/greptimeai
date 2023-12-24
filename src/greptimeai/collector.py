@@ -15,7 +15,7 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.trace import Span, Status, StatusCode, set_span_in_context
+from opentelemetry.trace import Span, Status, StatusCode, Tracer, set_span_in_context
 from opentelemetry.trace.span import format_span_id, format_trace_id
 from opentelemetry.util.types import Attributes, AttributeValue
 from typing_extensions import override
@@ -24,6 +24,7 @@ from greptimeai import _NAME, _VERSION, logger
 from greptimeai.labels import (
     _COMPLETION_COST_LABEL,
     _COMPLETION_TOKENS_LABEL,
+    _SOURCE_LABEL,
     _PROMPT_COST_LABEl,
     _PROMPT_TOKENS_LABEl,
 )
@@ -325,15 +326,15 @@ class _Observation:
         lst = [(key, attrs[key]) for key in sorted(attrs.keys())]
         return tuple(lst)
 
-    def put(self, val: float, attrs: Optional[Attributes] = None):
+    def put(self, val: float, attributes: Optional[Attributes] = None):
         """
         if attrs is None or empty, nothing will happen
         """
-        if attrs is None or len(attrs) == 0:
-            logger.info(f"None key for { attrs }")
+        if attributes is None or len(attributes) == 0:
+            logger.info(f"None key for { attributes }")
             return
 
-        tuple_key = self._attrs_to_tuple(attrs)
+        tuple_key = self._attrs_to_tuple(attributes)
         self._value.setdefault(tuple_key, 0)
         self._value[tuple_key] += val
 
@@ -353,25 +354,13 @@ class _Observation:
         return callback
 
 
-class Collector:
-    """
-    Collector class is responsible for collecting metrics and traces.
-
-    Args:
-        service_name (str): The name of the service.
-        host (str, optional): The host URL. Defaults to "".
-        database (str, optional): The name of the database. Defaults to "".
-        token (str, optional): The authentication token. Defaults to "".
-    """
-
+class OTel:
     def __init__(
         self,
-        service_name: str,
         host: str = "",
         database: str = "",
         token: str = "",
     ):
-        self.service_name = service_name
         self.host = _prefix_with_scheme_if_not_found(
             _check_with_env("host", host, _GREPTIME_HOST_ENV_NAME, True)
         )
@@ -391,7 +380,7 @@ class Collector:
     def _setup_otel_exporter(self):
         hostname, ip = get_local_hostname_and_ip()
         resource = Resource.create(
-            {SERVICE_NAME: self.service_name, "host.name": hostname, "host.ip": ip}
+            {SERVICE_NAME: _NAME, "host.name": hostname, "host.ip": ip}
         )
         metrics_endpoint = f"{self.host}/v1/otlp/v1/metrics"
         trace_endpoint = f"{self.host}/v1/otlp/v1/traces"
@@ -428,14 +417,19 @@ class Collector:
         trace_provider.add_span_processor(self._span_processor)
         trace.set_tracer_provider(trace_provider)
 
-    def _setup_otel_metrics(self):
-        """
-        setup opentelemetry, and raise Error if something wrong
-        """
         self._tracer = trace.get_tracer(
             instrumenting_module_name=_NAME,
             instrumenting_library_version=_VERSION,
         )
+
+    @property
+    def tracer(self) -> Tracer:
+        return self._tracer
+
+    def _setup_otel_metrics(self):
+        """
+        setup opentelemetry, and raise Error if something wrong
+        """
 
         meter = metrics.get_meter(name=_NAME, version=_VERSION)
 
@@ -467,6 +461,41 @@ class Collector:
             description="completion token cost in US Dollar",
         )
 
+    def _force_flush(self):
+        """
+        DO NOT call this method to flush metrics and traces, this is only for test cases.
+        """
+        self._metric_reader.force_flush()
+        self._span_processor.force_flush()
+
+
+otel: OTel  # only one instance of OTel is allowed
+
+
+class Collector:
+    """
+    Collector class is responsible for collecting metrics and traces.
+
+    Args:
+        source (str): The source of the collector. openai, langchain so far.
+        host (str, optional): The host URL. Defaults to "".
+        database (str, optional): The name of the database. Defaults to "".
+        token (str, optional): The authentication token. Defaults to "".
+    """
+
+    def __init__(
+        self,
+        source: str,
+        host: str = "",
+        database: str = "",
+        token: str = "",
+    ):
+        self.source = source
+
+        global otel
+        if not otel:
+            otel = OTel(host=host, database=database, token=token)
+
     def start_span(
         self,
         span_id: Union[UUID, str, None],  # uuid is from langchain
@@ -489,17 +518,21 @@ class Collector:
         Returns:
 
             Tuple of trace_id and span_id.
-            And the returned span_id is to help retrieve the span_context from self._span_tables
+            And the returned span_id is to help retrieve the span_context from otel._span_tables
 
         """
+        span_attrs = span_attrs or {}
+        event_attrs = event_attrs or {}
         span_id = str(span_id) if span_id else None
         parent_id = str(parent_id) if parent_id else None
         logger.debug(f"start span for {span_name=} with {span_id=} or {parent_id=}")
-        span_attributes = _sanitate_attributes(span_attrs)
+        span_attributes = _sanitate_attributes(
+            {_SOURCE_LABEL: self.source, **span_attrs}
+        )
         event_attributes = _sanitate_attributes(event_attrs)
 
         def _do_start_span(ctx: Optional[Context] = None) -> Tuple[str, str]:
-            span = self._tracer.start_span(
+            span = otel.tracer.start_span(
                 span_name, context=ctx, attributes=span_attributes
             )
             span.add_event(event_name, attributes=event_attributes)
@@ -513,7 +546,7 @@ class Collector:
             otel_span_id = format_span_id(span_context.span_id)
 
             final_span_id = str(span_id) if span_id else otel_span_id
-            self._span_tables.put_span_context(final_span_id, trace_context)
+            otel._span_tables.put_span_context(final_span_id, trace_context)
             return otel_trace_id, final_span_id
 
         # start span and let otel generate the trace id and span id
@@ -521,7 +554,7 @@ class Collector:
             return _do_start_span(None)
 
         if parent_id:  # if parent_id, then start a child span
-            span_context = self._span_tables.get_span_context(parent_id)
+            span_context = otel._span_tables.get_span_context(parent_id)
             if span_context:
                 return _do_start_span(span_context.set_self_as_current())
             else:
@@ -532,7 +565,7 @@ class Collector:
         else:
             # span_context may exist for the same run_id in LangChain. For Example:
             # different Chain triggered in the same trace may have the same run_id.
-            span_context = self._span_tables.get_span_context(span_id)
+            span_context = otel._span_tables.get_span_context(span_id)
             if span_context:
                 return _do_start_span(span_context.set_self_as_current())
             else:
@@ -546,7 +579,7 @@ class Collector:
         """
         logger.debug(f"add event for {event_name} with {span_id=}")
         attrs = _sanitate_attributes(event_attrs)
-        context = self._span_tables.get_span_context(str(span_id))
+        context = otel._span_tables.get_span_context(str(span_id))
         if context:
             context.span.add_event(event_name, attributes=attrs)
         else:
@@ -561,13 +594,17 @@ class Collector:
         event_attrs: Dict[str, Any] = {},
         ex: Optional[BaseException] = None,
     ):
+        span_attrs = span_attrs or {}
+        event_attrs = event_attrs or {}
         span_id = str(span_id) if span_id else None
         logger.debug(f"end span for {span_name} with {span_id=}")
 
-        span_attributes = _sanitate_attributes(span_attrs)
+        span_attributes = _sanitate_attributes(
+            {_SOURCE_LABEL: self.source, **span_attrs}
+        )
         event_attributes = _sanitate_attributes(event_attrs)
 
-        context = self._span_tables.pop_span_context(span_id, span_name)
+        context = otel._span_tables.pop_span_context(span_id, span_name)
         logger.debug(f"end span for {span_id=} {span_name=} with {context=}")
         if context and context.span:
             span = context.span
@@ -617,17 +654,20 @@ class Collector:
         completion_cost: float,
         attrs: Optional[Attributes] = None,
     ):
+        attrs = attrs or {}
+        attributes = {_SOURCE_LABEL: self.source, **attrs}
+
         if prompt_tokens:
-            self._prompt_tokens_count.add(prompt_tokens, attrs)
+            otel._prompt_tokens_count.add(prompt_tokens, attributes=attributes)
 
         if prompt_cost:
-            self._prompt_cost.put(prompt_cost, attrs)
+            otel._prompt_cost.put(prompt_cost, attributes=attributes)
 
         if completion_tokens:
-            self._completion_tokens_count.add(completion_tokens, attrs)
+            otel._completion_tokens_count.add(completion_tokens, attributes=attributes)
 
         if completion_cost:
-            self._completion_cost.put(completion_cost, attrs)
+            otel._completion_cost.put(completion_cost, attributes=attributes)
 
     def start_latency(self, span_id: Union[UUID, str], span_name: Optional[str]):
         """
@@ -636,7 +676,7 @@ class Collector:
 
         NOTE: end_latency MUST BE called to revoke the key in duration table.
         """
-        self._duration_tables.set(span_id, span_name)
+        otel._duration_tables.set(span_id, span_name)
 
     def end_latency(
         self,
@@ -644,11 +684,11 @@ class Collector:
         span_name: Optional[str],
         attributes: Dict[str, Any],
     ):
-        latency = self._duration_tables.latency_in_ms(span_id, span_name)
+        latency = otel._duration_tables.latency_in_ms(span_id, span_name)
         self.record_latency(latency, attributes)
 
     def record_latency(
-        self, latency: Union[None, int, float], attributes: Optional[Attributes] = None
+        self, latency: Union[None, int, float], attrs: Optional[Attributes] = None
     ):
         """
         directly record latency in millisecond
@@ -658,26 +698,22 @@ class Collector:
             latency: millisecond unit
         """
         if latency:
-            self._requests_duration_histogram.record(latency, attributes)
+            attrs = attrs or {}
+            attributes = {_SOURCE_LABEL: self.source, **attrs}
+
+            otel._requests_duration_histogram.record(latency, attributes)
         else:
             logger.warning(
-                f"latency won't be recorded for None value. attribute is: { attributes }"
+                f"latency won't be recorded for None value. attribute is: { attrs }"
             )
 
     def discard_latency(self, span_id: Union[UUID, str], span_name: Optional[str]):
-        self._duration_tables.latency_in_ms(span_id, span_name)
+        otel._duration_tables.latency_in_ms(span_id, span_name)
 
     def get_model_in_context(self, span_id: Union[UUID, str]) -> Optional[str]:
-        context = self._span_tables.get_span_context(str(span_id))
+        context = otel._span_tables.get_span_context(str(span_id))
 
         if context:
             return context.model
 
         return None
-
-    def _force_flush(self):
-        """
-        DO NOT call this method to flush metrics and traces, this is only for test cases.
-        """
-        self._metric_reader.force_flush()
-        self._span_processor.force_flush()

@@ -3,8 +3,10 @@ import uuid
 
 import pytest
 
+from greptimeai.collector import otel
+
 from ..database.db import get_trace_data, truncate_tables
-from . import async_client, async_collector
+from . import async_client
 
 
 @pytest.fixture
@@ -30,7 +32,7 @@ async def test_chat_completion(_truncate_tables):
     )
     assert resp.choices[0].message.content == "2"
 
-    async_collector._force_flush()
+    otel._force_flush()
 
     trace = get_trace_data(user_id)
     retry = 0
@@ -41,8 +43,9 @@ async def test_chat_completion(_truncate_tables):
 
     assert trace is not None
 
-    assert "openai" == trace.get("resource_attributes", {}).get("service.name")
+    assert "greptimeai" == trace.get("resource_attributes", {}).get("service.name")
     assert "openai_completion" == trace.get("span_name")
+    assert "openai" == trace.get("span_attributes", {}).get("source")
 
     assert ["client.chat.completions.create[async]", "end"] == [
         event.get("name") for event in trace.get("span_events", [])

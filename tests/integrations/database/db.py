@@ -22,6 +22,7 @@ def get_trace_data(user_id: str, span_name: str = "") -> Optional[Dict[str, Any]
     SELECT
     resource_attributes,
     span_name,
+    span_attributes,
     span_events,
     model,
     prompt_tokens,
@@ -37,13 +38,15 @@ def get_trace_data(user_id: str, span_name: str = "") -> Optional[Dict[str, Any]
         trace = cursor.fetchone()
         if not trace:
             return None
+
         return {
             "resource_attributes": json.loads(trace[0]),
             "span_name": trace[1],
-            "span_events": json.loads(trace[2]),
-            "model": trace[3],
-            "prompt_tokens": trace[4],
-            "completion_tokens": trace[5],
+            "span_attributes": json.loads(trace[2]),
+            "span_events": json.loads(trace[3]),
+            "model": trace[4],
+            "prompt_tokens": trace[5],
+            "completion_tokens": trace[6],
         }
 
 

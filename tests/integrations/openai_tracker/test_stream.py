@@ -6,10 +6,11 @@ import pytest
 from openai.types.chat import ChatCompletionMessageParam
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 
+from greptimeai.collector import otel
 from greptimeai.utils.openai.token import num_tokens_from_messages
 
 from ..database.db import get_trace_data, truncate_tables
-from . import sync_client, sync_collector
+from . import sync_client
 
 
 @pytest.fixture
@@ -49,7 +50,7 @@ def test_chat_completion(_truncate_tables):
 
     completion_tokens_num = num_tokens_from_messages(ans or "")
 
-    sync_collector._force_flush()
+    otel._force_flush()
 
     trace = get_trace_data(user_id)
     retry = 0
@@ -60,8 +61,9 @@ def test_chat_completion(_truncate_tables):
 
     assert trace is not None
 
-    assert "openai" == trace.get("resource_attributes", {}).get("service.name")
+    assert "greptimeai" == trace.get("resource_attributes", {}).get("service.name")
     assert "openai_completion" == trace.get("span_name")
+    assert "openai" == trace.get("span_attributes", {}).get("source")
 
     assert {"client.chat.completions.create", "stream", "end"} == {
         event.get("name") for event in trace.get("span_events", [])

@@ -86,7 +86,7 @@ def _end_collect(
 
     collector.collect_metrics(span_attrs=span_attrs, attrs=attrs)
 
-    collector.record_latency(latency, attributes=attrs)
+    collector.record_latency(latency, attrs=attrs)
 
     collector.end_span(
         span_id=span_id,

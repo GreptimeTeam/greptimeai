@@ -62,7 +62,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
         verbose: bool = True,
     ):
         self.collector = Collector(
-            service_name="langchain", host=host, database=database, token=token
+            source="langchain", host=host, database=database, token=token
         )
         self._verbose = verbose
 

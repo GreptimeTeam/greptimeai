@@ -117,7 +117,7 @@ class _OpenaiPatcher(Patcher):
         if model:
             attrs[_MODEL_LABEL] = model
 
-        self.collector.record_latency(latency, attributes=attrs)
+        self.collector.record_latency(latency, attrs=attrs)
         self.collector.end_span(
             span_id=span_id,
             span_name=span_name,
