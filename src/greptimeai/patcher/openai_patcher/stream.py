@@ -50,7 +50,7 @@ def _collect_stream_item(
 
     model_name = event_attrs.get("model", "")
     tokens = _extract_tokens(item)
-    collector._collector.add_span_event(
+    collector.add_span_event(
         span_id=span_id,
         event_name=event_name,
         event_attrs=event_attrs,
@@ -86,11 +86,12 @@ def _end_collect(
 
     collector.collect_metrics(span_attrs=span_attrs, attrs=attrs)
 
-    collector._collector.record_latency(latency, attributes=attrs)
+    collector.record_latency(latency, attrs=attrs)
 
     collector.end_span(
         span_id=span_id,
         span_name=span_name,
+        event_name="end",
         span_attrs=span_attrs,
         event_attrs={},
     )

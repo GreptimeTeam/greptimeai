@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from greptimeai.collector.collection import (
+from greptimeai.collector import (
     _JSON_KEYS_IN_OTLP_ATTRIBUTES,
     _check_with_env,
     _extract_token,

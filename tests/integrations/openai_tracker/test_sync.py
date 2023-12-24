@@ -3,10 +3,10 @@ import uuid
 
 import pytest
 
-from greptimeai.openai_patcher import _collector
+from greptimeai import collector
 
 from ..database.db import get_trace_data, truncate_tables
-from ..openai_tracker import client
+from . import sync_client
 
 
 @pytest.fixture
@@ -18,7 +18,7 @@ def _truncate_tables():
 def test_chat_completion(_truncate_tables):
     user_id = str(uuid.uuid4())
     model = "gpt-3.5-turbo"
-    resp = client.chat.completions.create(
+    resp = sync_client.chat.completions.create(
         messages=[
             {
                 "role": "user",
@@ -31,7 +31,7 @@ def test_chat_completion(_truncate_tables):
     )
     assert resp.choices[0].message.content == "2"
 
-    _collector._collector._force_flush()
+    collector.otel._force_flush()
 
     trace = get_trace_data(user_id)
     retry = 0
@@ -42,8 +42,9 @@ def test_chat_completion(_truncate_tables):
 
     assert trace is not None
 
-    assert "openai" == trace.get("resource_attributes", {}).get("service.name")
+    assert "greptimeai" == trace.get("resource_attributes", {}).get("service.name")
     assert "openai_completion" == trace.get("span_name")
+    assert "openai" == trace.get("span_attributes", {}).get("source")
 
     assert ["client.chat.completions.create", "end"] == [
         event.get("name") for event in trace.get("span_events", [])

@@ -10,6 +10,12 @@ _PROMPT_COST_LABEl = "prompt_cost"
 _COMPLETION_TOKENS_LABEL = "completion_tokens"
 _COMPLETION_COST_LABEL = "completion_cost"
 
+# field in metric table, and field in span_attributes in trace table.
+# so far:
+#   - openai
+#   - langchain
+_SOURCE_LABEL = "source"
+
 # the following labels are for traces, not for metrics
 _INPUT_DISPLAY_LABEL = "inputs"  # for DISPLAY, DO NOT USE IT FOR ANYTHING ELSE
 _OUTPUT_DISPLAY_LABEL = "outputs"  # for DISPLAY, DO NOT USE IT FOR ANYTHING ELSE

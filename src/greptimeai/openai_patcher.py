@@ -18,8 +18,6 @@ from greptimeai.patcher.openai_patcher.base import (
 )
 from greptimeai.patcher.openai_patcher.retry import _RetryPatcher
 
-_collector: Collector
-
 
 class Options(TypedDict, total=False):
     file: bool
@@ -48,32 +46,29 @@ def setup(
         token: if None or empty string, GREPTIMEAI_TOKEN environment variable will be used.
         client: if None, then openai module-level client will be patched.
     """
-    global _collector
-    _collector = Collector(
-        service_name="openai", host=host, database=database, token=token
-    )
+    collector = Collector(source="openai", host=host, database=database, token=token)
     patchers: List[Patcher] = [
-        _AudioPatcher(collector=_collector, client=client),
-        _ChatCompletionPatcher(collector=_collector, client=client),
-        _CompletionPatcher(collector=_collector, client=client),
-        _ImagePatcher(collector=_collector, client=client),
-        _RetryPatcher(collector=_collector, client=client),
+        _AudioPatcher(collector=collector, client=client),
+        _ChatCompletionPatcher(collector=collector, client=client),
+        _CompletionPatcher(collector=collector, client=client),
+        _ImagePatcher(collector=collector, client=client),
+        _RetryPatcher(collector=collector, client=client),
     ]
 
     if options.get("file", False):
-        patchers.append(_FilePatcher(collector=_collector, client=client))
+        patchers.append(_FilePatcher(collector=collector, client=client))
 
     if options.get("fine_tuning", False):
-        patchers.append(_FineTuningPatcher(collector=_collector, client=client))
+        patchers.append(_FineTuningPatcher(collector=collector, client=client))
 
     if options.get("model", False):
-        patchers.append(_ModelPatcher(collector=_collector, client=client))
+        patchers.append(_ModelPatcher(collector=collector, client=client))
 
     if options.get("embedding", False):
-        patchers.append(_EmbeddingPatcher(collector=_collector, client=client))
+        patchers.append(_EmbeddingPatcher(collector=collector, client=client))
 
     if options.get("moderation", False):
-        patchers.append(_ModerationPatcher(collector=_collector, client=client))
+        patchers.append(_ModerationPatcher(collector=collector, client=client))
 
     for patcher in patchers:
         patcher.patch()

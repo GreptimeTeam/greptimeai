@@ -89,6 +89,8 @@ class _OpenaiPatcher(Patcher):
             )
 
         trace_id, span_id = self.collector.start_span(
+            span_id=None,
+            parent_id=None,
             span_name=patchee.span_name,
             event_name=patchee.event_name,
             span_attrs=extraction.span_attributes,
@@ -115,10 +117,11 @@ class _OpenaiPatcher(Patcher):
         if model:
             attrs[_MODEL_LABEL] = model
 
-        self.collector._collector.record_latency(latency, attributes=attrs)
+        self.collector.record_latency(latency, attrs=attrs)
         self.collector.end_span(
             span_id=span_id,
             span_name=span_name,
+            event_name="end",
             span_attrs=extraction.span_attributes,
             event_attrs=extraction.event_attributes,
             ex=ex,
