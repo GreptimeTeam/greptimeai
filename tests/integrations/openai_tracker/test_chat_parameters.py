@@ -118,7 +118,8 @@ def test_chat_completion_stop(_truncate_tables):
         seed=1,
     )
 
-    assert stop not in resp.choices[0].message.content
+    content = resp.choices[0].message.content or stop
+    assert stop not in content
 
     collector.otel._force_flush()
 
