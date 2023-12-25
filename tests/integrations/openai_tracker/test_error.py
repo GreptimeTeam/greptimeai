@@ -1,7 +1,9 @@
+import os
 import uuid
 
 import pytest
-from openai._exceptions import APITimeoutError, NotFoundError, AuthenticationError
+from openai._exceptions import NotFoundError, AuthenticationError
+from openai._base_client import APITimeoutError
 
 
 from greptimeai import collector
@@ -16,6 +18,7 @@ def _truncate_tables():
 
 
 def test_chat_completion_error_timeout(_truncate_tables):
+    # timeout
     user_id = str(uuid.uuid4())
     model = "gpt-3.5-turbo"
     try:
@@ -57,6 +60,7 @@ def test_chat_completion_error_timeout(_truncate_tables):
 
 
 def test_chat_completion_error_not_found(_truncate_tables):
+    # wrong model
     user_id = str(uuid.uuid4())
     wrong_model = "gpt-3.5-turbo________"
     try:
@@ -97,10 +101,10 @@ def test_chat_completion_error_not_found(_truncate_tables):
 
 
 def test_chat_completion_error_type(_truncate_tables):
+    # no messages or model
     user_id = str(uuid.uuid4())
     try:
         sync_client.chat.completions.create(
-            # no messages or model
             user=user_id,
             seed=1,
         )
@@ -130,10 +134,10 @@ def test_chat_completion_error_type(_truncate_tables):
 
 
 def test_chat_completion_error_authentication(_truncate_tables):
-    user_id = str(uuid.uuid4())
-    model = "gpt-3.5-turbo"
     # wrong OPENAI_API_KEY
     sync_client.api_key = "xxx"
+    user_id = str(uuid.uuid4())
+    model = "gpt-3.5-turbo"
     try:
         sync_client.chat.completions.create(
             messages=[
@@ -170,4 +174,4 @@ def test_chat_completion_error_authentication(_truncate_tables):
             assert attrs["exception.type"] == "AuthenticationError"
             assert "invalid_api_key" in attrs["exception.message"]
 
-    sync_client.api_key = None
+    sync_client.api_key = os.environ.get("OPENAI_API_KEY") or ''
