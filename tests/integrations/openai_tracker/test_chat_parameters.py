@@ -1,5 +1,4 @@
 import uuid
-import re
 
 import pytest
 
