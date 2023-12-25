@@ -38,7 +38,7 @@ async def test_chat_completion_no_stream(_truncate_tables):
 
     collector.otel._force_flush()
 
-    trace = get_trace_data_with_retry(user_id, "openai_llm", 3)
+    trace = get_trace_data_with_retry(user_id=user_id, retry=3)
 
     assert trace is not None
 
@@ -91,7 +91,7 @@ async def test_chat_completion_stream(_truncate_tables):
 
     collector.otel._force_flush()
 
-    trace = get_trace_data_with_retry(user_id, "openai_llm", 3)
+    trace = get_trace_data_with_retry(user_id=user_id, retry=3)
 
     assert trace is not None
 
@@ -128,7 +128,7 @@ async def test_chat_completion_with_raw_response(_truncate_tables):
 
     collector.otel._force_flush()
 
-    trace = get_trace_data_with_retry(user_id, "openai_llm", 3)
+    trace = get_trace_data_with_retry(user_id=user_id, retry=3)
 
     assert trace is not None
 
