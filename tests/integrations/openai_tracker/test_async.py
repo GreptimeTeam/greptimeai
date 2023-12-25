@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 from typing import List
@@ -8,8 +9,6 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 
 from greptimeai import collector
 from greptimeai.utils.openai.token import num_tokens_from_messages
-from ..database.db import get_trace_data, truncate_tables
-from . import async_client
 from ..database.db import truncate_tables, get_trace_data_with_retry
 from ..openai_tracker import async_client
 
@@ -20,8 +19,15 @@ def _truncate_tables():
     yield
 
 
+@pytest.fixture
+def _loop():
+    loop = asyncio.get_event_loop()
+    yield loop
+    loop.close()
+
+
 @pytest.mark.asyncio
-async def test_chat_completion_no_stream(_truncate_tables):
+async def test_chat_completion_no_stream(_loop, _truncate_tables):
     user_id = str(uuid.uuid4())
     model = "gpt-3.5-turbo"
     resp = await async_client.chat.completions.create(
@@ -60,7 +66,7 @@ async def test_chat_completion_no_stream(_truncate_tables):
 
 
 @pytest.mark.asyncio
-async def test_chat_completion_stream(_truncate_tables):
+async def test_chat_completion_stream(_loop, _truncate_tables):
     user_id = str(uuid.uuid4())
     msg: List[ChatCompletionMessageParam] = [
         {
@@ -101,8 +107,7 @@ async def test_chat_completion_stream(_truncate_tables):
     assert "openai_completion" == trace.get("span_name")
     assert "openai" == trace.get("span_attributes", {}).get("source")
 
-
-    assert {"client.chat.completions.create[async]", "stream", "end"} == {
+    assert {"client.chat.completions.create[async]", "retry","stream", "end"} == {
         event.get("name") for event in trace.get("span_events", [])
     }
 
@@ -113,7 +118,7 @@ async def test_chat_completion_stream(_truncate_tables):
 
 
 @pytest.mark.asyncio
-async def test_chat_completion_with_raw_response(_truncate_tables):
+async def test_chat_completion_with_raw_response(_loop, _truncate_tables):
     user_id = str(uuid.uuid4())
     model = "gpt-3.5-turbo"
     resp = await async_client.with_raw_response.chat.completions.create(
@@ -139,9 +144,11 @@ async def test_chat_completion_with_raw_response(_truncate_tables):
     assert "greptimeai" == trace.get("resource_attributes", {}).get("service.name")
     assert "openai_completion" == trace.get("span_name")
     assert "openai" == trace.get("span_attributes", {}).get("source")
-    assert ["client.with_raw_response.chat.completions.create[async]", "end"] == [
-        event.get("name") for event in trace.get("span_events", [])
-    ]
+    assert [
+        "client.with_raw_response.chat.completions.create[async]",
+        "retry",
+        "end",
+    ] == [event.get("name") for event in trace.get("span_events", [])]
 
     assert data["model"] == trace.get("model")
     assert data["model"].startswith(model)

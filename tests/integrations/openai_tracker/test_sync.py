@@ -1,5 +1,4 @@
 import json
-import time
 import uuid
 from typing import List
 
@@ -8,12 +7,9 @@ from openai.types.chat import ChatCompletionMessageParam
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 
 from greptimeai import collector
-
-from ..database.db import get_trace_data, truncate_tables
-from . import sync_client
 from greptimeai.utils.openai.token import num_tokens_from_messages
+from . import sync_client
 from ..database.db import truncate_tables, get_trace_data_with_retry
-
 
 
 @pytest.fixture
@@ -97,8 +93,9 @@ def test_chat_completion_stream(_truncate_tables):
 
     assert trace is not None
 
-    assert "openai" == trace.get("resource_attributes", {}).get("service.name")
+    assert "greptimeai" == trace.get("resource_attributes", {}).get("service.name")
     assert "openai_completion" == trace.get("span_name")
+    assert "openai" == trace.get("span_attributes", {}).get("source")
 
     assert {"client.chat.completions.create", "stream", "end"} == {
         event.get("name") for event in trace.get("span_events", [])
@@ -133,8 +130,9 @@ def test_chat_completion_with_raw_response(_truncate_tables):
 
     assert trace is not None
 
-    assert "openai" == trace.get("resource_attributes", {}).get("service.name")
+    assert "greptimeai" == trace.get("resource_attributes", {}).get("service.name")
     assert "openai_completion" == trace.get("span_name")
+    assert "openai" == trace.get("span_attributes", {}).get("source")
     assert ["client.with_raw_response.chat.completions.create", "end"] == [
         event.get("name") for event in trace.get("span_events", [])
     ]
