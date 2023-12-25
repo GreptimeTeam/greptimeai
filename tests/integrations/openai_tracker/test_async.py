@@ -80,7 +80,7 @@ async def test_chat_completion_stream(_truncate_tables):
 
     ans = ""
     model = ""
-    for item in resp:
+    async for item in resp:
         if isinstance(item, ChatCompletionChunk):
             model = item.model
             for choice in item.choices:
@@ -102,7 +102,7 @@ async def test_chat_completion_stream(_truncate_tables):
     assert "openai" == trace.get("span_attributes", {}).get("source")
 
 
-    assert {"client.chat.completions.create", "stream", "end"} == {
+    assert {"client.chat.completions.create[async]", "stream", "end"} == {
         event.get("name") for event in trace.get("span_events", [])
     }
 
@@ -139,7 +139,7 @@ async def test_chat_completion_with_raw_response(_truncate_tables):
     assert "greptimeai" == trace.get("resource_attributes", {}).get("service.name")
     assert "openai_completion" == trace.get("span_name")
     assert "openai" == trace.get("span_attributes", {}).get("source")
-    assert ["client.with_raw_response.chat.completions.create", "end"] == [
+    assert ["client.with_raw_response.chat.completions.create[async]", "end"] == [
         event.get("name") for event in trace.get("span_events", [])
     ]
 
