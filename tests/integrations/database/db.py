@@ -79,7 +79,7 @@ def truncate_tables():
 
 
 def get_trace_data_with_retry(
-    user_id: str, span_name: Optional[str] = "", retry: int = 3
+    user_id: str, span_name: str = "", retry: int = 3
 ) -> Optional[Dict[str, Any]]:
     trace = get_trace_data(user_id, span_name)
     count = 0
