@@ -1,4 +1,5 @@
 import uuid
+import re
 
 import pytest
 
@@ -14,6 +15,7 @@ def _truncate_tables():
 
 
 def get_lowercase_letters(letters: str) -> str:
+    letters = re.sub("[^a-zA-Z]", "", letters)
     return letters.lower()
 
 
@@ -165,7 +167,6 @@ def test_chat_completion_tool_call(_truncate_tables):
     resp = sync_client.chat.completions.create(
         messages=[
             {"role": "user", "content": "GREPTIMEAI"},
-            {"role": "system", "content": "do not output punctuation and line breaks"},
             {"role": "function", "name": "get_lowercase_letters", "content": "letters"},
         ],
         model=model,
