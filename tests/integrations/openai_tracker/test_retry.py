@@ -14,7 +14,7 @@ def _truncate_tables():
     yield
 
 
-def test_chat_completion(_truncate_tables):
+def test_chat_completion_retry(_truncate_tables):
     user_id = str(uuid.uuid4())
     model = "gpt-3.5-turbo"
     try:
