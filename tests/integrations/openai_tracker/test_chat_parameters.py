@@ -170,6 +170,7 @@ def test_chat_completion_tool_call(_truncate_tables):
             },
             {"role": "function", "name": "get_lowercase_letters", "content": "letters"},
         ],
+        stop="\n",
         model=model,
         user=user_id,
         seed=1,
