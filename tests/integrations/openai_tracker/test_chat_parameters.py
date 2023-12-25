@@ -164,33 +164,32 @@ def test_chat_completion_tool_call(_truncate_tables):
     model = "gpt-3.5-turbo"
     resp = sync_client.chat.completions.create(
         messages=[
-            {
-                "role": "user",
-                "content": "GREPTIMEAI",
-            },
+            {"role": "user", "content": "GREPTIMEAI"},
+            {"role": "system", "content": "do not output punctuation and line breaks"},
             {"role": "function", "name": "get_lowercase_letters", "content": "letters"},
         ],
-        stop="\n",
         model=model,
         user=user_id,
         seed=1,
-        tools=[{
-            "type": "function",
-            "function": {
-                "description": "get lowercase letters",
-                "name": "get_lowercase_letters",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "letters": {
-                            "type": "string",
-                            "description": "uppercase letters"
-                        }
+        tools=[
+            {
+                "type": "function",
+                "function": {
+                    "description": "get lowercase letters",
+                    "name": "get_lowercase_letters",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "letters": {
+                                "type": "string",
+                                "description": "uppercase letters",
+                            }
+                        },
+                        "required": ["letters"],
                     },
-                    "required": ["letters"]
-                }
+                },
             }
-        }],
+        ],
         tool_choice="auto",
     )
 
