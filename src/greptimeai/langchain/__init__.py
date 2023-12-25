@@ -74,27 +74,26 @@ def _parse_output(raw_output: dict) -> Any:
     )
 
 
-def _parse_generation(gen: Generation) -> Optional[Dict[str, Any]]:
-    """
-    Generation, or ChatGeneration (which contains message field)
-    """
-    if not gen:
-        return None
+def _str_generations(gens: Sequence[Generation]) -> str:
+    def _str_generation(gen: Generation) -> Optional[str]:
+        """
+        Generation, or ChatGeneration (which contains message field)
+        """
+        if not gen:
+            return None
 
-    info = gen.generation_info or {}
-    attrs = {
-        "text": gen.text,
-        # the following is OpenAI only?
-        "finish_reason": info.get("finish_reason"),
-        "log_probability": info.get("logprobs"),
-    }
+        info = gen.generation_info or {}
+        reason = info.get("finish_reason")
+        if reason in ["function_call", "tool_calls"] and isinstance(
+            gen, ChatGeneration
+        ):
+            kwargs = gen.message.additional_kwargs
+            return f"{reason}: kwargs={kwargs}"
+        else:
+            return gen.text
 
-    if isinstance(gen, ChatGeneration):
-        message: BaseMessage = gen.message
-        attrs["additional_kwargs"] = message.additional_kwargs
-        attrs["type"] = message.type
-
-    return attrs
+    texts = list(filter(None, [_str_generation(gen) for gen in gens]))
+    return "\n".join(texts)
 
 
 def _parse_generations(
@@ -103,8 +102,33 @@ def _parse_generations(
     """
     parse LLMResult.generations[0] to structured fields
     """
+
+    def _parse_generation(gen: Generation) -> Optional[Dict[str, Any]]:
+        """
+        Generation, or ChatGeneration (which contains message field)
+        """
+        if not gen:
+            return None
+
+        gen.to_json()
+
+        info = gen.generation_info or {}
+        attrs = {
+            "text": gen.text,
+            # the following is OpenAI only?
+            "finish_reason": info.get("finish_reason"),
+            "log_probability": info.get("logprobs"),
+        }
+
+        if isinstance(gen, ChatGeneration):
+            message: BaseMessage = gen.message
+            attrs["additional_kwargs"] = message.additional_kwargs
+            attrs["type"] = message.type
+
+        return attrs
+
     if gens and len(gens) > 0:
-        return list(filter(None, [_parse_generation(gen) for gen in gens if gen]))
+        return list(filter(None, [_parse_generation(gen) for gen in gens]))
 
     return None
 
