@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from typing import Any, Dict, Optional
 
 import pymysql
@@ -75,3 +76,15 @@ def truncate_tables():
         else:
             logger.error(e)
             connection.rollback()
+
+
+def get_trace_data_with_retry(
+    user_id: str, span_name: str = "", retry: int = 3
+) -> Optional[Dict[str, Any]]:
+    trace = get_trace_data(user_id, span_name)
+    count = 0
+    while count < retry and not trace:
+        count += 1
+        time.sleep(2)
+        trace = get_trace_data(user_id, span_name)
+    return trace

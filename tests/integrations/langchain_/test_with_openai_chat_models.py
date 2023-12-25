@@ -1,4 +1,3 @@
-import time
 import uuid
 
 import pytest
@@ -8,8 +7,7 @@ from langchain.prompts import PromptTemplate
 
 from greptimeai import collector
 from greptimeai.langchain.callback import GreptimeCallbackHandler
-
-from ..database.db import get_trace_data, truncate_tables
+from ..database.db import truncate_tables, get_trace_data_with_retry
 
 
 @pytest.fixture
@@ -32,12 +30,7 @@ def test_chat(_truncate_tables):
 
     collector.otel._force_flush()
 
-    trace = get_trace_data(user_id=user_id, span_name="langchain_llm")
-    retry = 0
-    while retry < 3 and not trace:
-        retry += 1
-        time.sleep(2)
-        trace = get_trace_data(user_id=user_id, span_name="langchain_llm")
+    trace = get_trace_data_with_retry(user_id, "langchain_llm", 3)
 
     assert trace is not None
 
