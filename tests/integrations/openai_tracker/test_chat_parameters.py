@@ -13,14 +13,11 @@ def _truncate_tables():
     yield
 
 
-def get_lowercase_letters(letters: str) -> str:
-    return letters.lower()
-
-
 def test_chat_completion_n_gt_1(_truncate_tables):
     user_id = str(uuid.uuid4())
     model = "gpt-3.5-turbo"
     n = 2
+
     resp = sync_client.chat.completions.create(
         n=n,
         messages=[
@@ -70,6 +67,7 @@ def test_chat_completion_max_tokens(_truncate_tables):
     user_id = str(uuid.uuid4())
     model = "gpt-3.5-turbo"
     max_tokens = 3
+
     resp = sync_client.chat.completions.create(
         max_tokens=max_tokens,
         messages=[
@@ -119,6 +117,7 @@ def test_chat_completion_stop(_truncate_tables):
     user_id = str(uuid.uuid4())
     model = "gpt-3.5-turbo"
     stop = "0"
+
     resp = sync_client.chat.completions.create(
         stop=stop,
         messages=[
@@ -172,6 +171,10 @@ def test_chat_completion_stop(_truncate_tables):
 def test_chat_completion_tool_call(_truncate_tables):
     user_id = str(uuid.uuid4())
     model = "gpt-3.5-turbo"
+
+    def get_lowercase_letters(letters: str) -> str:
+        return letters.lower()
+
     resp = sync_client.chat.completions.create(
         messages=[
             {"role": "user", "content": "GREPTIMEAI"},
@@ -202,8 +205,10 @@ def test_chat_completion_tool_call(_truncate_tables):
         tool_choice="auto",
     )
 
-    assert (resp.choices[0].message.content and
-            resp.choices[0].message.content.strip() == "greptimeai")
+    assert (
+        resp.choices[0].message.content
+        and resp.choices[0].message.content.strip() == "greptimeai"
+    )
 
     collector.otel._force_flush()
 
