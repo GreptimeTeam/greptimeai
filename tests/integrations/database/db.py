@@ -29,7 +29,7 @@ def get_trace_data(user_id: str, span_name: str = "") -> Optional[Dict[str, Any]
     prompt_tokens,
     completion_tokens
     FROM {Tables.llm_trace}
-    WHERE user_id = '{user_id}'
+    WHERE user_id like '%{user_id}'
     """
     if span_name:
         sql += f" AND span_name = '{span_name}'"
