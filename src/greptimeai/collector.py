@@ -29,6 +29,7 @@ from greptimeai.labels import (
     _PROMPT_TOKENS_LABEl,
 )
 from greptimeai.utils._socket import get_local_hostname_and_ip
+from greptimeai.utils.json_encoder import CustomEncoder
 
 _JSON_KEYS_IN_OTLP_ATTRIBUTES = "otlp_json_keys"
 
@@ -104,7 +105,7 @@ def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Dict[str, Attribute
 
     def _json_dumps(val: Any) -> str:
         try:
-            return json.dumps(val)
+            return json.dumps(val,cls=CustomEncoder)
         except Exception as e:
             logger.error(f"failed to json.dumps { val } with { e }")
             return str(val)
