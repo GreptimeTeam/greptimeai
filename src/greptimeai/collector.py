@@ -201,7 +201,7 @@ class _SpanTable:
 
         context_list = self._spans.get(key, [])
         if len(context_list) == 0:
-            logger.warning(f"get_span_context: { key } not found for { span_name= }")
+            logger.debug(f"get_span_context: { key } not found for { span_name= }")
             return None
 
         if not span_name:
@@ -232,7 +232,7 @@ class _SpanTable:
 
         context_list = self._spans.get(key, [])
         if len(context_list) == 0:
-            logger.warning(f"pop_span_context: { key } not found for { span_name= }")
+            logger.debug(f"pop_span_context: { key } not found for { span_name= }")
             return None
 
         target_context = None

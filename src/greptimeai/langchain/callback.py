@@ -46,6 +46,7 @@ from . import (
     _parse_generations,
     _parse_input,
     _parse_output,
+    _str_generations,
 )
 
 
@@ -271,8 +272,7 @@ class GreptimeCallbackHandler(BaseCallbackHandler):
             if response and len(response.generations) > 0
             else []
         )
-        texts = [generation.text for generation in generations]
-        outputs = " ".join(texts)
+        outputs = _str_generations(generations)
 
         output = response.llm_output or {}
         model_name: Optional[str] = output.get("model_name")
