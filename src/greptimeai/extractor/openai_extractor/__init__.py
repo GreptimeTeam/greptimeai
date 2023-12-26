@@ -223,8 +223,12 @@ class OpenaiExtractor(BaseExtractor):
             if hasattr(resp, "parse"):
                 data = OpenaiExtractor.parse_raw_response(resp)
                 logger.debug(f"after parse_raw_response: {data=}")
-            else:
+            elif hasattr(resp, "model_dump"):
                 data = resp.model_dump(exclude_unset=True)
+            elif hasattr(resp, "text"):
+                data = {"text": resp.text}
+            else:
+                logger.error(f"Failed to post_extract, {resp=}")
         except Exception as e:
             logger.error(f"Failed to extract response {resp}: {e}")
 
