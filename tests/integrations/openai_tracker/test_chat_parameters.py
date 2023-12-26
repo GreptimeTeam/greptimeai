@@ -3,8 +3,9 @@ import uuid
 import pytest
 
 from greptimeai import collector
+
+from ..database.db import get_trace_data_with_retry, truncate_tables
 from . import sync_client
-from ..database.db import truncate_tables, get_trace_data_with_retry
 
 
 @pytest.fixture
@@ -172,13 +173,9 @@ def test_chat_completion_tool_call(_truncate_tables):
     user_id = str(uuid.uuid4())
     model = "gpt-3.5-turbo"
 
-    def get_lowercase_letters(letters: str) -> str:
-        return letters.lower()
-
     resp = sync_client.chat.completions.create(
         messages=[
-            {"role": "user", "content": "GREPTIMEAI"},
-            {"role": "function", "name": "get_lowercase_letters", "content": "letters"},
+            {"role": "user", "content": "what's the lower case of GREPTIMEAI ?"},
         ],
         model=model,
         user=user_id,
@@ -194,7 +191,7 @@ def test_chat_completion_tool_call(_truncate_tables):
                         "properties": {
                             "letters": {
                                 "type": "string",
-                                "description": "uppercase letters",
+                                "description": "words or letters",
                             }
                         },
                         "required": ["letters"],
@@ -202,19 +199,22 @@ def test_chat_completion_tool_call(_truncate_tables):
                 },
             }
         ],
-        tool_choice="auto",
+        tool_choice={"type": "function", "function": {"name": "get_lowercase_letters"}},
     )
 
-    assert (
-        resp.choices[0].message.content
-        and resp.choices[0].message.content.strip() == "greptimeai"
-    )
+    print(f"==== {resp=}")
+
+    tool_calls = resp.choices[0].message.tool_calls
+    assert tool_calls
+    assert len(tool_calls) == 1
+    assert tool_calls[0].function.name == "get_lowercase_letters"
 
     collector.otel._force_flush()
 
     trace = get_trace_data_with_retry(user_id=user_id, retry=3)
 
     assert trace is not None
+    print(f"==== {trace=}")
 
     assert "greptimeai" == trace.get("resource_attributes", {}).get("service.name")
     assert "openai_completion" == trace.get("span_name")

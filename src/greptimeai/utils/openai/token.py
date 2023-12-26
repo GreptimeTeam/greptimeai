@@ -210,14 +210,20 @@ def num_tokens_from_messages(
             f"greptimeai doesn't support the computation of tokens for {model} at this time."
         )
         return 0
+
+    logger.debug(f"num_tokens_from_messages: {messages=}")
     num_tokens = 0
-    for message in messages:
-        num_tokens += tokens_per_message
-        for key, value in message.items():
-            num_tokens += len(encoding.encode(value))
-            if key == "name":
-                num_tokens += tokens_per_name
-    num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
+    try:
+        for message in messages:
+            num_tokens += tokens_per_message
+            for key, value in message.items():
+                num_tokens += len(encoding.encode(value))
+                if key == "name":
+                    num_tokens += tokens_per_name
+        num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
+    except Exception as e:
+        logger.error(f"failed to calculate tokens for message for {e}, {messages=}")
+        return 0
     return num_tokens
 
 
