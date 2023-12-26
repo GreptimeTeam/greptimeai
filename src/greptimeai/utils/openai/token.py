@@ -211,16 +211,23 @@ def num_tokens_from_messages(
         )
         return 0
 
-    logger.debug(f"num_tokens_from_messages: {messages=}")
     num_tokens = 0
     try:
         for message in messages:
             num_tokens += tokens_per_message
-            for key, value in message.items():
-                num_tokens += len(encoding.encode(value))
-                if key == "name":
-                    num_tokens += tokens_per_name
-        num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
+            items = None
+            if isinstance(message, dict):
+                items = message.items()
+            elif hasattr(message, "model_dump"):
+                items = message.model_dump().items()
+
+            if items is not None:
+                for key, value in items:
+                    if value:
+                        num_tokens += len(encoding.encode(str(value)))
+                        if key == "name":
+                            num_tokens += tokens_per_name
+        num_tokens += 3  # every reply is primed with <|im_start|>assistant<|im_sep|>
     except Exception as e:
         logger.error(f"failed to calculate tokens for message for {e}, {messages=}")
         return 0
