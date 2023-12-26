@@ -36,6 +36,7 @@ def test_chat_completion_n_gt_1(_truncate_tables):
 
     assert resp.choices[0].message.content == "2"
     assert len(resp.choices) == n
+    assert resp.choices[1].message.content == "2"
 
     collector.otel._force_flush()
 
@@ -103,6 +104,15 @@ def test_chat_completion_max_tokens(_truncate_tables):
     assert resp.usage.prompt_tokens == trace.get("prompt_tokens")
     assert resp.usage.completion_tokens == trace.get("completion_tokens")
     assert resp.usage.completion_tokens == max_tokens
+
+    for event in trace.get("span_events", []):
+        if event.get("name") == "end":
+            attrs = event.get("attributes")
+            assert attrs
+            assert attrs["choices"]
+            choice = attrs["choices"][0]
+            assert choice
+            assert choice.get("finish_reason") == "length"
 
 
 def test_chat_completion_stop(_truncate_tables):
@@ -192,7 +202,8 @@ def test_chat_completion_tool_call(_truncate_tables):
         tool_choice="auto",
     )
 
-    assert resp.choices[0].message.content == "greptimeai" or "greptimeai\n"
+    assert (resp.choices[0].message.content and
+            resp.choices[0].message.content.strip() == "greptimeai")
 
     collector.otel._force_flush()
 
@@ -225,4 +236,4 @@ def test_chat_completion_tool_call(_truncate_tables):
             assert choice.get("finish_reason") == "tool_calls"
             message = choice.get("message")
             assert message
-            assert message.get("content") == "greptimeai" or "greptimeai\n"
+            assert message.get("content").strip() == "greptimeai"
