@@ -67,6 +67,15 @@ class OpenaiExtractor(BaseExtractor):
             return None
 
     @staticmethod
+    def pop_out_keyword_args(kwargs: Dict[str, Any]):
+        """
+        pop out the keyword args which are not supported by openai
+        """
+        kwargs.pop(_GREPTIMEAI_USER_KEY, None)
+        kwargs.pop(_GREPTIMEAI_TRACE_KEY, None)
+        kwargs.pop(_GREPTIMEAI_SPAN_KEY, None)
+
+    @staticmethod
     def update_trace_info(kwargs: Dict[str, Any], trace_id: str, span_id: str):
         attrs = {
             _EXTRA_HEADERS_X_TRACE_ID_KEY: trace_id,
