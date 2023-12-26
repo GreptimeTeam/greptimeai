@@ -96,7 +96,9 @@ class _OpenaiPatcher(Patcher):
             span_attrs=extraction.span_attributes,
             event_attrs=extraction.event_attributes,
         )
+
         OpenaiExtractor.update_trace_info(kwargs, trace_id, span_id)
+        OpenaiExtractor.pop_out_keyword_args(kwargs)
 
         start = time.time()
         return (extraction, span_id, start, kwargs)
