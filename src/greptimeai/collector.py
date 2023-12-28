@@ -105,7 +105,7 @@ def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Dict[str, Attribute
 
     def _json_dumps(val: Any) -> str:
         try:
-            return json.dumps(val,cls=CustomEncoder)
+            return json.dumps(val, cls=CustomEncoder)
         except Exception as e:
             logger.error(f"failed to json.dumps { val } with { e }")
             return str(val)
@@ -424,7 +424,17 @@ class OTel:
                 timeout=5,
             )
         )
+
         trace_provider.add_span_processor(self._span_processor)
+
+        jaeger_processor = BatchSpanProcessor(
+            OTLPSpanExporter(
+                endpoint="http://localhost:4318/v1/traces",
+                timeout=5,
+            )
+        )
+        trace_provider.add_span_processor(jaeger_processor)
+
         trace.set_tracer_provider(trace_provider)
 
         self._tracer = trace.get_tracer(
