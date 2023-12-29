@@ -35,6 +35,9 @@ _OPENAI_USER_KEY = "user"  # this is the original openai parameter
 
 
 class OpenaiExtractor(BaseExtractor):
+    def __init__(self, tokens_calculation_needed: bool):
+        self.tokens_calculation_needed = tokens_calculation_needed
+
     @staticmethod
     def is_stream(**kwargs) -> bool:
         stream = kwargs.get("stream")
@@ -184,13 +187,15 @@ class OpenaiExtractor(BaseExtractor):
         span_attrs = {}
         if "model" in kwargs:
             model_name = kwargs["model"]
-            tokens = OpenaiExtractor.extract_req_tokens(**kwargs)
-            num = num_tokens_from_messages(tokens or "")
-            cost = get_openai_token_cost_for_model(model_name, num, False)
-
             span_attrs[_MODEL_LABEL] = model_name
-            span_attrs[_PROMPT_TOKENS_LABEl] = num
-            span_attrs[_PROMPT_COST_LABEl] = cost
+
+            if self.tokens_calculation_needed:
+                tokens = OpenaiExtractor.extract_req_tokens(**kwargs)
+                num = num_tokens_from_messages(tokens or "")
+                cost = get_openai_token_cost_for_model(model_name, num, False)
+
+                span_attrs[_PROMPT_TOKENS_LABEl] = num
+                span_attrs[_PROMPT_COST_LABEl] = cost
 
         user_id = OpenaiExtractor.get_user_id(**kwargs)
         if user_id:

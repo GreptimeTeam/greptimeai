@@ -22,7 +22,12 @@ class _RetryPatcher(_OpenaiPatcher):
         if isinstance(client, AsyncOpenAI):
             self._is_async = True
         patchees = RetryPatchees(client=client)
-        super().__init__(collector=collector, patchees=patchees, client=client)
+        super().__init__(
+            tokens_calculation_needed=False,
+            collector=collector,
+            patchees=patchees,
+            client=client,
+        )
 
     def _add_retry_event(self, *args):
         if len(args) > 0 and hasattr(args[0], "model_dump"):

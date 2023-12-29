@@ -33,13 +33,15 @@ from greptimeai.patcher.openai_patcher.stream import AsyncStream_, Stream_
 class _OpenaiPatcher(Patcher):
     def __init__(
         self,
+        tokens_calculation_needed: bool,
         patchees: OpenaiPatchees,  # specify what methods to be patched
         collector: Collector,  # collect metrics and traces
         extractor: Optional[OpenaiExtractor] = None,  # extract info from req and resp
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
+        self.tokens_calculation_needed = tokens_calculation_needed
         self.collector = collector
-        self.extractor = extractor or OpenaiExtractor()
+        self.extractor = extractor or OpenaiExtractor(tokens_calculation_needed)
         self._is_async = False
         if isinstance(client, AsyncOpenAI):
             self._is_async = True
@@ -76,7 +78,7 @@ class _OpenaiPatcher(Patcher):
 
         # if stream, the usage won't be included in the resp,
         # so we need to extract and collect it from req for best.
-        if OpenaiExtractor.is_stream(**kwargs):
+        if self.tokens_calculation_needed and OpenaiExtractor.is_stream(**kwargs):
             model_name = extraction.get_model_name() or ""
             num = extraction.span_attributes.get(_PROMPT_TOKENS_LABEl, 0)
             cost = extraction.span_attributes.get(_PROMPT_COST_LABEl, 0.0)
@@ -226,7 +228,12 @@ class _AudioPatcher(_OpenaiPatcher):
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = AudioPatchees(client=client)
-        super().__init__(collector=collector, patchees=patchees, client=client)
+        super().__init__(
+            tokens_calculation_needed=False,
+            collector=collector,
+            patchees=patchees,
+            client=client,
+        )
 
 
 class _ChatCompletionPatcher(_OpenaiPatcher):
@@ -236,7 +243,12 @@ class _ChatCompletionPatcher(_OpenaiPatcher):
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = ChatCompletionPatchees(client=client)
-        super().__init__(collector=collector, patchees=patchees, client=client)
+        super().__init__(
+            tokens_calculation_needed=True,
+            collector=collector,
+            patchees=patchees,
+            client=client,
+        )
 
 
 class _CompletionPatcher(_OpenaiPatcher):
@@ -246,7 +258,12 @@ class _CompletionPatcher(_OpenaiPatcher):
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = CompletionPatchees(client=client)
-        super().__init__(collector=collector, patchees=patchees, client=client)
+        super().__init__(
+            tokens_calculation_needed=True,
+            collector=collector,
+            patchees=patchees,
+            client=client,
+        )
 
 
 class _EmbeddingPatcher(_OpenaiPatcher):
@@ -256,7 +273,12 @@ class _EmbeddingPatcher(_OpenaiPatcher):
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = EmbeddingPatchees(client=client)
-        super().__init__(collector=collector, patchees=patchees, client=client)
+        super().__init__(
+            tokens_calculation_needed=False,
+            collector=collector,
+            patchees=patchees,
+            client=client,
+        )
 
 
 class _FilePatcher(_OpenaiPatcher):
@@ -266,7 +288,12 @@ class _FilePatcher(_OpenaiPatcher):
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = FilePatchees(client=client)
-        super().__init__(collector=collector, patchees=patchees, client=client)
+        super().__init__(
+            tokens_calculation_needed=False,
+            collector=collector,
+            patchees=patchees,
+            client=client,
+        )
 
 
 class _FineTuningPatcher(_OpenaiPatcher):
@@ -276,7 +303,12 @@ class _FineTuningPatcher(_OpenaiPatcher):
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = FineTuningPatchees(client=client)
-        super().__init__(collector=collector, patchees=patchees, client=client)
+        super().__init__(
+            tokens_calculation_needed=False,
+            collector=collector,
+            patchees=patchees,
+            client=client,
+        )
 
 
 class _ImagePatcher(_OpenaiPatcher):
@@ -286,7 +318,12 @@ class _ImagePatcher(_OpenaiPatcher):
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = ImagePatchees(client=client)
-        super().__init__(collector=collector, patchees=patchees, client=client)
+        super().__init__(
+            tokens_calculation_needed=False,
+            collector=collector,
+            patchees=patchees,
+            client=client,
+        )
 
 
 class _ModelPatcher(_OpenaiPatcher):
@@ -296,7 +333,12 @@ class _ModelPatcher(_OpenaiPatcher):
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = ModelPatchees(client=client)
-        super().__init__(collector=collector, patchees=patchees, client=client)
+        super().__init__(
+            tokens_calculation_needed=False,
+            collector=collector,
+            patchees=patchees,
+            client=client,
+        )
 
 
 class _ModerationPatcher(_OpenaiPatcher):
@@ -306,4 +348,9 @@ class _ModerationPatcher(_OpenaiPatcher):
         client: Union[OpenAI, AsyncOpenAI, None] = None,
     ):
         patchees = ModerationPatchees(client=client)
-        super().__init__(collector=collector, patchees=patchees, client=client)
+        super().__init__(
+            tokens_calculation_needed=False,
+            collector=collector,
+            patchees=patchees,
+            client=client,
+        )
