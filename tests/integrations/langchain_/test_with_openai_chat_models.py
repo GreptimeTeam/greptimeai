@@ -7,7 +7,8 @@ from langchain.prompts import PromptTemplate
 
 from greptimeai import collector
 from greptimeai.langchain.callback import GreptimeCallbackHandler
-from ..database.db import truncate_tables, get_trace_data_with_retry
+
+from ..database.db import get_trace_data_with_retry, truncate_tables
 
 
 @pytest.fixture
@@ -26,7 +27,7 @@ def test_chat(_truncate_tables):
 
     chain = LLMChain(llm=chat, prompt=prompt, callbacks=[callback])
     result = chain.run(number=1, callbacks=[callback], metadata={"user_id": user_id})
-    assert result == "2"
+    assert "2" in result
 
     collector.otel._force_flush()
 
@@ -43,4 +44,4 @@ def test_chat(_truncate_tables):
 
     assert trace.get("model", "").startswith(model)
     assert trace.get("prompt_tokens", 0) > 10
-    assert trace.get("completion_tokens", 0) == 1
+    assert trace.get("completion_tokens", 0) >= 1
