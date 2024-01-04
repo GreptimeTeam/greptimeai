@@ -1,6 +1,5 @@
 import logging
 
-_NAME = "greptimeai"
-_VERSION = "0.1.17"
+__version__ = "0.1.18"
 
-logger = logging.getLogger(f"{_NAME}:{_VERSION}")
+logger = logging.getLogger(f"greptimeai:{__version__}")

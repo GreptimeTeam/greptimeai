@@ -1,4 +1,4 @@
-from greptimeai.langchain import _get_serialized_id, _get_user_id
+from greptimeai.callbacks.langchain_callback import _get_serialized_id, _get_user_id
 
 
 def test_get_user_id():
