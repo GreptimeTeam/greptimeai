@@ -12,7 +12,7 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExport
 from opentelemetry.metrics import CallbackOptions, Observation
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Span, Status, StatusCode, Tracer, set_span_in_context
@@ -20,11 +20,13 @@ from opentelemetry.trace.span import format_span_id, format_trace_id
 from opentelemetry.util.types import Attributes, AttributeValue
 from typing_extensions import override
 
-from greptimeai import _NAME, _VERSION, logger
+from greptimeai import __version__ as greptimeai_version
+from greptimeai import logger
 from greptimeai.labels import (
     _COMPLETION_COST_LABEL,
     _COMPLETION_TOKENS_LABEL,
     _SOURCE_LABEL,
+    _SOURCE_VERSION_LABEL,
     _PROMPT_COST_LABEl,
     _PROMPT_TOKENS_LABEl,
 )
@@ -105,7 +107,7 @@ def _sanitate_attributes(attrs: Optional[Dict[str, Any]]) -> Dict[str, Attribute
 
     def _json_dumps(val: Any) -> str:
         try:
-            return json.dumps(val,cls=CustomEncoder)
+            return json.dumps(val, cls=CustomEncoder)
         except Exception as e:
             logger.error(f"failed to json.dumps { val } with { e }")
             return str(val)
@@ -390,7 +392,12 @@ class OTel:
     def _setup_otel_exporter(self):
         hostname, ip = get_local_hostname_and_ip()
         resource = Resource.create(
-            {SERVICE_NAME: _NAME, "host.name": hostname, "host.ip": ip}
+            {
+                SERVICE_NAME: "greptimeai",
+                SERVICE_VERSION: greptimeai_version,
+                "host.name": hostname,
+                "host.ip": ip,
+            }
         )
         metrics_endpoint = f"{self.host}/v1/otlp/v1/metrics"
         trace_endpoint = f"{self.host}/v1/otlp/v1/traces"
@@ -428,8 +435,8 @@ class OTel:
         trace.set_tracer_provider(trace_provider)
 
         self._tracer = trace.get_tracer(
-            instrumenting_module_name=_NAME,
-            instrumenting_library_version=_VERSION,
+            instrumenting_module_name="greptimeai",
+            instrumenting_library_version=greptimeai_version,
         )
 
     @property
@@ -441,7 +448,7 @@ class OTel:
         setup opentelemetry, and raise Error if something wrong
         """
 
-        meter = metrics.get_meter(name=_NAME, version=_VERSION)
+        meter = metrics.get_meter(name="greptimeai", version=greptimeai_version)
 
         self._prompt_tokens_count = meter.create_counter(
             "llm_prompt_tokens",
@@ -487,20 +494,24 @@ class Collector:
     Collector class is responsible for collecting metrics and traces.
 
     Args:
-        source (str): The source of the collector. openai, langchain so far.
         host (str, optional): The host URL. Defaults to "".
         database (str, optional): The name of the database. Defaults to "".
         token (str, optional): The authentication token. Defaults to "".
+
+        source (str): The source of the collector. openai, langchain so far.
+        version (str): The version of the source.
     """
 
     def __init__(
         self,
-        source: str,
         host: str = "",
         database: str = "",
         token: str = "",
+        source: str = "unknown",
+        source_version: str = "unknown",
     ):
         self.source = source
+        self.source_version = source_version
         otel.setup(host=host, database=database, token=token)
 
     def start_span(
@@ -534,7 +545,11 @@ class Collector:
         parent_id = str(parent_id) if parent_id else None
         logger.debug(f"start span for {span_name=} with {span_id=} or {parent_id=}")
         span_attributes = _sanitate_attributes(
-            {_SOURCE_LABEL: self.source, **span_attrs}
+            {
+                _SOURCE_LABEL: self.source,
+                _SOURCE_VERSION_LABEL: self.source_version,
+                **span_attrs,
+            }
         )
         event_attributes = _sanitate_attributes(event_attrs)
 

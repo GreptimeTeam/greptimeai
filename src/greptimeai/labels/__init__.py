@@ -15,6 +15,7 @@ _COMPLETION_COST_LABEL = "completion_cost"
 #   - openai
 #   - langchain
 _SOURCE_LABEL = "source"
+_SOURCE_VERSION_LABEL = "source_version"
 
 # the following labels are for traces, not for metrics
 _INPUT_DISPLAY_LABEL = "inputs"  # for DISPLAY, DO NOT USE IT FOR ANYTHING ELSE

@@ -1,5 +1,6 @@
 from typing import List, TypedDict, Union
 
+import openai
 from openai import AsyncOpenAI, OpenAI
 
 from greptimeai import logger
@@ -45,8 +46,15 @@ def setup(
         database: if None or empty string, GREPTIMEAI_DATABASE environment variable will be used.
         token: if None or empty string, GREPTIMEAI_TOKEN environment variable will be used.
         client: if None, then openai module-level client will be patched.
+        options: options to patch specific functions.
     """
-    collector = Collector(source="openai", host=host, database=database, token=token)
+    collector = Collector(
+        host=host,
+        database=database,
+        token=token,
+        source="openai",
+        source_version=openai.__version__,
+    )
     patchers: List[Patcher] = [
         _AudioPatcher(collector=collector, client=client),
         _ChatCompletionPatcher(collector=collector, client=client),
