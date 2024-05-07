@@ -24,3 +24,11 @@ def get_attr(obj: Any, chains: List[str]) -> Optional[Any]:
             return None
 
     return tmp
+
+
+def get_optional_attr(objs: List[Any], chains: List[str]) -> Optional[Any]:
+    for obj in objs:
+        attr = get_attr(obj, chains)
+        if attr:
+            return attr
+    return None
