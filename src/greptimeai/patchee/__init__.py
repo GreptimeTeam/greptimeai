@@ -19,6 +19,9 @@ class Patchee:
         return self.method_name
 
     def _get_func(self) -> Optional[Callable]:
+        if self.obj is None:
+            return None
+
         return getattr(self.obj, self.method_name)
 
     def get_unwrapped_func(self) -> Optional[Callable]:
@@ -36,4 +39,6 @@ class Patchee:
 
     def wrap_func(self, func: Callable):
         setattr(func, _GREPTIMEAI_WRAPPED, True)
-        setattr(self.obj, self.method_name, func)
+
+        if self.obj:
+            setattr(self.obj, self.method_name, func)
