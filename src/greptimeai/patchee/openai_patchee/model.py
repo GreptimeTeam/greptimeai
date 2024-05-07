@@ -4,6 +4,7 @@ import openai
 from openai import AsyncOpenAI, OpenAI
 
 from greptimeai.patchee import Patchee
+from greptimeai.utils.attr import get_attr, get_optional_attr
 
 from . import _SPAN_NAME_MODEL, OpenaiPatchees
 
@@ -11,16 +12,14 @@ from . import _SPAN_NAME_MODEL, OpenaiPatchees
 class _ModelPatchees:
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None], method_name: str):
         models = Patchee(
-            obj=client.models if client else openai.models,
+            obj=get_optional_attr([client, openai], ["models"]),
             method_name=method_name,
             span_name=_SPAN_NAME_MODEL,
             event_name=f"models.{method_name}",
         )
 
         models_raw = Patchee(
-            obj=client.models.with_raw_response
-            if client
-            else openai.models.with_raw_response,
+            obj=get_optional_attr([client, openai], ["models", "with_raw_response"]),
             method_name=method_name,
             span_name=_SPAN_NAME_MODEL,
             event_name=f"models.with_raw_response.{method_name}",
@@ -30,7 +29,7 @@ class _ModelPatchees:
 
         if client:
             raw_models = Patchee(
-                obj=client.with_raw_response.models,
+                obj=get_attr(client, ["with_raw_response", "models"]),
                 method_name=method_name,
                 span_name=_SPAN_NAME_MODEL,
                 event_name=f"with_raw_response.models.{method_name}",

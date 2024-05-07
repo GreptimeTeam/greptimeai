@@ -4,6 +4,7 @@ import openai
 from openai import AsyncOpenAI, OpenAI
 
 from greptimeai.patchee import Patchee
+from greptimeai.utils.attr import get_attr, get_optional_attr
 
 from . import _SPAN_NAME_FINE_TUNNING, OpenaiPatchees
 
@@ -11,25 +12,25 @@ from . import _SPAN_NAME_FINE_TUNNING, OpenaiPatchees
 class _FineTuningPatchees:
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None], method_name: str):
         fine_tuning_jobs = Patchee(
-            obj=client.fine_tuning.jobs if client else openai.fine_tuning.jobs,
+            obj=get_optional_attr([client, openai], ["fine_tuning", "jobs"]),
             method_name=method_name,
             span_name=_SPAN_NAME_FINE_TUNNING,
             event_name=f"fine_tuning.jobs.{method_name}",
         )
 
         fine_tuning_raw_jobs = Patchee(
-            obj=client.fine_tuning.with_raw_response.jobs
-            if client
-            else openai.fine_tuning.with_raw_response.jobs,
+            obj=get_optional_attr(
+                [client, openai], ["fine_tuning", "with_raw_response", "jobs"]
+            ),
             method_name=method_name,
             span_name=_SPAN_NAME_FINE_TUNNING,
             event_name=f"fine_tuning.with_raw_response.jobs.{method_name}",
         )
 
         fine_tuning_jobs_raw = Patchee(
-            obj=client.fine_tuning.jobs.with_raw_response
-            if client
-            else openai.fine_tuning.jobs.with_raw_response,
+            obj=get_optional_attr(
+                [client, openai], ["fine_tuning", "jobs", "with_raw_response"]
+            ),
             method_name=method_name,
             span_name=_SPAN_NAME_FINE_TUNNING,
             event_name=f"fine_tuning.jobs.with_raw_response.{method_name}",
@@ -43,7 +44,7 @@ class _FineTuningPatchees:
 
         if client:
             raw_fine_tuning = Patchee(
-                obj=client.with_raw_response.fine_tuning.jobs,
+                obj=get_attr(client, ["with_raw_response", "fine_tuning", "jobs"]),
                 method_name=method_name,
                 span_name=_SPAN_NAME_FINE_TUNNING,
                 event_name=f"with_raw_response.fine_tuning.jobs.{method_name}",

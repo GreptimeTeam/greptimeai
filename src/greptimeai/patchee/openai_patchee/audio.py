@@ -4,6 +4,7 @@ import openai
 from openai import AsyncOpenAI, OpenAI
 
 from greptimeai.patchee import Patchee
+from greptimeai.utils.attr import get_attr, get_optional_attr
 
 from . import (
     _SPAN_NAME_SPEECH,
@@ -16,25 +17,25 @@ from . import (
 class _SpeechPatchees:
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         audio_speech_create = Patchee(
-            obj=client.audio.speech if client else openai.audio.speech,
+            obj=get_optional_attr([client, openai], ["audio", "speech"]),
             method_name="create",
             span_name=_SPAN_NAME_SPEECH,
             event_name="audio.speech.create",
         )
 
         audio_raw_speech_create = Patchee(
-            obj=client.audio.with_raw_response.speech
-            if client
-            else openai.audio.with_raw_response.speech,
+            obj=get_optional_attr(
+                [client, openai], ["audio", "with_raw_response", "speech"]
+            ),
             method_name="create",
             span_name=_SPAN_NAME_SPEECH,
             event_name="audio.with_raw_response.speech.create",
         )
 
         audio_speech_raw_create = Patchee(
-            obj=client.audio.speech.with_raw_response
-            if client
-            else openai.audio.speech.with_raw_response,
+            obj=get_optional_attr(
+                [client, openai], ["audio", "speech", "with_raw_response"]
+            ),
             method_name="create",
             span_name=_SPAN_NAME_SPEECH,
             event_name="audio.speech.with_raw_response.create",
@@ -48,7 +49,7 @@ class _SpeechPatchees:
 
         if client:
             raw_audio_speech_create = Patchee(
-                obj=client.with_raw_response.audio.speech,
+                obj=get_attr(client, ["with_raw_response", "audio", "speech"]),
                 method_name="create",
                 span_name=_SPAN_NAME_SPEECH,
                 event_name="with_raw_response.audio.speech.create",
@@ -59,25 +60,25 @@ class _SpeechPatchees:
 class _TranscriptionPatchees:
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         audio_transcriptions_create = Patchee(
-            obj=client.audio.transcriptions if client else openai.audio.transcriptions,
+            obj=get_optional_attr([client, openai], ["audio", "transcriptions"]),
             method_name="create",
             span_name=_SPAN_NAME_TRANSCRIPTION,
             event_name="audio.transcriptions.create",
         )
 
         audio_raw_transcriptions_create = Patchee(
-            obj=client.audio.with_raw_response.transcriptions
-            if client
-            else openai.audio.with_raw_response.transcriptions,
+            obj=get_optional_attr(
+                [client, openai], ["audio", "with_raw_response", "transcriptions"]
+            ),
             method_name="create",
             span_name=_SPAN_NAME_TRANSCRIPTION,
             event_name="audio.with_raw_response.transcriptions.create",
         )
 
         audio_transcriptions_raw_create = Patchee(
-            obj=client.audio.transcriptions.with_raw_response
-            if client
-            else openai.audio.transcriptions.with_raw_response,
+            obj=get_optional_attr(
+                [client, openai], ["audio", "transcriptions", "with_raw_response"]
+            ),
             method_name="create",
             span_name=_SPAN_NAME_TRANSCRIPTION,
             event_name="audio.transcriptions.with_raw_response.create",
@@ -91,7 +92,7 @@ class _TranscriptionPatchees:
 
         if client:
             raw_audio_transcriptions_create = Patchee(
-                obj=client.with_raw_response.audio.transcriptions,
+                obj=get_attr(client, ["with_raw_response", "audio", "transcriptions"]),
                 method_name="create",
                 span_name=_SPAN_NAME_TRANSCRIPTION,
                 event_name="with_raw_response.audio.transcriptions.create",
@@ -102,25 +103,25 @@ class _TranscriptionPatchees:
 class _TranslationPatchees:
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         audio_translations_create = Patchee(
-            obj=client.audio.translations if client else openai.audio.translations,
+            obj=get_optional_attr([client, openai], ["audio", "translations"]),
             method_name="create",
             span_name=_SPAN_NAME_TRANSLATION,
             event_name="audio.translations.create",
         )
 
         audio_raw_translations_create = Patchee(
-            obj=client.audio.with_raw_response.translations
-            if client
-            else openai.audio.with_raw_response.translations,
+            obj=get_optional_attr(
+                [client, openai], ["audio", "with_raw_response", "translations"]
+            ),
             method_name="create",
             span_name=_SPAN_NAME_TRANSLATION,
             event_name="audio.with_raw_response.translations.create",
         )
 
         audio_translations_raw_create = Patchee(
-            obj=client.audio.translations.with_raw_response
-            if client
-            else openai.audio.translations.with_raw_response,
+            obj=get_optional_attr(
+                [client, openai], ["audio", "translations", "with_raw_response"]
+            ),
             method_name="create",
             span_name=_SPAN_NAME_TRANSLATION,
             event_name="audio.translations.with_raw_response.create",
@@ -134,7 +135,7 @@ class _TranslationPatchees:
 
         if client:
             raw_audio_translations_create = Patchee(
-                obj=client.with_raw_response.audio.translations,
+                obj=get_attr(client, ["with_raw_response", "audio", "translations"]),
                 method_name="create",
                 span_name=_SPAN_NAME_TRANSLATION,
                 event_name="with_raw_response.audio.translations.create",

@@ -4,6 +4,7 @@ import openai
 from openai import AsyncOpenAI, OpenAI
 
 from greptimeai.patchee import Patchee
+from greptimeai.utils.attr import get_attr, get_optional_attr
 
 from . import _SPAN_NAME_EMBEDDING, OpenaiPatchees
 
@@ -11,16 +12,16 @@ from . import _SPAN_NAME_EMBEDDING, OpenaiPatchees
 class EmbeddingPatchees(OpenaiPatchees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
         embeddings_create = Patchee(
-            obj=client.embeddings if client else openai.embeddings,
+            obj=get_optional_attr([client, openai], ["embeddings"]),
             method_name="create",
             span_name=_SPAN_NAME_EMBEDDING,
             event_name="embeddings.create",
         )
 
         embeddings_raw_create = Patchee(
-            obj=client.embeddings.with_raw_response
-            if client
-            else openai.embeddings.with_raw_response,
+            obj=get_optional_attr(
+                [client, openai], ["embeddings", "with_raw_response"]
+            ),
             method_name="create",
             span_name=_SPAN_NAME_EMBEDDING,
             event_name="embeddings.with_raw_response.create",
@@ -33,7 +34,7 @@ class EmbeddingPatchees(OpenaiPatchees):
 
         if client:
             raw_embeddings_create = Patchee(
-                obj=client.with_raw_response.embeddings,
+                obj=get_attr(client, ["with_raw_response", "embeddings"]),
                 method_name="create",
                 span_name=_SPAN_NAME_EMBEDDING,
                 event_name="with_raw_response.embeddings.create",

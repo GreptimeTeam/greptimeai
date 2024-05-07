@@ -10,8 +10,11 @@ from . import OpenaiPatchees
 
 class RetryPatchees(OpenaiPatchees):
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None] = None):
+        obj = client
+        if obj is None and hasattr(openai, "_client"):
+            obj = openai._client
         retry = Patchee(
-            obj=client or openai._client,
+            obj=obj,
             method_name="_retry_request",
             span_name="",  # retry is only event, so span_name won't be used
             event_name="retry_request",
