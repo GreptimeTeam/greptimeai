@@ -4,6 +4,7 @@ import openai
 from openai import AsyncOpenAI, OpenAI
 
 from greptimeai.patchee import Patchee
+from greptimeai.utils.attr import get_attr, get_optional_attr
 
 from . import _SPAN_NAME_IMAGE, OpenaiPatchees
 
@@ -11,16 +12,14 @@ from . import _SPAN_NAME_IMAGE, OpenaiPatchees
 class _ImagePatchees:
     def __init__(self, client: Union[OpenAI, AsyncOpenAI, None], method_name: str):
         images = Patchee(
-            obj=client.images if client else openai.images,
+            obj=get_optional_attr([client, openai], ["images"]),
             method_name=method_name,
             span_name=_SPAN_NAME_IMAGE,
             event_name=f"images.{method_name}",
         )
 
         images_raw = Patchee(
-            obj=client.images.with_raw_response
-            if client
-            else openai.images.with_raw_response,
+            obj=get_optional_attr([client, openai], ["images", "with_raw_response"]),
             method_name=method_name,
             span_name=_SPAN_NAME_IMAGE,
             event_name=f"images.with_raw_response.{method_name}",
@@ -30,7 +29,7 @@ class _ImagePatchees:
 
         if client:
             raw_images = Patchee(
-                obj=client.with_raw_response.images,
+                obj=get_attr(client, ["with_raw_response", "images"]),
                 method_name=method_name,
                 span_name=_SPAN_NAME_IMAGE,
                 event_name=f"with_raw_response.images.{method_name}",
